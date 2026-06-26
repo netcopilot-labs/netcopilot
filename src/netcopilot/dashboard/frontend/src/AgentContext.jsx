@@ -158,7 +158,11 @@ export function AgentProvider({ children, selectedRun }) {
               })
             } else if (event.type === 'highlight') {
               try {
-                const data = JSON.parse(event.data)
+                // event.data is already parsed (the SSE frame was JSON.parsed
+                // above), so guard against double-parsing — JSON.parse on an
+                // object throws and would silently drop report_ready/device
+                // highlights (same guard the usage handler uses).
+                const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
                 if (data.type === 'report_ready') {
                   // C1A2: generate_report tool fired and produced a report_id.
                   // Surface the email-confirm popover; the user can also choose
