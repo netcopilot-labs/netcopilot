@@ -112,6 +112,38 @@ class SessionAnonymizer:
         """Check if an IP is a route prefix (not a real host address)."""
         return ip in ("0.0.0.0", "255.255.255.255")
 
+    def _device_prefix_pattern(self):
+        """Derive a regex matching the customer's device-naming convention from
+        the seeded device names — a generic backstop with NO hard-coded patterns.
+
+        The anonymizer only scrubs names it was seeded with (collected Device
+        nodes). Device names that appear in tool output but were never collected
+        (LLDP/CDP neighbors, BGP peers, names referenced in findings) would
+        otherwise leak. Those follow the SAME naming convention as the collected
+        devices, so we learn the common prefix the operator uses (a site/role
+        prefix shared by the collected device names) and scrub any token that
+        matches it — for any inventory. Returns None when there is no safe,
+        meaningful common prefix (heterogeneous naming).
+        """
+        names = list(self._device_map)
+        if len(names) < 2:
+            return None
+        prefix = names[0]
+        for n in names[1:]:
+            i = 0
+            while i < len(prefix) and i < len(n) and prefix[i] == n[i]:
+                i += 1
+            prefix = prefix[:i]
+            if not prefix:
+                return None
+        # Trim to the last separator so we never cut mid-token, and require a
+        # meaningful length so the match can't be over-broad.
+        cut = max((prefix.rfind(c) for c in "-_./"), default=-1)
+        if cut < 2:
+            return None
+        prefix = prefix[: cut + 1]
+        return re.compile(re.escape(prefix) + r"[A-Za-z0-9._-]+")
+
     def anonymize(self, text: str) -> str:
         """Replace all identifying network data with anonymous labels."""
         # 1. Replace ALL IPs (skip route prefixes)
@@ -123,6 +155,13 @@ class SessionAnonymizer:
         # 2. Replace hostnames (longest first to avoid partial matches)
         for hostname, label in sorted(self._device_map.items(), key=lambda x: -len(x[0])):
             text = text.replace(hostname, label)
+        # 2b. Generic backstop — scrub un-collected device names that follow the
+        # customer's naming convention (LLDP/CDP neighbors, peers, names in
+        # findings) which were never seeded. Each is registered on the fly so
+        # deanonymize restores it. Pattern is learned per-inventory (no hard-coding).
+        pat = self._device_prefix_pattern()
+        if pat:
+            text = pat.sub(lambda m: self.register_device(m.group(0)), text)
         # 3. Replace site names (longest first)
         for site, label in sorted(self._site_map.items(), key=lambda x: -len(x[0])):
             text = text.replace(site, label)
