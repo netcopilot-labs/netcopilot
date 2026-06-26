@@ -372,13 +372,13 @@ def _check_single_uplink(
 
         findings.append(make_finding(
             rule_id="LINK_SINGLE_UPLINK",
-            severity="low",
-            title="Single Uplink — No Redundancy",
+            severity="info",
+            title="Single Uplink — Possible Lack of Redundancy",
             element_type="device",
             element_id=f"{hostname}::single_uplink",
             message=(
-                f"{hostname} (role: {role}) has only 1 uplink. "
-                f"No redundancy — single point of failure."
+                f"{hostname} (role: {role}) has only 1 uplink — "
+                f"may indicate a lack of redundancy."
             ),
             key_facts={
                 "devices": [hostname],
@@ -386,8 +386,10 @@ def _check_single_uplink(
                 "role": role,
             },
             recommendation=(
-                "Add a redundant uplink for high-availability. "
-                "Single-homed devices are vulnerable to link failure."
+                "Verify whether a redundant uplink is needed for this "
+                "device's role. In multihomed designs (e.g. border routers "
+                "each peering with a different ISP), redundancy may already "
+                "be provided at the system level by peer devices."
             ),
         ))
 

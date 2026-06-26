@@ -19957,11 +19957,11 @@
       !   show lacp neighbor
       ! Ensure matching port count in the channel-group on both ends.
 - rule_id: LINK_SINGLE_UPLINK
-  severity: low
+  severity: info
   category: cross_device
   protocol: interface
   tier: deep
-  description: Device has only a single uplink to the rest of the network, creating a single point of failure
+  description: Device has only a single uplink to the rest of the network, which may indicate a lack of redundancy
   genie_source: null
   required_fields:
   - path: model.links[].local_device

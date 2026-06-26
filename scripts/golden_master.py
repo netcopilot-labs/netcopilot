@@ -64,7 +64,15 @@ _ROUTE_STRIP = frozenset({"site", "run_id"})
 #: so the golden master tracks *content*, not when it ran. (e.g. each finding's
 #: ``detected_at`` ISO timestamp.) Keep this list explicit, not a regex — a new
 #: volatile field should be a deliberate addition we can see in review.
-_VOLATILE_KEYS = frozenset({"detected_at"})
+_VOLATILE_KEYS = frozenset({
+    "detected_at",
+    # OSPF operational counters — runtime state, not facts-derived content.
+    # They change between collections of the same network (SPF runs since boot,
+    # current LSA-database size), so they are volatile by design and excluded
+    # from the content snapshot — same rationale as detected_at.
+    "spf_runs",
+    "lsa_count",
+})
 
 
 def _canon(obj: Any) -> Any:

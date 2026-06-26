@@ -2,7 +2,7 @@
   "_counts": {
     "adjacencies": 14,
     "devices": 8,
-    "findings": 315,
+    "findings": 314,
     "interfaces": 71,
     "l2_domains": 5,
     "links": 16,
@@ -542,18 +542,18 @@
     },
     {
       "evidence": {
-        "element_id": "acc-sw-01/ospf/default/1/area/0.0.0.0/intf/Vlan10",
+        "element_id": "acc-sw-01/ospf/default/1/area/0.0.0.0/intf/Vlan50",
         "element_type": "device",
         "key_facts": {
           "actual_value": false,
           "expected_value": "true",
           "hostname": "acc-sw-01",
-          "json_path": "vrf.default.address_family.ipv4.instance.1.areas.0.0.0.0.interfaces.Vlan10.bfd.enable",
+          "json_path": "vrf.default.address_family.ipv4.instance.1.areas.0.0.0.0.interfaces.Vlan50.bfd.enable",
           "source_file": "facts/acc-sw-01/genie_ospf.json"
         }
       },
-      "finding_id": "OSPF_INTERFACE_BFD_NOT_ENABLED::acc-sw-01/ospf/default/1/area/0.0.0.0/intf/Vlan10",
-      "message": "Ospf Interface Bfd Not Enabled: interface=Vlan10, bfd=disabled on device acc-sw-01",
+      "finding_id": "OSPF_INTERFACE_BFD_NOT_ENABLED::acc-sw-01/ospf/default/1/area/0.0.0.0/intf/Vlan50",
+      "message": "Ospf Interface Bfd Not Enabled: interface=Vlan50, bfd=disabled on device acc-sw-01",
       "recommendation": "BFD is not enabled on OSPF interface — link failures may take up to 40 seconds to detect",
       "rule_id": "OSPF_INTERFACE_BFD_NOT_ENABLED",
       "severity": "info",
@@ -561,18 +561,18 @@
     },
     {
       "evidence": {
-        "element_id": "acc-sw-01/ospf/default/1/area/0.0.0.0/intf/Vlan10",
+        "element_id": "acc-sw-01/ospf/default/1/area/0.0.0.0/intf/Vlan50",
         "element_type": "device",
         "key_facts": {
           "actual_value": null,
           "expected_value": "not null",
           "hostname": "acc-sw-01",
-          "json_path": "vrf.default.address_family.ipv4.instance.1.areas.0.0.0.0.interfaces.Vlan10.authentication",
+          "json_path": "vrf.default.address_family.ipv4.instance.1.areas.0.0.0.0.interfaces.Vlan50.authentication",
           "source_file": "facts/acc-sw-01/genie_ospf.json"
         }
       },
-      "finding_id": "OSPF_INTERFACE_NO_AUTHENTICATION::acc-sw-01/ospf/default/1/area/0.0.0.0/intf/Vlan10",
-      "message": "Ospf Interface No Authentication: interface=Vlan10, authentication=none on device acc-sw-01",
+      "finding_id": "OSPF_INTERFACE_NO_AUTHENTICATION::acc-sw-01/ospf/default/1/area/0.0.0.0/intf/Vlan50",
+      "message": "Ospf Interface No Authentication: interface=Vlan50, authentication=none on device acc-sw-01",
       "recommendation": "OSPF interface has no cryptographic authentication configured — route injection attacks possible",
       "rule_id": "OSPF_INTERFACE_NO_AUTHENTICATION",
       "severity": "low",
@@ -580,18 +580,18 @@
     },
     {
       "evidence": {
-        "element_id": "acc-sw-01/ospf/default/1/area/0.0.0.0/intf/Vlan10",
+        "element_id": "acc-sw-01/ospf/default/1/area/0.0.0.0/intf/Vlan50",
         "element_type": "device",
         "key_facts": {
           "actual_value": null,
           "expected_value": "not null",
           "hostname": "acc-sw-01",
-          "json_path": "vrf.default.address_family.ipv4.instance.1.areas.0.0.0.0.interfaces.Vlan10.ttl_security_hops",
+          "json_path": "vrf.default.address_family.ipv4.instance.1.areas.0.0.0.0.interfaces.Vlan50.ttl_security_hops",
           "source_file": "facts/acc-sw-01/genie_ospf.json"
         }
       },
-      "finding_id": "OSPF_INTERFACE_TTL_SECURITY_NOT_ENABLED::acc-sw-01/ospf/default/1/area/0.0.0.0/intf/Vlan10",
-      "message": "Ospf Interface Ttl Security Not Enabled: interface=Vlan10, ttl_security=not configured on device acc-sw-01",
+      "finding_id": "OSPF_INTERFACE_TTL_SECURITY_NOT_ENABLED::acc-sw-01/ospf/default/1/area/0.0.0.0/intf/Vlan50",
+      "message": "Ospf Interface Ttl Security Not Enabled: interface=Vlan50, ttl_security=not configured on device acc-sw-01",
       "recommendation": "OSPF interface does not have TTL security (GTSM) enabled — off-link OSPF injection not blocked",
       "rule_id": "OSPF_INTERFACE_TTL_SECURITY_NOT_ENABLED",
       "severity": "info",
@@ -2642,11 +2642,11 @@
         }
       },
       "finding_id": "LINK_SINGLE_UPLINK::bdr-rtr-01::single_uplink",
-      "message": "bdr-rtr-01 (role: border_router) has only 1 uplink. No redundancy — single point of failure.",
-      "recommendation": "Add a redundant uplink for high-availability. Single-homed devices are vulnerable to link failure.",
+      "message": "bdr-rtr-01 (role: border_router) has only 1 uplink — may indicate a lack of redundancy.",
+      "recommendation": "Verify whether a redundant uplink is needed for this device's role. In multihomed designs (e.g. border routers each peering with a different ISP), redundancy may already be provided at the system level by peer devices.",
       "rule_id": "LINK_SINGLE_UPLINK",
-      "severity": "low",
-      "title": "Single Uplink — No Redundancy"
+      "severity": "info",
+      "title": "Single Uplink — Possible Lack of Redundancy"
     },
     {
       "evidence": {
@@ -3111,11 +3111,11 @@
         }
       },
       "finding_id": "LINK_SINGLE_UPLINK::bdr-rtr-02::single_uplink",
-      "message": "bdr-rtr-02 (role: border_router) has only 1 uplink. No redundancy — single point of failure.",
-      "recommendation": "Add a redundant uplink for high-availability. Single-homed devices are vulnerable to link failure.",
+      "message": "bdr-rtr-02 (role: border_router) has only 1 uplink — may indicate a lack of redundancy.",
+      "recommendation": "Verify whether a redundant uplink is needed for this device's role. In multihomed designs (e.g. border routers each peering with a different ISP), redundancy may already be provided at the system level by peer devices.",
       "rule_id": "LINK_SINGLE_UPLINK",
-      "severity": "low",
-      "title": "Single Uplink — No Redundancy"
+      "severity": "info",
+      "title": "Single Uplink — Possible Lack of Redundancy"
     },
     {
       "evidence": {
@@ -3580,11 +3580,11 @@
         }
       },
       "finding_id": "LINK_SINGLE_UPLINK::bdr-rtr-03::single_uplink",
-      "message": "bdr-rtr-03 (role: border_router) has only 1 uplink. No redundancy — single point of failure.",
-      "recommendation": "Add a redundant uplink for high-availability. Single-homed devices are vulnerable to link failure.",
+      "message": "bdr-rtr-03 (role: border_router) has only 1 uplink — may indicate a lack of redundancy.",
+      "recommendation": "Verify whether a redundant uplink is needed for this device's role. In multihomed designs (e.g. border routers each peering with a different ISP), redundancy may already be provided at the system level by peer devices.",
       "rule_id": "LINK_SINGLE_UPLINK",
-      "severity": "low",
-      "title": "Single Uplink — No Redundancy"
+      "severity": "info",
+      "title": "Single Uplink — Possible Lack of Redundancy"
     },
     {
       "evidence": {
@@ -5496,36 +5496,6 @@
       "rule_id": "CIS_FG_SSL_NO_INSPECTION",
       "severity": "cis",
       "title": "FortiGate SSL Inspection Disabled on Policies"
-    },
-    {
-      "evidence": {
-        "element_id": "vlan_fragmented::10",
-        "element_type": "device",
-        "key_facts": {
-          "devices": [
-            "acc-sw-01",
-            "acc-sw-03",
-            "core-sw-01"
-          ],
-          "domain_count": 2,
-          "domains": [
-            [
-              "acc-sw-01"
-            ],
-            [
-              "acc-sw-03",
-              "core-sw-01"
-            ]
-          ],
-          "vlan_id": "10"
-        }
-      },
-      "finding_id": "VLAN_FRAGMENTED::vlan_fragmented::10",
-      "message": "VLAN 10 forms 2 separate L2 broadcast domains: {acc-sw-01}; {acc-sw-03, core-sw-01}. Hosts in different domains cannot communicate at Layer 2 — verify this is intentional (VLAN-id reuse) rather than a missing trunk.",
-      "recommendation": "If the VLAN should be one segment, add it to the trunk(s) linking the islands. If the reuse is intentional, no action.",
-      "rule_id": "VLAN_FRAGMENTED",
-      "severity": "high",
-      "title": "VLAN Fragmented Across Broadcast Domains"
     }
   ],
   "model": {
@@ -5848,10 +5818,10 @@
         "local_as": 64496,
         "maximum_prefix_a": null,
         "maximum_prefix_b": null,
-        "msg_rcvd_a": 4655,
-        "msg_rcvd_b": 4220,
-        "msg_sent_a": 4220,
-        "msg_sent_b": 4655,
+        "msg_rcvd_a": 9864,
+        "msg_rcvd_b": 8956,
+        "msg_sent_a": 8956,
+        "msg_sent_b": 9864,
         "network_statements_a": [
           "198.51.100.101/32"
         ],
@@ -5884,7 +5854,7 @@
         "soft_reconfiguration_a": false,
         "soft_reconfiguration_b": false,
         "state": "established",
-        "up_down_a": "2d22h",
+        "up_down_a": "6d05h",
         "up_down_b": "never",
         "update_source_a": "Loopback0",
         "update_source_b": "Loopback0",
@@ -5912,10 +5882,10 @@
         "local_as": 64496,
         "maximum_prefix_a": null,
         "maximum_prefix_b": null,
-        "msg_rcvd_a": 4654,
-        "msg_rcvd_b": 4220,
-        "msg_sent_a": 4220,
-        "msg_sent_b": 4655,
+        "msg_rcvd_a": 9863,
+        "msg_rcvd_b": 8956,
+        "msg_sent_a": 8956,
+        "msg_sent_b": 9863,
         "network_statements_a": [
           "198.51.100.102/32"
         ],
@@ -5948,7 +5918,7 @@
         "soft_reconfiguration_a": false,
         "soft_reconfiguration_b": false,
         "state": "established",
-        "up_down_a": "2d22h",
+        "up_down_a": "6d05h",
         "up_down_b": "never",
         "update_source_a": "Loopback0",
         "update_source_b": "Loopback0",
@@ -5976,10 +5946,10 @@
         "local_as": 64496,
         "maximum_prefix_a": null,
         "maximum_prefix_b": null,
-        "msg_rcvd_a": 4646,
-        "msg_rcvd_b": 4220,
-        "msg_sent_a": 4220,
-        "msg_sent_b": 4646,
+        "msg_rcvd_a": 9857,
+        "msg_rcvd_b": 8956,
+        "msg_sent_a": 8956,
+        "msg_sent_b": 9857,
         "network_statements_a": [
           "198.51.100.103/32"
         ],
@@ -6012,7 +5982,7 @@
         "soft_reconfiguration_a": false,
         "soft_reconfiguration_b": false,
         "state": "established",
-        "up_down_a": "2d22h",
+        "up_down_a": "6d05h",
         "up_down_b": "never",
         "update_source_a": "Loopback0",
         "update_source_b": "Loopback0",
@@ -6041,9 +6011,9 @@
         "maximum_prefix_a": null,
         "maximum_prefix_b": null,
         "msg_rcvd_a": null,
-        "msg_rcvd_b": 4221,
+        "msg_rcvd_b": 8957,
         "msg_sent_a": null,
-        "msg_sent_b": 4228,
+        "msg_sent_b": 8963,
         "network_statements_a": [],
         "network_statements_b": [
           "198.51.100.101/32"
@@ -6075,7 +6045,7 @@
         "soft_reconfiguration_b": false,
         "state": "established",
         "up_down_a": null,
-        "up_down_b": "2d22h",
+        "up_down_b": "6d05h",
         "update_source_a": null,
         "update_source_b": null,
         "vrf": "default"
@@ -6103,9 +6073,9 @@
         "maximum_prefix_a": null,
         "maximum_prefix_b": null,
         "msg_rcvd_a": null,
-        "msg_rcvd_b": 4221,
+        "msg_rcvd_b": 8957,
         "msg_sent_a": null,
-        "msg_sent_b": 4227,
+        "msg_sent_b": 8962,
         "network_statements_a": [],
         "network_statements_b": [
           "198.51.100.102/32"
@@ -6137,7 +6107,7 @@
         "soft_reconfiguration_b": false,
         "state": "established",
         "up_down_a": null,
-        "up_down_b": "2d22h",
+        "up_down_b": "6d05h",
         "update_source_a": null,
         "update_source_b": null,
         "vrf": "default"
@@ -6165,9 +6135,9 @@
         "maximum_prefix_a": null,
         "maximum_prefix_b": null,
         "msg_rcvd_a": null,
-        "msg_rcvd_b": 4221,
+        "msg_rcvd_b": 8957,
         "msg_sent_a": null,
-        "msg_sent_b": 4227,
+        "msg_sent_b": 8962,
         "network_statements_a": [],
         "network_statements_b": [
           "198.51.100.103/32"
@@ -6199,7 +6169,7 @@
         "soft_reconfiguration_b": false,
         "state": "established",
         "up_down_a": null,
-        "up_down_b": "2d22h",
+        "up_down_b": "6d05h",
         "update_source_a": null,
         "update_source_b": null,
         "vrf": "default"
@@ -6229,10 +6199,10 @@
             "interfaces": [
               "Gi1/0/2"
             ],
-            "name": "USERS-A",
+            "name": "GUEST-USERS",
             "shutdown": false,
             "state": "active",
-            "vlan_id": 10
+            "vlan_id": 50
           }
         ]
       },
@@ -6259,10 +6229,17 @@
             "interfaces": [
               "Gi1/0/2"
             ],
-            "name": "USERS-RED",
+            "name": "RED-USERS-CAMPUS",
             "shutdown": false,
             "state": "active",
             "vlan_id": 30
+          },
+          {
+            "interfaces": [],
+            "name": "BLUE-USERS-CAMPUS",
+            "shutdown": false,
+            "state": "active",
+            "vlan_id": 31
           },
           {
             "interfaces": [],
@@ -6277,13 +6254,6 @@
             "shutdown": false,
             "state": "active",
             "vlan_id": 10
-          },
-          {
-            "interfaces": [],
-            "name": "USERS-BLUE",
-            "shutdown": false,
-            "state": "active",
-            "vlan_id": 31
           }
         ]
       },
@@ -6310,7 +6280,7 @@
             "interfaces": [
               "Gi1/0/2"
             ],
-            "name": "USERS-BLUE",
+            "name": "BLUE-USERS-BRANCH",
             "shutdown": false,
             "state": "active",
             "vlan_id": 40
@@ -6435,25 +6405,6 @@
     ],
     "interfaces": [
       {
-        "access_vlan": 10,
-        "admin_status": "up",
-        "description": "user access port",
-        "device_id": "acc-sw-01",
-        "duplex": "full",
-        "interface_id": "acc-sw-01:Gi1/0/2",
-        "ip_address": "unassigned",
-        "media_type": "copper",
-        "mtu": 1500,
-        "name": "Gi1/0/2",
-        "oper_status": "up",
-        "prefix_length": null,
-        "qos": null,
-        "sfp_pid": null,
-        "speed": "1000mb/s",
-        "switchport_mode": "access",
-        "type": "physical"
-      },
-      {
         "access_vlan": 30,
         "admin_status": "up",
         "description": "user access port",
@@ -6479,6 +6430,25 @@
         "device_id": "acc-sw-04",
         "duplex": "full",
         "interface_id": "acc-sw-04:Gi1/0/2",
+        "ip_address": "unassigned",
+        "media_type": "copper",
+        "mtu": 1500,
+        "name": "Gi1/0/2",
+        "oper_status": "up",
+        "prefix_length": null,
+        "qos": null,
+        "sfp_pid": null,
+        "speed": "1000mb/s",
+        "switchport_mode": "access",
+        "type": "physical"
+      },
+      {
+        "access_vlan": 50,
+        "admin_status": "up",
+        "description": "user access port",
+        "device_id": "acc-sw-01",
+        "duplex": "full",
+        "interface_id": "acc-sw-01:Gi1/0/2",
         "ip_address": "unassigned",
         "media_type": "copper",
         "mtu": 1500,
@@ -6616,6 +6586,42 @@
       },
       {
         "admin_status": "up",
+        "description": "BLUE-USERS-BRANCH gateway",
+        "device_id": "acc-sw-04",
+        "duplex": null,
+        "interface_id": "acc-sw-04:Vl40",
+        "ip_address": "198.51.100.81",
+        "media_type": null,
+        "mtu": 1500,
+        "name": "Vl40",
+        "oper_status": "up",
+        "prefix_length": 28,
+        "qos": null,
+        "sfp_pid": null,
+        "speed": null,
+        "type": "vlan",
+        "vrf": "BLUE"
+      },
+      {
+        "admin_status": "up",
+        "description": "BLUE-USERS-CAMPUS gateway",
+        "device_id": "acc-sw-03",
+        "duplex": null,
+        "interface_id": "acc-sw-03:Vl31",
+        "ip_address": "198.51.100.97",
+        "media_type": null,
+        "mtu": 1500,
+        "name": "Vl31",
+        "oper_status": "up",
+        "prefix_length": 28,
+        "qos": null,
+        "sfp_pid": null,
+        "speed": null,
+        "type": "vlan",
+        "vrf": "BLUE"
+      },
+      {
+        "admin_status": "up",
         "description": "Containerlab management interface",
         "device_id": "acc-sw-01",
         "duplex": "auto",
@@ -6742,6 +6748,23 @@
       },
       {
         "admin_status": "up",
+        "description": "GUEST-USERS gateway",
+        "device_id": "acc-sw-01",
+        "duplex": null,
+        "interface_id": "acc-sw-01:Vl50",
+        "ip_address": "198.51.100.49",
+        "media_type": null,
+        "mtu": 1500,
+        "name": "Vl50",
+        "oper_status": "up",
+        "prefix_length": 28,
+        "qos": null,
+        "sfp_pid": null,
+        "speed": null,
+        "type": "vlan"
+      },
+      {
+        "admin_status": "up",
         "description": "RED transit to acc-sw-03",
         "device_id": "core-sw-01",
         "duplex": null,
@@ -6778,6 +6801,24 @@
       },
       {
         "admin_status": "up",
+        "description": "RED-USERS-CAMPUS gateway",
+        "device_id": "acc-sw-03",
+        "duplex": null,
+        "interface_id": "acc-sw-03:Vl30",
+        "ip_address": "198.51.100.65",
+        "media_type": null,
+        "mtu": 1500,
+        "name": "Vl30",
+        "oper_status": "up",
+        "prefix_length": 28,
+        "qos": null,
+        "sfp_pid": null,
+        "speed": null,
+        "type": "vlan",
+        "vrf": "RED"
+      },
+      {
+        "admin_status": "up",
         "description": "SSL VPN interface",
         "device_id": "edge-fw-01",
         "duplex": null,
@@ -6793,77 +6834,6 @@
         "speed": null,
         "type": "tunnel",
         "vdom": "root"
-      },
-      {
-        "admin_status": "up",
-        "description": "USERS-A gateway",
-        "device_id": "acc-sw-01",
-        "duplex": null,
-        "interface_id": "acc-sw-01:Vl10",
-        "ip_address": "198.51.100.49",
-        "media_type": null,
-        "mtu": 1500,
-        "name": "Vl10",
-        "oper_status": "up",
-        "prefix_length": 28,
-        "qos": null,
-        "sfp_pid": null,
-        "speed": null,
-        "type": "vlan"
-      },
-      {
-        "admin_status": "up",
-        "description": "USERS-BLUE gateway",
-        "device_id": "acc-sw-03",
-        "duplex": null,
-        "interface_id": "acc-sw-03:Vl31",
-        "ip_address": "198.51.100.97",
-        "media_type": null,
-        "mtu": 1500,
-        "name": "Vl31",
-        "oper_status": "up",
-        "prefix_length": 28,
-        "qos": null,
-        "sfp_pid": null,
-        "speed": null,
-        "type": "vlan",
-        "vrf": "BLUE"
-      },
-      {
-        "admin_status": "up",
-        "description": "USERS-BLUE gateway",
-        "device_id": "acc-sw-04",
-        "duplex": null,
-        "interface_id": "acc-sw-04:Vl40",
-        "ip_address": "198.51.100.81",
-        "media_type": null,
-        "mtu": 1500,
-        "name": "Vl40",
-        "oper_status": "up",
-        "prefix_length": 28,
-        "qos": null,
-        "sfp_pid": null,
-        "speed": null,
-        "type": "vlan",
-        "vrf": "BLUE"
-      },
-      {
-        "admin_status": "up",
-        "description": "USERS-RED gateway",
-        "device_id": "acc-sw-03",
-        "duplex": null,
-        "interface_id": "acc-sw-03:Vl30",
-        "ip_address": "198.51.100.65",
-        "media_type": null,
-        "mtu": 1500,
-        "name": "Vl30",
-        "oper_status": "up",
-        "prefix_length": 28,
-        "qos": null,
-        "sfp_pid": null,
-        "speed": null,
-        "type": "vlan",
-        "vrf": "RED"
       },
       {
         "admin_status": "up",
@@ -7689,16 +7659,16 @@
         "access_ports": [
           "acc-sw-01:Gi1/0/2"
         ],
-        "id": "vlan10-dom0",
+        "id": "vlan50-dom0",
         "member_devices": [
           "acc-sw-01"
         ],
-        "name": "TRANSIT-RED",
+        "name": null,
         "svis": [
-          "acc-sw-01:Vl10"
+          "acc-sw-01:Vl50"
         ],
         "trunk_links": [],
-        "vlan_id": 10
+        "vlan_id": 50
       },
       {
         "access_ports": [
@@ -7732,7 +7702,7 @@
       },
       {
         "access_ports": [],
-        "id": "vlan10-dom1",
+        "id": "vlan10-dom0",
         "member_devices": [
           "acc-sw-03",
           "core-sw-01"
@@ -8386,34 +8356,6 @@
       {
         "area_type": "normal",
         "identifier": "0.0.0.0",
-        "lsa_count": 2,
-        "members": [
-          "acc-sw-03",
-          "core-sw-01"
-        ],
-        "process_id": "10",
-        "service_type": "ospf_area",
-        "spf_runs": 6,
-        "vrf": "RED"
-      },
-      {
-        "area_type": "normal",
-        "identifier": "0.0.0.0",
-        "lsa_count": 3,
-        "members": [
-          "acc-sw-03",
-          "acc-sw-04",
-          "core-sw-01"
-        ],
-        "process_id": "20",
-        "service_type": "ospf_area",
-        "spf_runs": 8,
-        "vrf": "BLUE"
-      },
-      {
-        "area_type": "normal",
-        "identifier": "0.0.0.0",
-        "lsa_count": 6,
         "members": [
           "acc-sw-01",
           "bdr-rtr-01",
@@ -8423,17 +8365,38 @@
         ],
         "process_id": "1",
         "service_type": "ospf_area",
-        "spf_runs": 16,
         "vrf": "default"
+      },
+      {
+        "area_type": "normal",
+        "identifier": "0.0.0.0",
+        "members": [
+          "acc-sw-03",
+          "acc-sw-04",
+          "core-sw-01"
+        ],
+        "process_id": "20",
+        "service_type": "ospf_area",
+        "vrf": "BLUE"
+      },
+      {
+        "area_type": "normal",
+        "identifier": "0.0.0.0",
+        "members": [
+          "acc-sw-03",
+          "core-sw-01"
+        ],
+        "process_id": "10",
+        "service_type": "ospf_area",
+        "vrf": "RED"
       },
       {
         "identifier": "10",
         "members": [
-          "acc-sw-01",
           "acc-sw-03",
           "core-sw-01"
         ],
-        "name": "USERS-A",
+        "name": "TRANSIT-RED",
         "service_type": "vlan",
         "vlan_id": 10
       },
@@ -8640,7 +8603,7 @@
           "bdr-rtr-03",
           "core-sw-01"
         ],
-        "name": "USERS-BLUE",
+        "name": "BLUE-USERS-CAMPUS",
         "service_type": "vlan",
         "vlan_id": 31
       },
@@ -8733,7 +8696,7 @@
       "active": true,
       "ad": 0,
       "device": "acc-sw-01",
-      "interface": "Vlan10",
+      "interface": "Vlan50",
       "metric": 0,
       "next_hop": "",
       "prefix": "198.51.100.48/28",
@@ -8745,7 +8708,7 @@
       "active": true,
       "ad": 0,
       "device": "acc-sw-01",
-      "interface": "Vlan10",
+      "interface": "Vlan50",
       "metric": 0,
       "next_hop": "",
       "prefix": "198.51.100.49/32",
