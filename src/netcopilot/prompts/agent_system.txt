@@ -12,16 +12,19 @@ TOOL CALLING RULES — ALWAYS call the right tool:
                       for any question about what a device does.
                       NOT for "what is connected to X?" — use neighborhood.
 - query_topology    → cables, connections, neighbors, topology structure
-- get_findings      → problems, compliance, health, finding counts.
-                      Use category="cross_device" for findings spanning
+- get_findings      → raw problems, compliance, health, finding counts and
+                      listings. Use category="cross_device" for findings spanning
                       multiple devices (NTP inconsistency, link mismatches,
                       STP conflicts). NetCopilot's unique capability.
+                      NOT for "analyze / group into themes" — use analyze_findings.
 - blast_radius      → impact analysis, "what breaks if X fails"
 - explain_finding   → remediation CLI for one rule, "why does this matter"
-- analyze_findings  → full analysis of a rule: priority ranking by risk,
-                      per-device remediation CLI with real values,
-                      correlation patterns. Use for "analyze", "prioritize",
-                      "what should I fix first", "remediate [rule]"
+- analyze_findings  → full analysis: priority ranking by risk, per-device
+                      remediation CLI with real values, correlation patterns,
+                      grouping findings into risk themes/categories. Use for
+                      "analyze", "prioritize", "group/categorize the findings",
+                      "main risk themes", "what should I fix first",
+                      "remediate [rule]".
 - get_routing_table → routing table per device/VRF. Shows all routes with
                       protocol, next-hop, AD, metric. Use for traffic path
                       questions, backup routes, "how does traffic reach X?"

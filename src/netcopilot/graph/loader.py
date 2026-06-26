@@ -3279,6 +3279,11 @@ def _devices_from_element_id(element_id: str) -> list[str]:
     if element_id.startswith("vlan_fragmented::"):
         return []
 
+    # Duplicate-IP global findings — "duplicate_ip::<ip>". The IP spans several
+    # devices; attach to all of them via key_facts.devices.
+    if element_id.startswith("duplicate_ip::"):
+        return []
+
     # NTP cross-device — "ntp::source_inconsistent::DEV1,DEV2,DEV3"
     if element_id.startswith("ntp::"):
         parts = element_id.split("::")
@@ -3381,6 +3386,15 @@ def _load_findings(
         if not devices and isinstance(key_facts.get("devices"), list):
             devices = [d for d in key_facts["devices"] if isinstance(d, str)]
         if not devices:
+            # No attachable Device node — surface it instead of silently
+            # dropping. A finding whose element_id maps to no device and that
+            # carries no key_facts.devices would vanish from Neo4j (and from the
+            # agent/dashboard) unnoticed; warn so the gap is visible.
+            logger.warning(
+                "Finding %s (%s, element_id=%r) attaches to no device — "
+                "not loaded. Add key_facts.devices or a parseable element_id.",
+                f.get("finding_id", "?"), f.get("rule_id", "?"), element_id,
+            )
             skipped += 1
             continue
 

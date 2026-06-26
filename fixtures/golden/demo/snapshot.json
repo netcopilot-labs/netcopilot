@@ -13,52 +13,6 @@
   "findings": [
     {
       "evidence": {
-        "element_id": "10.0.0.15",
-        "element_type": "interface",
-        "key_facts": {
-          "count": 7,
-          "interfaces": [
-            {
-              "device_id": "acc-sw-01",
-              "interface_id": "acc-sw-01:Gi0/0"
-            },
-            {
-              "device_id": "acc-sw-03",
-              "interface_id": "acc-sw-03:Gi0/0"
-            },
-            {
-              "device_id": "acc-sw-04",
-              "interface_id": "acc-sw-04:Gi0/0"
-            },
-            {
-              "device_id": "bdr-rtr-01",
-              "interface_id": "bdr-rtr-01:Mgmt0/RP0/CPU0/0"
-            },
-            {
-              "device_id": "bdr-rtr-02",
-              "interface_id": "bdr-rtr-02:Mgmt0/RP0/CPU0/0"
-            },
-            {
-              "device_id": "bdr-rtr-03",
-              "interface_id": "bdr-rtr-03:Mgmt0/RP0/CPU0/0"
-            },
-            {
-              "device_id": "core-sw-01",
-              "interface_id": "core-sw-01:Gi0/0"
-            }
-          ],
-          "ip_address": "10.0.0.15"
-        }
-      },
-      "finding_id": "DUPLICATE_IP::10.0.0.15",
-      "message": "IP address 10.0.0.15 is assigned to 7 interfaces",
-      "recommendation": "Review IP address assignments and resolve the conflict. Each IP should be unique within a broadcast domain.",
-      "rule_id": "DUPLICATE_IP",
-      "severity": "critical",
-      "title": "Duplicate IP Address"
-    },
-    {
-      "evidence": {
         "element_id": "acc-sw-01",
         "element_type": "device",
         "key_facts": {
@@ -4561,6 +4515,61 @@
       "rule_id": "STP_PRIORITY_DEFAULT",
       "severity": "info",
       "title": "STP Priority Default"
+    },
+    {
+      "evidence": {
+        "element_id": "duplicate_ip::10.0.0.15",
+        "element_type": "interface",
+        "key_facts": {
+          "count": 7,
+          "devices": [
+            "acc-sw-01",
+            "acc-sw-03",
+            "acc-sw-04",
+            "bdr-rtr-01",
+            "bdr-rtr-02",
+            "bdr-rtr-03",
+            "core-sw-01"
+          ],
+          "interfaces": [
+            {
+              "device_id": "acc-sw-01",
+              "interface_id": "acc-sw-01:Gi0/0"
+            },
+            {
+              "device_id": "acc-sw-03",
+              "interface_id": "acc-sw-03:Gi0/0"
+            },
+            {
+              "device_id": "acc-sw-04",
+              "interface_id": "acc-sw-04:Gi0/0"
+            },
+            {
+              "device_id": "bdr-rtr-01",
+              "interface_id": "bdr-rtr-01:Mgmt0/RP0/CPU0/0"
+            },
+            {
+              "device_id": "bdr-rtr-02",
+              "interface_id": "bdr-rtr-02:Mgmt0/RP0/CPU0/0"
+            },
+            {
+              "device_id": "bdr-rtr-03",
+              "interface_id": "bdr-rtr-03:Mgmt0/RP0/CPU0/0"
+            },
+            {
+              "device_id": "core-sw-01",
+              "interface_id": "core-sw-01:Gi0/0"
+            }
+          ],
+          "ip_address": "10.0.0.15"
+        }
+      },
+      "finding_id": "DUPLICATE_IP::duplicate_ip::10.0.0.15",
+      "message": "IP address 10.0.0.15 is assigned to 7 interfaces",
+      "recommendation": "Review IP address assignments and resolve the conflict. Each IP should be unique within a broadcast domain.",
+      "rule_id": "DUPLICATE_IP",
+      "severity": "critical",
+      "title": "Duplicate IP Address"
     },
     {
       "evidence": {

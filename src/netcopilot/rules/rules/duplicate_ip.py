@@ -123,17 +123,26 @@ class DuplicateIpRule(BaseRule):
                 continue
 
             # Duplicate IP found!
+            # A duplicate IP spans multiple devices, so it has no single owning
+            # node. Use a global element_id ("duplicate_ip::<ip>") and list the
+            # owning devices in key_facts.devices so the loader attaches the
+            # finding to every real device. (A bare IP as element_id mapped to no
+            # Device node, so the finding was silently dropped on load.)
+            owning_devices = sorted({
+                i.get("device_id") for i in interfaces if i.get("device_id")
+            })
             finding = Finding.create(
                 rule_id=self.rule_id,
                 severity=self.severity,
                 title=self.title,
                 element_type="interface",
-                element_id=ip_address,  # Use IP as element_id
+                element_id=f"duplicate_ip::{ip_address}",
                 message=(
                     f"IP address {ip_address} is assigned to {len(interfaces)} interfaces"
                 ),
                 key_facts={
                     "ip_address": ip_address,
+                    "devices": owning_devices,
                     "interfaces": interfaces,
                     "count": len(interfaces),
                 },
