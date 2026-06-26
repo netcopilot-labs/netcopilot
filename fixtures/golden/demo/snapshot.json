@@ -2,7 +2,7 @@
   "_counts": {
     "adjacencies": 14,
     "devices": 8,
-    "findings": 314,
+    "findings": 288,
     "interfaces": 71,
     "l2_domains": 5,
     "links": 16,
@@ -107,23 +107,6 @@
       "rule_id": "CIS_XE_2_2_LOCAL_LOG",
       "severity": "cis",
       "title": "Local Logging Not Configured"
-    },
-    {
-      "evidence": {
-        "element_id": "acc-sw-01",
-        "element_type": "device",
-        "key_facts": {
-          "issues": [
-            "no SNMPv3 users configured"
-          ]
-        }
-      },
-      "finding_id": "CIS_XE_1_5_SNMP::acc-sw-01",
-      "message": "SNMP security issues detected",
-      "recommendation": "Remove default communities, restrict to RO with ACLs, configure SNMPv3",
-      "rule_id": "CIS_XE_1_5_SNMP",
-      "severity": "cis",
-      "title": "SNMP Security Misconfiguration"
     },
     {
       "evidence": {
@@ -729,23 +712,6 @@
       "rule_id": "CIS_XE_2_2_LOCAL_LOG",
       "severity": "cis",
       "title": "Local Logging Not Configured"
-    },
-    {
-      "evidence": {
-        "element_id": "acc-sw-03",
-        "element_type": "device",
-        "key_facts": {
-          "issues": [
-            "no SNMPv3 users configured"
-          ]
-        }
-      },
-      "finding_id": "CIS_XE_1_5_SNMP::acc-sw-03",
-      "message": "SNMP security issues detected",
-      "recommendation": "Remove default communities, restrict to RO with ACLs, configure SNMPv3",
-      "rule_id": "CIS_XE_1_5_SNMP",
-      "severity": "cis",
-      "title": "SNMP Security Misconfiguration"
     },
     {
       "evidence": {
@@ -1577,23 +1543,6 @@
         "element_id": "acc-sw-04",
         "element_type": "device",
         "key_facts": {
-          "issues": [
-            "no SNMPv3 users configured"
-          ]
-        }
-      },
-      "finding_id": "CIS_XE_1_5_SNMP::acc-sw-04",
-      "message": "SNMP security issues detected",
-      "recommendation": "Remove default communities, restrict to RO with ACLs, configure SNMPv3",
-      "rule_id": "CIS_XE_1_5_SNMP",
-      "severity": "cis",
-      "title": "SNMP Security Misconfiguration"
-    },
-    {
-      "evidence": {
-        "element_id": "acc-sw-04",
-        "element_type": "device",
-        "key_facts": {
           "logging_hosts": []
         }
       },
@@ -2277,23 +2226,6 @@
     },
     {
       "evidence": {
-        "element_id": "bdr-rtr-01",
-        "element_type": "device",
-        "key_facts": {
-          "issues": [
-            "no SNMPv3 users configured"
-          ]
-        }
-      },
-      "finding_id": "CIS_XR_1_5_SNMP::bdr-rtr-01",
-      "message": "SNMP security issues detected",
-      "recommendation": "Remove default communities, use SNMPv3 with authentication and encryption",
-      "rule_id": "CIS_XR_1_5_SNMP",
-      "severity": "cis",
-      "title": "XR SNMP Security Misconfiguration"
-    },
-    {
-      "evidence": {
         "element_id": "bdr-rtr-01/Loopback0/no-desc",
         "element_type": "interface",
         "key_facts": {
@@ -2743,23 +2675,6 @@
       "rule_id": "CIS_XR_1_4_LOGGING",
       "severity": "cis",
       "title": "XR Logging Not Configured"
-    },
-    {
-      "evidence": {
-        "element_id": "bdr-rtr-02",
-        "element_type": "device",
-        "key_facts": {
-          "issues": [
-            "no SNMPv3 users configured"
-          ]
-        }
-      },
-      "finding_id": "CIS_XR_1_5_SNMP::bdr-rtr-02",
-      "message": "SNMP security issues detected",
-      "recommendation": "Remove default communities, use SNMPv3 with authentication and encryption",
-      "rule_id": "CIS_XR_1_5_SNMP",
-      "severity": "cis",
-      "title": "XR SNMP Security Misconfiguration"
     },
     {
       "evidence": {
@@ -3215,23 +3130,6 @@
     },
     {
       "evidence": {
-        "element_id": "bdr-rtr-03",
-        "element_type": "device",
-        "key_facts": {
-          "issues": [
-            "no SNMPv3 users configured"
-          ]
-        }
-      },
-      "finding_id": "CIS_XR_1_5_SNMP::bdr-rtr-03",
-      "message": "SNMP security issues detected",
-      "recommendation": "Remove default communities, use SNMPv3 with authentication and encryption",
-      "rule_id": "CIS_XR_1_5_SNMP",
-      "severity": "cis",
-      "title": "XR SNMP Security Misconfiguration"
-    },
-    {
-      "evidence": {
         "element_id": "bdr-rtr-03/Loopback0/no-desc",
         "element_type": "interface",
         "key_facts": {
@@ -3642,23 +3540,6 @@
         "element_id": "core-sw-01",
         "element_type": "device",
         "key_facts": {
-          "issues": [
-            "no SNMPv3 users configured"
-          ]
-        }
-      },
-      "finding_id": "CIS_XE_1_5_SNMP::core-sw-01",
-      "message": "SNMP security issues detected",
-      "recommendation": "Remove default communities, restrict to RO with ACLs, configure SNMPv3",
-      "rule_id": "CIS_XE_1_5_SNMP",
-      "severity": "cis",
-      "title": "SNMP Security Misconfiguration"
-    },
-    {
-      "evidence": {
-        "element_id": "core-sw-01",
-        "element_type": "device",
-        "key_facts": {
           "logging_hosts": []
         }
       },
@@ -3950,25 +3831,6 @@
       "rule_id": "CIS_XE_3_1_ROUTING",
       "severity": "cis",
       "title": "IP Source Routing Enabled"
-    },
-    {
-      "evidence": {
-        "element_id": "core-sw-01/cis/xe/3.2/border-acl",
-        "element_type": "device",
-        "key_facts": {
-          "missing_rfc1918": [
-            "10.0.0.0",
-            "172.16.0.0",
-            "192.168.0.0"
-          ]
-        }
-      },
-      "finding_id": "CIS_XE_3_2_BORDER_ACL::core-sw-01/cis/xe/3.2/border-acl",
-      "message": "No ACL entries found for RFC1918 prefixes: ['10.0.0.0', '172.16.0.0', '192.168.0.0']",
-      "recommendation": "Create ACL denying RFC1918 sources and apply inbound on external interfaces",
-      "rule_id": "CIS_XE_3_2_BORDER_ACL",
-      "severity": "cis",
-      "title": "Border ACL Review Required"
     },
     {
       "evidence": {
@@ -5051,298 +4913,6 @@
       "rule_id": "CIS_FG_4_2_2",
       "severity": "cis",
       "title": "Accept Policy Missing Antivirus Profile"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.2.3/av-profile/default",
-        "element_type": "device",
-        "key_facts": {
-          "outbreak-prevention": "disable",
-          "profile": "default"
-        }
-      },
-      "finding_id": "CIS_FG_4_2_3::edge-fw-01/cis/fg/4.2.3/av-profile/default",
-      "message": "AV profile 'default' has HTTP outbreak prevention disabled",
-      "recommendation": "Enable outbreak prevention in all AV profiles",
-      "rule_id": "CIS_FG_4_2_3",
-      "severity": "cis",
-      "title": "AV Profile Outbreak Prevention Disabled"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.2.3/av-profile/sniffer-profile",
-        "element_type": "device",
-        "key_facts": {
-          "outbreak-prevention": "disable",
-          "profile": "sniffer-profile"
-        }
-      },
-      "finding_id": "CIS_FG_4_2_3::edge-fw-01/cis/fg/4.2.3/av-profile/sniffer-profile",
-      "message": "AV profile 'sniffer-profile' has HTTP outbreak prevention disabled",
-      "recommendation": "Enable outbreak prevention in all AV profiles",
-      "rule_id": "CIS_FG_4_2_3",
-      "severity": "cis",
-      "title": "AV Profile Outbreak Prevention Disabled"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.2.3/av-profile/wifi-default",
-        "element_type": "device",
-        "key_facts": {
-          "outbreak-prevention": "disable",
-          "profile": "wifi-default"
-        }
-      },
-      "finding_id": "CIS_FG_4_2_3::edge-fw-01/cis/fg/4.2.3/av-profile/wifi-default",
-      "message": "AV profile 'wifi-default' has HTTP outbreak prevention disabled",
-      "recommendation": "Enable outbreak prevention in all AV profiles",
-      "rule_id": "CIS_FG_4_2_3",
-      "severity": "cis",
-      "title": "AV Profile Outbreak Prevention Disabled"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.2.5/av-profile/default",
-        "element_type": "device",
-        "key_facts": {
-          "analytics-db": "disable",
-          "profile": "default"
-        }
-      },
-      "finding_id": "CIS_FG_4_2_5::edge-fw-01/cis/fg/4.2.5/av-profile/default",
-      "message": "AV profile 'default' has analytics-db disabled",
-      "recommendation": "Enable analytics-db for grayware detection",
-      "rule_id": "CIS_FG_4_2_5",
-      "severity": "cis",
-      "title": "AV Profile Grayware Detection Disabled"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.2.5/av-profile/sniffer-profile",
-        "element_type": "device",
-        "key_facts": {
-          "analytics-db": "disable",
-          "profile": "sniffer-profile"
-        }
-      },
-      "finding_id": "CIS_FG_4_2_5::edge-fw-01/cis/fg/4.2.5/av-profile/sniffer-profile",
-      "message": "AV profile 'sniffer-profile' has analytics-db disabled",
-      "recommendation": "Enable analytics-db for grayware detection",
-      "rule_id": "CIS_FG_4_2_5",
-      "severity": "cis",
-      "title": "AV Profile Grayware Detection Disabled"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.2.5/av-profile/wifi-default",
-        "element_type": "device",
-        "key_facts": {
-          "analytics-db": "disable",
-          "profile": "wifi-default"
-        }
-      },
-      "finding_id": "CIS_FG_4_2_5::edge-fw-01/cis/fg/4.2.5/av-profile/wifi-default",
-      "message": "AV profile 'wifi-default' has analytics-db disabled",
-      "recommendation": "Enable analytics-db for grayware detection",
-      "rule_id": "CIS_FG_4_2_5",
-      "severity": "cis",
-      "title": "AV Profile Grayware Detection Disabled"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.4.1/app-list/block-high-risk",
-        "element_type": "device",
-        "key_facts": {
-          "list": "block-high-risk",
-          "unknown-application-action": "pass"
-        }
-      },
-      "finding_id": "CIS_FG_4_4_1::edge-fw-01/cis/fg/4.4.1/app-list/block-high-risk",
-      "message": "App control 'block-high-risk' does not block unknown apps (pass)",
-      "recommendation": "Set unknown-application-action to 'block' in application control profiles",
-      "rule_id": "CIS_FG_4_4_1",
-      "severity": "cis",
-      "title": "Application Control Not Blocking Unknown Apps"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.4.1/app-list/default",
-        "element_type": "device",
-        "key_facts": {
-          "list": "default",
-          "unknown-application-action": "pass"
-        }
-      },
-      "finding_id": "CIS_FG_4_4_1::edge-fw-01/cis/fg/4.4.1/app-list/default",
-      "message": "App control 'default' does not block unknown apps (pass)",
-      "recommendation": "Set unknown-application-action to 'block' in application control profiles",
-      "rule_id": "CIS_FG_4_4_1",
-      "severity": "cis",
-      "title": "Application Control Not Blocking Unknown Apps"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.4.1/app-list/sniffer-profile",
-        "element_type": "device",
-        "key_facts": {
-          "list": "sniffer-profile",
-          "unknown-application-action": "pass"
-        }
-      },
-      "finding_id": "CIS_FG_4_4_1::edge-fw-01/cis/fg/4.4.1/app-list/sniffer-profile",
-      "message": "App control 'sniffer-profile' does not block unknown apps (pass)",
-      "recommendation": "Set unknown-application-action to 'block' in application control profiles",
-      "rule_id": "CIS_FG_4_4_1",
-      "severity": "cis",
-      "title": "Application Control Not Blocking Unknown Apps"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.4.1/app-list/wifi-default",
-        "element_type": "device",
-        "key_facts": {
-          "list": "wifi-default",
-          "unknown-application-action": "pass"
-        }
-      },
-      "finding_id": "CIS_FG_4_4_1::edge-fw-01/cis/fg/4.4.1/app-list/wifi-default",
-      "message": "App control 'wifi-default' does not block unknown apps (pass)",
-      "recommendation": "Set unknown-application-action to 'block' in application control profiles",
-      "rule_id": "CIS_FG_4_4_1",
-      "severity": "cis",
-      "title": "Application Control Not Blocking Unknown Apps"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.4.2/app-list/block-high-risk",
-        "element_type": "device",
-        "key_facts": {
-          "enforce-default-app-port": "disable",
-          "list": "block-high-risk"
-        }
-      },
-      "finding_id": "CIS_FG_4_4_2::edge-fw-01/cis/fg/4.4.2/app-list/block-high-risk",
-      "message": "App control 'block-high-risk' does not enforce default ports",
-      "recommendation": "Enable enforce-default-app-port in application control profiles",
-      "rule_id": "CIS_FG_4_4_2",
-      "severity": "cis",
-      "title": "Application Control Not Enforcing Default Ports"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.4.2/app-list/default",
-        "element_type": "device",
-        "key_facts": {
-          "enforce-default-app-port": "disable",
-          "list": "default"
-        }
-      },
-      "finding_id": "CIS_FG_4_4_2::edge-fw-01/cis/fg/4.4.2/app-list/default",
-      "message": "App control 'default' does not enforce default ports",
-      "recommendation": "Enable enforce-default-app-port in application control profiles",
-      "rule_id": "CIS_FG_4_4_2",
-      "severity": "cis",
-      "title": "Application Control Not Enforcing Default Ports"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.4.2/app-list/sniffer-profile",
-        "element_type": "device",
-        "key_facts": {
-          "enforce-default-app-port": "disable",
-          "list": "sniffer-profile"
-        }
-      },
-      "finding_id": "CIS_FG_4_4_2::edge-fw-01/cis/fg/4.4.2/app-list/sniffer-profile",
-      "message": "App control 'sniffer-profile' does not enforce default ports",
-      "recommendation": "Enable enforce-default-app-port in application control profiles",
-      "rule_id": "CIS_FG_4_4_2",
-      "severity": "cis",
-      "title": "Application Control Not Enforcing Default Ports"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.4.2/app-list/wifi-default",
-        "element_type": "device",
-        "key_facts": {
-          "enforce-default-app-port": "disable",
-          "list": "wifi-default"
-        }
-      },
-      "finding_id": "CIS_FG_4_4_2::edge-fw-01/cis/fg/4.4.2/app-list/wifi-default",
-      "message": "App control 'wifi-default' does not enforce default ports",
-      "recommendation": "Enable enforce-default-app-port in application control profiles",
-      "rule_id": "CIS_FG_4_4_2",
-      "severity": "cis",
-      "title": "Application Control Not Enforcing Default Ports"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.4.3/app-list/block-high-risk",
-        "element_type": "device",
-        "key_facts": {
-          "list": "block-high-risk",
-          "other-application-log": "disable",
-          "unknown-application-log": "disable"
-        }
-      },
-      "finding_id": "CIS_FG_4_4_3::edge-fw-01/cis/fg/4.4.3/app-list/block-high-risk",
-      "message": "App control 'block-high-risk' has incomplete logging",
-      "recommendation": "Enable logging for all application categories",
-      "rule_id": "CIS_FG_4_4_3",
-      "severity": "cis",
-      "title": "Application Control Logging Incomplete"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.4.3/app-list/default",
-        "element_type": "device",
-        "key_facts": {
-          "list": "default",
-          "other-application-log": "disable",
-          "unknown-application-log": "disable"
-        }
-      },
-      "finding_id": "CIS_FG_4_4_3::edge-fw-01/cis/fg/4.4.3/app-list/default",
-      "message": "App control 'default' has incomplete logging",
-      "recommendation": "Enable logging for all application categories",
-      "rule_id": "CIS_FG_4_4_3",
-      "severity": "cis",
-      "title": "Application Control Logging Incomplete"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.4.3/app-list/sniffer-profile",
-        "element_type": "device",
-        "key_facts": {
-          "list": "sniffer-profile",
-          "other-application-log": "disable",
-          "unknown-application-log": "disable"
-        }
-      },
-      "finding_id": "CIS_FG_4_4_3::edge-fw-01/cis/fg/4.4.3/app-list/sniffer-profile",
-      "message": "App control 'sniffer-profile' has incomplete logging",
-      "recommendation": "Enable logging for all application categories",
-      "rule_id": "CIS_FG_4_4_3",
-      "severity": "cis",
-      "title": "Application Control Logging Incomplete"
-    },
-    {
-      "evidence": {
-        "element_id": "edge-fw-01/cis/fg/4.4.3/app-list/wifi-default",
-        "element_type": "device",
-        "key_facts": {
-          "list": "wifi-default",
-          "other-application-log": "disable",
-          "unknown-application-log": "disable"
-        }
-      },
-      "finding_id": "CIS_FG_4_4_3::edge-fw-01/cis/fg/4.4.3/app-list/wifi-default",
-      "message": "App control 'wifi-default' has incomplete logging",
-      "recommendation": "Enable logging for all application categories",
-      "rule_id": "CIS_FG_4_4_3",
-      "severity": "cis",
-      "title": "Application Control Logging Incomplete"
     },
     {
       "evidence": {

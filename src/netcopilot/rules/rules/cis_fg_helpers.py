@@ -85,3 +85,44 @@ def load_fg_json(device_dir: Path, source_name: str) -> Any | None:
     except (json.JSONDecodeError, OSError) as e:
         logger.warning(f"Failed to load {path}: {e}")
         return None
+
+
+def referenced_profile_names(device_dir: Path, policy_field: str) -> set[str]:
+    """
+    Names of security profiles actually referenced by enabled ``accept``
+    firewall policies via ``policy_field`` (e.g. ``"av-profile"``,
+    ``"application-list"``).
+
+    CIS profile controls (4.2.x AV, 4.4.x app-control, …) apply to profiles
+    that are *in effect* — i.e. attached to a policy that passes traffic. A
+    profile object that exists in the config but is referenced by no enabled
+    accept policy is not in effect: built-in/unused templates (``default``,
+    ``wifi-default``) and diagnostic ``sniffer-profile`` objects ship on every
+    box and would otherwise inflate the findings. Callers skip any profile
+    whose name is not in this set.
+
+    Returns an empty set when there is no policy file or no matching reference
+    (in which case the caller emits no findings for that profile type — correct,
+    since nothing is applied).
+    """
+    policies = load_fg_json(device_dir, "fortigate_firewall_policy")
+    names: set[str] = set()
+    if not isinstance(policies, list):
+        return names
+    for policy in policies:
+        if not isinstance(policy, dict):
+            continue
+        if str(policy.get("action", "")).lower() != "accept":
+            continue
+        if str(policy.get("status", "")).lower() == "disable":
+            continue
+        value = policy.get(policy_field)
+        # FortiGate REST returns either a bare name string or [{"name": …}].
+        if isinstance(value, str):
+            if value:
+                names.add(value)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict) and item.get("name"):
+                    names.add(item["name"])
+    return names

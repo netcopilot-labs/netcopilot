@@ -102,9 +102,19 @@ class CisXeBorderAclRule(BaseRule):
             if config is None:
                 continue
 
-            # Only check devices that appear to be border routers (have BGP)
-            if "router bgp" not in config:
+            # Only check devices that are actually internet border routers —
+            # i.e. they run at least one eBGP (external-AS) session. A device
+            # whose BGP sessions are all iBGP (same AS) — e.g. an internal core
+            # switch or route reflector — is not an internet edge, so the
+            # RFC1918-deny border ACL does not apply to it. (Previously any
+            # "router bgp" was treated as a border router, false-positiving on
+            # iBGP-only core switches.)
+            local_as = re.search(r"router bgp (\d+)", config)
+            if not local_as:
                 continue
+            remote_as = re.findall(r"remote-as (\d+)", config)
+            if not any(ra != local_as.group(1) for ra in remote_as):
+                continue  # iBGP-only → not a border router
 
             missing = [p for p in self.RFC1918 if p not in config]
             if missing:

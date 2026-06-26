@@ -46,7 +46,10 @@ class CisFgSslNoInspectionRule(BaseRule):
                     continue
 
                 ssl_profile = str(policy.get("ssl-ssh-profile", "")).lower()
-                if any(p in ssl_profile for p in _NO_INSPECTION_PATTERNS) or ssl_profile == "":
+                # Only flag policies that EXPLICITLY use a no-inspection profile.
+                # An empty ssl-ssh-profile is normal on L4/management policies that
+                # carry no web traffic — flagging those was a false positive.
+                if any(p in ssl_profile for p in _NO_INSPECTION_PATTERNS):
                     pid = str(policy.get("policyid", "?"))
                     name = policy.get("name", "")
                     label = f"{pid}" if not name else f"{pid} ({name})"

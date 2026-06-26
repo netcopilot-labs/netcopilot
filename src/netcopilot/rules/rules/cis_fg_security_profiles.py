@@ -12,7 +12,11 @@ from typing import Any
 
 from netcopilot.rules.base_rule import BaseRule
 from netcopilot.rules.finding import Finding
-from netcopilot.rules.rules.cis_fg_helpers import find_fortigate_devices, load_fg_json
+from netcopilot.rules.rules.cis_fg_helpers import (
+    find_fortigate_devices,
+    load_fg_json,
+    referenced_profile_names,
+)
 
 
 # -------------------------------------------------------------------------
@@ -36,8 +40,11 @@ class CisFgAvOutbreakRule(BaseRule):
             if not isinstance(profiles, list):
                 continue
 
+            referenced = referenced_profile_names(device_dir, "av-profile")
             for profile in profiles:
                 name = profile.get("name", "?")
+                if name not in referenced:
+                    continue  # not applied to any enabled accept policy
                 # Check HTTP protocol section for outbreak-prevention
                 http_section = profile.get("http", {})
                 if not isinstance(http_section, dict):
@@ -117,8 +124,11 @@ class CisFgAvGraywareRule(BaseRule):
             if not isinstance(profiles, list):
                 continue
 
+            referenced = referenced_profile_names(device_dir, "av-profile")
             for profile in profiles:
                 name = profile.get("name", "?")
+                if name not in referenced:
+                    continue  # not applied to any enabled accept policy
                 analytics = str(profile.get("analytics-db", "")).lower()
                 if analytics == "disable":
                     findings.append(Finding.create_from_rule(
@@ -240,8 +250,11 @@ class CisFgAppBlockHighRiskRule(BaseRule):
             if not isinstance(app_lists, list):
                 continue
 
+            referenced = referenced_profile_names(device_dir, "application-list")
             for app in app_lists:
                 name = app.get("name", "?")
+                if name not in referenced:
+                    continue  # not applied to any enabled accept policy
                 unknown_action = str(app.get("unknown-application-action", "")).lower()
                 if unknown_action != "block":
                     findings.append(Finding.create_from_rule(
@@ -276,8 +289,11 @@ class CisFgAppNonDefaultPortRule(BaseRule):
             if not isinstance(app_lists, list):
                 continue
 
+            referenced = referenced_profile_names(device_dir, "application-list")
             for app in app_lists:
                 name = app.get("name", "?")
+                if name not in referenced:
+                    continue  # not applied to any enabled accept policy
                 enforce = str(app.get("enforce-default-app-port", "")).lower()
                 if enforce != "enable":
                     findings.append(Finding.create_from_rule(
@@ -312,8 +328,11 @@ class CisFgAppControlLogRule(BaseRule):
             if not isinstance(app_lists, list):
                 continue
 
+            referenced = referenced_profile_names(device_dir, "application-list")
             for app in app_lists:
                 name = app.get("name", "?")
+                if name not in referenced:
+                    continue  # not applied to any enabled accept policy
                 other_log = str(app.get("other-application-log", "")).lower()
                 unknown_log = str(app.get("unknown-application-log", "")).lower()
                 if other_log != "enable" or unknown_log != "enable":

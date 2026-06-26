@@ -35,6 +35,13 @@ class CisXeSnmpRule(BaseRule):
             if sec is None:
                 continue
             snmp = sec.get("snmp", {})
+            # SNMP not configured at all → the CIS SNMP controls are N/A (there
+            # is nothing to secure). Previously the "no SNMPv3 users" check fired
+            # even on devices running no SNMP, false-positiving as an "SNMP
+            # misconfiguration". The "prefer SNMPv3" advice still fires below when
+            # v1/v2c communities are actually in use.
+            if not snmp.get("communities") and not snmp.get("v3_users"):
+                continue
             issues = []
             # Check communities for insecure settings
             default_names = {"public", "private"}

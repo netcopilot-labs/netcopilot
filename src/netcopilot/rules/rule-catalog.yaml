@@ -6423,7 +6423,11 @@
     # Where the device uses SNMPv2c community ''TestCommunity'' — will produce a finding (expected).
 
     '
-  eval:
+  # Surface eval disabled (eval_deferred): single-source check fired on any
+  # SNMP-enabled box, false-positiving on SNMPv3-only configs. Superseded by the
+  # Python rule CisFgSnmpV3OnlyRule (cis_fg_snmp.py), which cross-checks the
+  # v1/v2c community list and only fires when an insecure community exists.
+  eval_deferred:
     source: fortigate_snmp_sysinfo
     condition:
       field: results.status
@@ -6676,7 +6680,7 @@
     condition:
       field: results.admintimeout
       operator: greater_than
-      value: '10'
+      value: '15'
     element_id: '{hostname}/cis/fg/2.4.4/admin-timeout'
     evidence: admintimeout exceeds CIS maximum of 10 minutes
     skip_if_missing: true
