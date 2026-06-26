@@ -1,0 +1,26 @@
+[Unit]
+Description=NetCopilot Run Watcher (executes dashboard "Run Now" triggers)
+After=network.target
+Documentation=https://github.com/netcopilot-labs/netcopilot
+
+# Install (substitute the two placeholders for your checkout):
+#   sudo cp scripts/netcopilot-watcher.service /etc/systemd/system/
+#   sudo sed -i "s#__INSTALL_DIR__#$(pwd)#; s#__USER__#$USER#" \
+#     /etc/systemd/system/netcopilot-watcher.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now netcopilot-watcher
+# Credentials + Neo4j come from __INSTALL_DIR__/.env (the watcher sources it).
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__INSTALL_DIR__
+ExecStart=__INSTALL_DIR__/scripts/run-watcher.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=netcopilot-watcher
+
+[Install]
+WantedBy=multi-user.target

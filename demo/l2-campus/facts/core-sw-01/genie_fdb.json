@@ -1,0 +1,72 @@
+{
+  "mac_aging_time": 300,
+  "mac_table": {
+    "vlans": {
+      "20": {
+        "vlan": 20,
+        "mac_addresses": {
+          "0c00.017d.1a01": {
+            "mac_address": "0c00.017d.1a01",
+            "interfaces": {
+              "GigabitEthernet1/0/5": {
+                "interface": "GigabitEthernet1/0/5",
+                "entry_type": "dynamic"
+              }
+            }
+          },
+          "0c00.017d.1a56": {
+            "mac_address": "0c00.017d.1a56",
+            "interfaces": {
+              "GigabitEthernet1/0/5": {
+                "interface": "GigabitEthernet1/0/5",
+                "entry_type": "dynamic"
+              }
+            }
+          },
+          "0c00.816a.2a56": {
+            "mac_address": "0c00.816a.2a56",
+            "interfaces": {
+              "Vlan20": {
+                "interface": "Vlan20",
+                "entry_type": "static"
+              }
+            }
+          }
+        }
+      },
+      "10": {
+        "vlan": 10,
+        "mac_addresses": {
+          "0c00.017d.1a01": {
+            "mac_address": "0c00.017d.1a01",
+            "interfaces": {
+              "GigabitEthernet1/0/5": {
+                "interface": "GigabitEthernet1/0/5",
+                "entry_type": "dynamic"
+              }
+            }
+          },
+          "0c00.017d.1a46": {
+            "mac_address": "0c00.017d.1a46",
+            "interfaces": {
+              "GigabitEthernet1/0/5": {
+                "interface": "GigabitEthernet1/0/5",
+                "entry_type": "dynamic"
+              }
+            }
+          },
+          "0c00.816a.2a46": {
+            "mac_address": "0c00.816a.2a46",
+            "interfaces": {
+              "Vlan10": {
+                "interface": "Vlan10",
+                "entry_type": "static"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "total_mac_addresses": 27
+}

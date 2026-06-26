@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NetCopilot Investigation — {{ report.title }} — {{ report.generated_at }}</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 18mm 16mm 18mm 16mm;
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-family: sans-serif;
+      font-size: 9pt;
+      color: #94A3B8;
+    }
+    @bottom-left {
+      content: "NetCopilot Investigation · {{ report.generated_at }}";
+      font-family: sans-serif;
+      font-size: 9pt;
+      color: #94A3B8;
+    }
+  }
+  body {
+    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 10pt;
+    color: #0F172A;
+    line-height: 1.5;
+  }
+  .header {
+    border-bottom: 3px solid #1D9E75;
+    padding-bottom: 8pt;
+    margin-bottom: 14pt;
+  }
+  .header .label {
+    color: #5DCAA5;
+    font-size: 9pt;
+    font-weight: 400;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .header h1 {
+    color: #0F4F3A;
+    font-size: 18pt;
+    font-weight: 700;
+    margin: 4pt 0 0 0;
+    letter-spacing: -0.3pt;
+  }
+  .meta {
+    color: #64748B;
+    font-size: 9pt;
+    margin-top: 6pt;
+  }
+  .meta b {
+    color: #0F172A;
+  }
+  .question {
+    background: #F0FDF4;
+    border-left: 3px solid #1D9E75;
+    padding: 10pt 14pt;
+    margin: 12pt 0 16pt 0;
+    color: #0F4F3A;
+    font-size: 10pt;
+    font-style: italic;
+  }
+  h2 {
+    color: #0F4F3A;
+    font-size: 11pt;
+    font-weight: 700;
+    margin: 14pt 0 6pt 0;
+    border-bottom: 1px solid #BBF7D0;
+    padding-bottom: 3pt;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  ul.facts, ul.devices, ul.tools, ul.findings {
+    list-style: none;
+    padding: 0;
+    margin: 4pt 0 8pt 0;
+  }
+  ul.facts li {
+    padding: 5pt 8pt;
+    border-left: 2px solid #5DCAA5;
+    background: #F8FAFC;
+    margin-bottom: 3pt;
+    font-size: 9pt;
+  }
+  ul.devices li, ul.tools li, ul.findings li {
+    padding: 4pt 8pt;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 3pt;
+    margin-bottom: 3pt;
+    font-size: 9pt;
+    page-break-inside: avoid;
+  }
+  ul.devices code, ul.tools code {
+    font-family: monospace;
+    font-weight: 600;
+    color: #0F4F3A;
+  }
+  .device-meta {
+    color: #64748B;
+    font-size: 8pt;
+    margin-left: 4pt;
+  }
+  .conclusions {
+    background: #FFFBEB;
+    border-left: 3px solid #F59E0B;
+    padding: 10pt 14pt;
+    margin: 12pt 0;
+    font-size: 10pt;
+    color: #78350F;
+  }
+  .severity {
+    display: inline-block;
+    font-size: 7pt;
+    padding: 1pt 5pt;
+    border-radius: 2pt;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    margin-right: 4pt;
+  }
+  .severity.critical { background: #FEE2E2; color: #DC2626; }
+  .severity.high     { background: #FEF3C7; color: #B45309; }
+  .severity.medium   { background: #FEF9C3; color: #A16207; }
+  .severity.low      { background: #DBEAFE; color: #1D4ED8; }
+  .severity.info     { background: #E2E8F0; color: #475569; }
+  .rule-id {
+    font-family: monospace;
+    font-size: 8pt;
+    color: #1D9E75;
+    font-weight: 600;
+  }
+  .empty {
+    color: #94A3B8;
+    font-style: italic;
+    font-size: 9pt;
+    padding: 4pt 0;
+  }
+  .footer-note {
+    margin-top: 18pt;
+    padding-top: 8pt;
+    border-top: 1px solid #E2E8F0;
+    font-size: 8pt;
+    color: #94A3B8;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="label">Investigation Report</div>
+  <h1>{{ report.title }}</h1>
+  <div class="meta">
+    <b>Site:</b> {{ report.site or '—' }}
+    &nbsp;·&nbsp;
+    <b>Run:</b> {{ report.run_id }}
+    &nbsp;·&nbsp;
+    <b>Generated:</b> {{ report.generated_at }}
+  </div>
+</div>
+
+{% if report.question %}
+<h2>The Question</h2>
+<div class="question">"{{ report.question }}"</div>
+{% endif %}
+
+<h2>Key Facts</h2>
+{% if report.key_facts %}
+<ul class="facts">
+  {% for f in report.key_facts %}
+  <li>{{ f.text }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">No key facts recorded.</p>
+{% endif %}
+
+<h2>Devices Touched</h2>
+{% if report.devices_touched %}
+<ul class="devices">
+  {% for d in report.devices_touched %}
+  <li>
+    <code>{{ d.name }}</code>
+    {% if d.role %}<span class="device-meta">{{ d.role }}</span>{% endif %}
+    {% if d.os %}<span class="device-meta">· {{ d.os }} {{ d.os_version or '' }}</span>{% endif %}
+    {% if d.reachable is not none %}
+      <span class="device-meta">· {{ 'reachable' if d.reachable else 'unreachable' }}</span>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">No devices identified in this conversation.</p>
+{% endif %}
+
+<h2>Tools Used</h2>
+{% if report.tools_used %}
+<ul class="tools">
+  {% for t in report.tools_used %}
+  <li><code>{{ t }}</code></li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">No tools recorded.</p>
+{% endif %}
+
+<h2>Findings Referenced</h2>
+{% if report.findings_referenced %}
+<ul class="findings">
+  {% for f in report.findings_referenced %}
+  <li>
+    <span class="severity {{ f.severity }}">{{ f.severity }}</span>
+    <span class="rule-id">{{ f.rule_id }}</span>
+    <div>{{ f.title }}</div>
+    {% if f.affected_devices %}
+    <div class="device-meta">
+      Affected:
+      {% for d in f.affected_devices %}<code>{{ d }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+    </div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">No findings cited in this conversation.</p>
+{% endif %}
+
+{% if report.conclusions %}
+<h2>Conclusions &amp; Action Items</h2>
+<div class="conclusions">{{ report.conclusions }}</div>
+{% endif %}
+
+<div class="footer-note">
+  Generated by NetCopilot · Snapshot of an operator investigation · Report ID: {{ report.report_id }}
+</div>
+
+</body>
+</html>

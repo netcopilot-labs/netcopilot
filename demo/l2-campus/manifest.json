@@ -1,0 +1,57 @@
+{
+  "run_id": "l2-campus",
+  "timestamp_utc": "2026-06-26T00:00:00Z",
+  "device_count": 4,
+  "collection_mode": "synthetic",
+  "site": "demo-l2",
+  "devices": [
+    {
+      "inventory_name": "core-sw-01",
+      "target": "192.0.2.31",
+      "hostname": "core-sw-01",
+      "os": "ios-xe",
+      "role": "core_switch",
+      "site": "demo",
+      "collection_strategy": "pyats",
+      "cluster": null,
+      "status": "success",
+      "error": null
+    },
+    {
+      "inventory_name": "acc-sw-01",
+      "target": "192.0.2.41",
+      "hostname": "acc-sw-01",
+      "os": "ios-xe",
+      "role": "access_switch",
+      "site": "demo",
+      "collection_strategy": "pyats",
+      "cluster": null,
+      "status": "success",
+      "error": null
+    },
+    {
+      "inventory_name": "acc-sw-03",
+      "target": "192.0.2.43",
+      "hostname": "acc-sw-03",
+      "os": "ios-xe",
+      "role": "access_switch",
+      "site": "demo",
+      "collection_strategy": "pyats",
+      "cluster": null,
+      "status": "success",
+      "error": null
+    },
+    {
+      "inventory_name": "acc-sw-04",
+      "target": "192.0.2.44",
+      "hostname": "acc-sw-04",
+      "os": "ios-xe",
+      "role": "access_switch",
+      "site": "demo",
+      "collection_strategy": "pyats",
+      "cluster": null,
+      "status": "success",
+      "error": null
+    }
+  ]
+}

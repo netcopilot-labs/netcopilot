@@ -1,0 +1,165 @@
+{
+  "global": {
+    "etherchannel_misconfig_guard": true,
+    "bpduguard_timeout_recovery": 300,
+    "loop_guard": false,
+    "bpdu_guard": false,
+    "bpdu_filter": false
+  },
+  "mstp": {
+    "default": {
+      "name": "",
+      "revision": 0,
+      "domain": "default"
+    }
+  },
+  "rapid_pvst": {
+    "default": {
+      "hello_time": 2,
+      "vlans": {
+        "20": {
+          "root_cost": 4,
+          "hello_time": 2,
+          "max_age": 20,
+          "forwarding_delay": 15,
+          "hold_count": 6,
+          "vlan_id": 20,
+          "bridge_priority": 32768,
+          "bridge_address": "0c00.816a.2a00",
+          "topology_changes": 1,
+          "time_since_topology_change": "18:41:15",
+          "hold_time": 1,
+          "root_port": 5,
+          "designated_root_priority": 32788,
+          "designated_root_address": "0c00.017d.1a00",
+          "configured_bridge_priority": 32768,
+          "sys_id_ext": 20,
+          "interfaces": {
+            "GigabitEthernet1/0/5": {
+              "name": "GigabitEthernet1/0/5",
+              "cost": 4,
+              "port_priority": 128,
+              "port_num": 5,
+              "designated_root_priority": 32788,
+              "designated_root_address": "0c00.017d.1a00",
+              "designated_bridge_priority": 32788,
+              "designated_bridge_address": "0c00.017d.1a00",
+              "counters": {
+                "bpdu_sent": 4,
+                "bpdu_received": 33634
+              },
+              "forward_transitions": 1,
+              "designated_cost": 0,
+              "role": "root",
+              "port_state": "forwarding",
+              "designated_port_priority": 128,
+              "designated_port_num": 5
+            }
+          }
+        },
+        "10": {
+          "root_cost": 4,
+          "hello_time": 2,
+          "max_age": 20,
+          "forwarding_delay": 15,
+          "hold_count": 6,
+          "vlan_id": 10,
+          "bridge_priority": 32768,
+          "bridge_address": "0c00.816a.2a00",
+          "topology_changes": 1,
+          "time_since_topology_change": "18:41:15",
+          "hold_time": 1,
+          "root_port": 5,
+          "designated_root_priority": 32768,
+          "designated_root_address": "0c00.816a.2a00",
+          "configured_bridge_priority": 32768,
+          "sys_id_ext": 10,
+          "interfaces": {
+            "GigabitEthernet1/0/5": {
+              "name": "GigabitEthernet1/0/5",
+              "cost": 4,
+              "port_priority": 128,
+              "port_num": 5,
+              "designated_root_priority": 32778,
+              "designated_root_address": "0c00.017d.1a00",
+              "designated_bridge_priority": 32778,
+              "designated_bridge_address": "0c00.017d.1a00",
+              "counters": {
+                "bpdu_sent": 4,
+                "bpdu_received": 33634
+              },
+              "forward_transitions": 1,
+              "designated_cost": 0,
+              "role": "root",
+              "port_state": "forwarding",
+              "designated_port_priority": 128,
+              "designated_port_num": 5
+            }
+          }
+        },
+        "1": {
+          "hello_time": 2,
+          "max_age": 20,
+          "forwarding_delay": 15,
+          "hold_count": 6,
+          "vlan_id": 1,
+          "bridge_priority": 32768,
+          "bridge_address": "0c00.816a.2a00",
+          "topology_changes": 10,
+          "time_since_topology_change": "2d03h",
+          "hold_time": 1,
+          "designated_root_priority": 32769,
+          "designated_root_address": "0c00.816a.2a00",
+          "configured_bridge_priority": 32768,
+          "sys_id_ext": 1,
+          "interfaces": {
+            "GigabitEthernet1/0/8": {
+              "name": "GigabitEthernet1/0/8",
+              "cost": 4,
+              "port_priority": 128,
+              "port_num": 8,
+              "designated_root_priority": 32769,
+              "designated_root_address": "0c00.816a.2a00",
+              "designated_bridge_priority": 32769,
+              "designated_bridge_address": "0c00.816a.2a00",
+              "counters": {
+                "bpdu_sent": 126741,
+                "bpdu_received": 0
+              },
+              "forward_transitions": 1,
+              "designated_cost": 0,
+              "role": "designated",
+              "port_state": "forwarding",
+              "designated_port_priority": 128,
+              "designated_port_num": 8
+            },
+            "GigabitEthernet1/0/7": {
+              "name": "GigabitEthernet1/0/7",
+              "cost": 4,
+              "port_priority": 128,
+              "port_num": 7,
+              "designated_root_priority": 32769,
+              "designated_root_address": "0c00.816a.2a00",
+              "designated_bridge_priority": 32769,
+              "designated_bridge_address": "0c00.816a.2a00",
+              "counters": {
+                "bpdu_sent": 91892,
+                "bpdu_received": 0
+              },
+              "forward_transitions": 1,
+              "designated_cost": 0,
+              "role": "designated",
+              "port_state": "forwarding",
+              "designated_port_priority": 128,
+              "designated_port_num": 7
+            }
+          }
+        }
+      },
+      "max_age": 20,
+      "forwarding_delay": 15,
+      "hold_count": 6,
+      "pvst_id": "default"
+    }
+  }
+}

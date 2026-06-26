@@ -1,0 +1,69 @@
+# NetCopilot model registry — copy to `models.yaml` and edit.
+#
+#   cp models.example.yaml models.yaml
+#
+# List as many local and commercial models as you want; every entry appears in the
+# dashboard model selector. API keys are NOT stored here — put them in `.env` and
+# reference the env-var NAME via `api_key_env`. `models.yaml` is gitignored.
+#
+# Fields:
+#   id          unique id (used internally + in the API)
+#   label       what the dropdown shows
+#   type        "openai"  -> any OpenAI-compatible endpoint (vLLM, Ollama, OpenAI,
+#                            Gemini's OpenAI endpoint, Groq, OpenRouter, …)
+#               "anthropic" -> native Claude API
+#   model       the provider-side model name
+#   base_url    endpoint (openai type only); ${VARS} from .env are expanded
+#   api_key_env name of the .env variable holding the key (omit for keyless local)
+#   anonymize   scrub device names/IPs/etc before sending (true for any cloud model;
+#               false for local models that keep data on-prem)
+#   price_in    USD per 1M input tokens   (for the cost panel; 0 if free/unknown)
+#   price_out   USD per 1M output tokens
+
+default: gemma-local      # which model is selected by default
+
+models:
+  # ── Local (on-prem, no anonymization needed) ──────────────────────────
+  - id: gemma-local
+    label: "Gemma 4 31B (Local)"
+    type: openai
+    base_url: ${VLLM_BASE_URL}        # e.g. http://10.0.0.5:8000/v1
+    model: gemma-4-31b-it
+    anonymize: false
+
+  - id: qwen-local
+    label: "Qwen2.5 32B (Local)"
+    type: openai
+    base_url: http://localhost:11434/v1   # Ollama
+    model: qwen2.5:32b
+    anonymize: false
+
+  # ── Commercial (anonymized before any data leaves the host) ───────────
+  - id: claude-sonnet
+    label: "Claude Sonnet 4.6 (anonymized)"
+    type: anthropic
+    model: claude-sonnet-4-6
+    api_key_env: ANTHROPIC_API_KEY
+    anonymize: true
+    price_in: 3.0
+    price_out: 15.0
+
+  - id: gpt-4o
+    label: "GPT-4o (anonymized)"
+    type: openai
+    base_url: https://api.openai.com/v1
+    model: gpt-4o
+    api_key_env: OPENAI_API_KEY
+    anonymize: true
+    price_in: 2.5
+    price_out: 10.0
+
+  - id: gemini-pro
+    label: "Gemini 2.5 Pro (anonymized)"
+    type: openai
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai
+    model: gemini-2.5-pro
+    api_key_env: GEMINI_API_KEY
+    anonymize: true
+    price_in: 1.25
+    price_out: 5.0

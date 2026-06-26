@@ -1,0 +1,69 @@
+{
+  "vlans": {
+    "1005": {
+      "vlan_id": "1005",
+      "name": "trnet-default",
+      "state": "unsupport",
+      "shutdown": false
+    },
+    "1004": {
+      "vlan_id": "1004",
+      "name": "fddinet-default",
+      "state": "unsupport",
+      "shutdown": false
+    },
+    "1003": {
+      "vlan_id": "1003",
+      "name": "token-ring-default",
+      "state": "unsupport",
+      "shutdown": false
+    },
+    "1002": {
+      "vlan_id": "1002",
+      "name": "fddi-default",
+      "state": "unsupport",
+      "shutdown": false
+    },
+    "31": {
+      "vlan_id": "31",
+      "name": "USERS-BLUE",
+      "state": "active",
+      "shutdown": false
+    },
+    "30": {
+      "vlan_id": "30",
+      "name": "USERS-RED",
+      "state": "active",
+      "shutdown": false,
+      "interfaces": [
+        "GigabitEthernet1/0/2"
+      ]
+    },
+    "20": {
+      "vlan_id": "20",
+      "name": "TRANSIT-BLUE",
+      "state": "active",
+      "shutdown": false
+    },
+    "10": {
+      "vlan_id": "10",
+      "name": "TRANSIT-RED",
+      "state": "active",
+      "shutdown": false
+    },
+    "1": {
+      "vlan_id": "1",
+      "name": "default",
+      "state": "active",
+      "shutdown": false,
+      "interfaces": [
+        "GigabitEthernet1/0/3",
+        "GigabitEthernet1/0/4",
+        "GigabitEthernet1/0/5",
+        "GigabitEthernet1/0/6",
+        "GigabitEthernet1/0/7",
+        "GigabitEthernet1/0/8"
+      ]
+    }
+  }
+}

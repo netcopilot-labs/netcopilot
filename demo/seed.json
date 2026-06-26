@@ -1,0 +1,167 @@
+{
+  "_comment": "Synthetic demo network (RFC 5737 documentation IPs). Load with load_seed() and serve the dashboard for a self-contained, BYO-data-free demo.",
+  "site": "demo",
+  "run_id": "demo-2026-01-15_10-00-00",
+  "devices": [
+    {
+      "name": "core-rtr-01",
+      "role": "core_router",
+      "platform": "CSR1000v",
+      "os_type": "ios-xe",
+      "os_version": "17.9",
+      "mgmt_ip": "192.0.2.1",
+      "collected": true
+    },
+    {
+      "name": "dist-sw-01",
+      "role": "distribution_switch",
+      "platform": "C9500",
+      "os_type": "ios-xe",
+      "os_version": "17.9",
+      "mgmt_ip": "192.0.2.2",
+      "collected": true
+    },
+    {
+      "name": "access-sw-01",
+      "role": "access_switch",
+      "platform": "C9300",
+      "os_type": "ios-xe",
+      "os_version": "17.6",
+      "mgmt_ip": "192.0.2.11",
+      "collected": true
+    },
+    {
+      "name": "access-sw-02",
+      "role": "access_switch",
+      "platform": "C9300",
+      "os_type": "ios-xe",
+      "os_version": "17.6",
+      "mgmt_ip": "192.0.2.12",
+      "collected": true
+    },
+    {
+      "name": "edge-fw-01",
+      "role": "firewall",
+      "platform": "FortiGate-VM",
+      "os_type": "fortios",
+      "os_version": "7.4",
+      "mgmt_ip": "192.0.2.254",
+      "collected": true
+    }
+  ],
+  "interfaces": [
+    {
+      "device": "core-rtr-01",
+      "name": "GigabitEthernet1",
+      "description": "uplink to ISP-A",
+      "status": "up",
+      "media_type": "fiber"
+    },
+    {
+      "device": "core-rtr-01",
+      "name": "GigabitEthernet2",
+      "description": "to dist-sw-01",
+      "status": "up",
+      "media_type": "fiber"
+    },
+    {
+      "device": "dist-sw-01",
+      "name": "TenGigE1/0/1",
+      "description": "to core-rtr-01",
+      "status": "up",
+      "media_type": "fiber"
+    },
+    {
+      "device": "dist-sw-01",
+      "name": "GigabitEthernet1/0/1",
+      "description": "to access-sw-01",
+      "status": "up",
+      "media_type": "copper"
+    },
+    {
+      "device": "access-sw-01",
+      "name": "GigabitEthernet1/0/1",
+      "description": "uplink to dist-sw-01",
+      "status": "up",
+      "media_type": "copper"
+    },
+    {
+      "device": "access-sw-02",
+      "name": "GigabitEthernet1/0/1",
+      "description": "uplink to dist-sw-01",
+      "status": "down",
+      "media_type": "copper"
+    }
+  ],
+  "links": [
+    {
+      "a": "core-rtr-01",
+      "b": "dist-sw-01",
+      "type": "physical"
+    },
+    {
+      "a": "dist-sw-01",
+      "b": "access-sw-01",
+      "type": "physical"
+    },
+    {
+      "a": "dist-sw-01",
+      "b": "access-sw-02",
+      "type": "physical"
+    },
+    {
+      "a": "core-rtr-01",
+      "b": "edge-fw-01",
+      "type": "physical"
+    }
+  ],
+  "adjacencies": [
+    {
+      "a": "core-rtr-01",
+      "b": "dist-sw-01",
+      "protocol": "ospf"
+    },
+    {
+      "a": "core-rtr-01",
+      "b": "edge-fw-01",
+      "protocol": "bgp",
+      "local_as": 65010,
+      "remote_as": 65020,
+      "bgp_type": "transit"
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "demo-f1",
+      "device": "access-sw-02",
+      "element_id": "access-sw-02",
+      "rule_id": "INTF_UPLINK_DOWN",
+      "severity": "high",
+      "message": "Uplink GigabitEthernet1/0/1 to dist-sw-01 is down."
+    },
+    {
+      "finding_id": "demo-f2",
+      "device": "core-rtr-01",
+      "element_id": "core-rtr-01",
+      "rule_id": "NTP_NOT_CONFIGURED",
+      "severity": "low",
+      "message": "No NTP server configured."
+    },
+    {
+      "finding_id": "demo-f3",
+      "device": "core-rtr-01",
+      "element_id": "core-rtr-01",
+      "rule_id": "CIS_XE_1_2_HTTP",
+      "severity": "cis",
+      "message": "HTTP server enabled on core-rtr-01 (CIS benchmark)."
+    },
+    {
+      "finding_id": "demo-f4",
+      "device": "edge-fw-01",
+      "element_id": "edge-fw-01",
+      "rule_id": "WEAK_PASSWORD_HASH",
+      "severity": "critical",
+      "message": "Admin account uses a weak password hash on edge-fw-01."
+    }
+  ]
+}

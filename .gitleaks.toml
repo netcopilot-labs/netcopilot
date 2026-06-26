@@ -1,0 +1,7 @@
+# NetCopilot — gitleaks configuration (PUBLIC).
+# Generic secret detection only. No project-specific or environment-specific terms here:
+# the sensitive denylist lives in internal/ (gitignored) and runs locally, not in public CI.
+title = "NetCopilot gitleaks config"
+
+[extend]
+useDefault = true

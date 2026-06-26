@@ -1,0 +1,32 @@
+# NetCopilot — supporting services.
+#
+#   docker compose up -d     # start Neo4j (the graph store)
+#   docker compose down      # stop (data persists in the named volume)
+#
+# The app reads NEO4J_* from the environment (.env). More services (ChromaDB,
+# dashboard, MCP server) are added here as later phases land.
+
+services:
+  neo4j:
+    image: neo4j:5-community
+    container_name: netcopilot-neo4j
+    ports:
+      - "${NEO4J_HTTP_PORT:-7474}:7474"   # browser  http://localhost:7474
+      - "${NEO4J_BOLT_PORT:-7687}:7687"   # bolt
+    environment:
+      # Password is required — no weak default. Set NEO4J_PASSWORD in .env.
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD in .env (see .env.example)}
+      - NEO4J_PLUGINS=["apoc"]
+    volumes:
+      - neo4j_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "neo4j", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  neo4j_data:
+    driver: local

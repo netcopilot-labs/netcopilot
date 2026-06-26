@@ -1,0 +1,54 @@
+# ── Internal / private (never published) ─────────────────────────
+/CLAUDE.md
+/internal/
+/.claude/
+*.local.*
+
+# ── Data & secrets (BYO — never shipped) ─────────────────────────
+/runs/
+/inventory/
+/data/
+# RAG ChromaDB store: default path is package-relative (rag/store.py), so a user
+# who ingests their own docs would otherwise commit the embeddings. Ignore it.
+src/netcopilot/data/
+/knowledge_base/
+.env
+.env.*
+!.env.example
+# User's model registry (may reference internal endpoints); ship models.example.yaml.
+/models.yaml
+*.pem
+*.key
+
+# ── Python ───────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# ── Node / frontend ──────────────────────────────────────────────
+node_modules/
+dist/
+build/
+*.log
+
+# ── Caches / model weights ───────────────────────────────────────
+.cache/
+*.bin
+*.safetensors
+
+# ── IDE / OS ─────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Built frontend bundle (produced by `npm run build` → copied to backend/static)
+src/netcopilot/dashboard/backend/static/
+
+# L2 demo run: commit facts + manifest, not generated model/findings
+demo/l2-campus/model/
+demo/l2-campus/findings/

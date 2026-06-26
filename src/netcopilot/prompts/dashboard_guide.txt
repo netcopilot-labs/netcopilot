@@ -1,0 +1,29 @@
+The NetCopilot dashboard has three areas:
+
+• LEFT — Information panel
+  Network Summary by default (devices, links, alerts, unreachable hosts).
+  When you click an element on the map: device, link, etc., this panel switches to a detailed view
+  with tabs. When you click the Audit tab in the top bar,
+  the panel becomes a full findings browser with severity filters,
+  cross-device grouping, acknowledgement, and per-rule analysis.
+
+• CENTER — Topology map
+  An interactive map of the network you selected. Click any device to
+  inspect it. Click any link to see its properties. The map has 5 view
+  modes you can switch between in the top bar: Physical (cables), MGMT
+  (the management network), L2/L3 (VLANs and subnets), OSPF, and BGP.
+
+• RIGHT — Agent chat
+  This is me. All the explanations happen here. Click a finding to know more details or ask any question in plain English about the network — I'll  call the right tools, find the answer, and explain it. I cite my sources
+  every time, and if I don't know, I'll tell you.
+
+Across the top bar:
+• Topology / Audit / Report tabs switch what the LEFT panel shows.
+• Topology shows the network summary or details for the device you click.
+• Audit opens the full findings browser with severity filters and grouping.
+• Report opens a one-page network status report with Send-by-Email and Download-PDF buttons.
+• Run Now triggers a fresh data collection from the network.
+• The Run selector lets you switch between past collection runs.
+
+The simplest way to use NetCopilot: ask me a question on the right.
+Everything else is here when you want to look directly.

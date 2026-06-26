@@ -1,0 +1,70 @@
+[project]
+name = "netcopilot"
+version = "0.0.0"
+description = "Network Context Agent — a deterministic, verifiable model of a multi-vendor network, exposed over MCP."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Carlos Aspe" }]
+# Runtime dependencies grow as modules are extracted (F1-3+: neo4j, fastmcp, ...).
+dependencies = [
+    "anthropic>=0.86",  # Claude provider
+    "httpx>=0.28",      # Ollama / OpenAI-compatible provider
+    "neo4j>=5.0",       # graph store
+    "fastmcp>=3.1",     # MCP server
+    "fastapi>=0.110",   # dashboard REST API
+    "uvicorn>=0.29",    # ASGI server for the dashboard
+    "jinja2>=3.1",      # report HTML templating
+    "pyyaml>=6.0",      # inventory parsing
+    "netmiko>=4.0",     # SSH collection transport
+    "ncclient>=0.6.13", # NETCONF collection transport
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+# pyATS/Genie collection transport — the primary Cisco strategy. Heavy and
+# Linux/macOS only (no Windows wheels), so it is opt-in: `pip install -e .[pyats]`.
+# Without it the strategy chain falls back to NETCONF/RESTCONF/SSH.
+pyats = [
+    "pyats>=24.0",
+    "genie>=24.0",
+    "unicon>=24.0",
+]
+# RAG over vendor PDFs — heavy ML deps (sentence-transformers pulls in torch), so
+# opt-in: `pip install -e .[rag]`. PDF text/TOC via pypdfium2 (Apache-2.0/BSD-3).
+rag = [
+    "pypdfium2>=4.0",
+    "chromadb>=0.5",
+    "sentence-transformers>=3.0",
+]
+# PDF report rendering via WeasyPrint — has native system-library deps (cairo,
+# pango), so it is opt-in: `pip install -e .[reports]`. Without it, reports
+# still generate as data; only PDF export is unavailable.
+reports = [
+    "weasyprint>=60",
+]
+# Telegram bot client. faster-whisper (local voice transcription) is heavy
+# (ctranslate2), so the whole client is opt-in: `pip install -e .[telegram]`.
+telegram = [
+    "python-telegram-bot>=21.0",
+    "faster-whisper>=1.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# Ship the rule catalog inside the package so the engine finds it by default.
+"netcopilot.rules" = ["rule-catalog.yaml"]
+# Ship the agent system prompt + onboarding copy as package data.
+"netcopilot.prompts" = ["agent_system.txt", "about_netcopilot.txt", "dashboard_guide.txt"]
+# Ship the report HTML templates as package data.
+"netcopilot.dashboard.backend.reports" = ["templates/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

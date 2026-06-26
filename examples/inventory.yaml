@@ -1,0 +1,52 @@
+# Example inventory for the demo network.
+#
+# Synthetic and fully invented — addresses are RFC 5737 documentation ranges
+# (192.0.2.0/24). Copy this file, point `netcopilot run` at your copy, and
+# replace the devices with your own.
+#
+# Each device needs at least:
+#   name      unique device name (used everywhere downstream)
+#   mgmt_ip   management address NetCopilot connects to
+#   os        OS family — drives the collection strategy and parsers
+#             (supported in v1: ios-xe, ios-xr, fortios)
+#
+# Everything else is optional and passed through to the collect layer as-is.
+
+devices:
+  - name: core-rtr-01
+    mgmt_ip: 192.0.2.1
+    os: ios-xe
+    role: core_router
+    site: demo
+
+  - name: dist-sw-01
+    mgmt_ip: 192.0.2.2
+    os: ios-xe
+    role: distribution_switch
+    site: demo
+
+  - name: access-sw-01
+    mgmt_ip: 192.0.2.11
+    os: ios-xe
+    role: access_switch
+    site: demo
+    ssh_only: true            # connection hint: use SSH, skip NETCONF/RESTCONF
+
+  - name: access-sw-02
+    mgmt_ip: 192.0.2.12
+    os: ios-xe
+    role: access_switch
+    site: demo
+    skip_families: [bgp, routing]   # don't collect these fact families on this device
+
+  - name: edge-fw-01
+    mgmt_ip: 192.0.2.254
+    os: fortios
+    role: firewall
+    site: demo
+    # Per-device credential override. When absent, the run-level credentials
+    # (from the environment) are used. Never commit real secrets — reference
+    # environment variables or your secrets manager.
+    username: ${EDGE_FW_USER}
+    password: ${EDGE_FW_PASSWORD}
+    # vdom: tenant-a          # optional: scope FortiGate per-VDOM endpoints to this VDOM

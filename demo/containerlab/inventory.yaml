@@ -1,0 +1,39 @@
+# NetCopilot inventory for the Containerlab demo network.
+#
+# Mgmt IPs match the `mgmt-ipv4` addresses in topology.clab.yml (RFC 5737).
+# Run it with:
+#
+#   export NETCOPILOT_SSH_USERNAME=admin
+#   export NETCOPILOT_SSH_PASSWORD=admin            # the lab credential (see README)
+#   export NETCOPILOT_FORTIGATE_API_TOKEN=...       # token created on edge-fw-01
+#   python -m netcopilot run --inventory inventory.yaml --site demo
+#
+# os values drive the collection strategy + parsers: ios-xr | ios-xe | fortios.
+
+devices:
+  # ---- Border routers (IOS-XR) — eBGP to ISPs, iBGP clients of the core RR ----
+  - { name: bdr-rtr-01, mgmt_ip: 192.0.2.11, os: ios-xr, role: border_router, site: demo }
+  - { name: bdr-rtr-02, mgmt_ip: 192.0.2.12, os: ios-xr, role: border_router, site: demo }
+  - { name: bdr-rtr-03, mgmt_ip: 192.0.2.13, os: ios-xr, role: border_router, site: demo }
+
+  # ---- Fictional ISPs (isp-01/02/03) are deliberately NOT collected ----
+  # They are upstream providers we don't manage — external eBGP peers. They live
+  # in the containerlab (topology.clab.yml) so the border routers' eBGP sessions
+  # establish, but excluding them from the inventory makes NetCopilot model them
+  # as external peers: they appear in the BGP view (as "AS 64497/64498/64499")
+  # and are correctly absent from the physical topology.
+
+  # ---- Core L3 switch / iBGP route-reflector (Catalyst 9000v) ----
+  - { name: core-sw-01, mgmt_ip: 192.0.2.31, os: ios-xe, role: core_switch, site: demo }
+
+  # ---- Access switch behind the firewall (OSPF) ----
+  - { name: acc-sw-01, mgmt_ip: 192.0.2.41, os: ios-xe, role: access_switch, site: demo }
+
+  # ---- Access switches on the core, VRF-lite + OSPF ----
+  - { name: acc-sw-03, mgmt_ip: 192.0.2.43, os: ios-xe, role: access_switch, site: demo }
+  - { name: acc-sw-04, mgmt_ip: 192.0.2.44, os: ios-xe, role: access_switch, site: demo }
+
+  # ---- Edge firewall (FortiGate, eval mode) ----
+  # FortiGate collection uses the REST API token in NETCOPILOT_FORTIGATE_API_TOKEN
+  # (create an api-user on edge-fw-01); no SSH username/password needed here.
+  - { name: edge-fw-01, mgmt_ip: 192.0.2.51, os: fortios, role: firewall, site: demo }

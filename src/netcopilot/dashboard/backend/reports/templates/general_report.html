@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NetCopilot Shift Handover Report — {{ report.site or 'Network' }} — {{ report.generated_at }}</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 18mm 16mm 18mm 16mm;
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-family: sans-serif;
+      font-size: 9pt;
+      color: #94A3B8;
+    }
+    @bottom-left {
+      content: "NetCopilot · {{ report.generated_at }}";
+      font-family: sans-serif;
+      font-size: 9pt;
+      color: #94A3B8;
+    }
+  }
+  body {
+    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 10pt;
+    color: #0F172A;
+    line-height: 1.45;
+  }
+  .header {
+    border-bottom: 3px solid #1D9E75;
+    padding-bottom: 8pt;
+    margin-bottom: 14pt;
+  }
+  .header h1 {
+    color: #0F4F3A;
+    font-size: 22pt;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.5pt;
+  }
+  .header .subtitle {
+    color: #5DCAA5;
+    font-size: 9pt;
+    font-weight: 400;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: 2pt;
+  }
+  .meta {
+    color: #64748B;
+    font-size: 9pt;
+    margin-top: 6pt;
+  }
+  .meta b {
+    color: #0F172A;
+  }
+  .prose {
+    background: #F0FDF4;
+    border-left: 3px solid #1D9E75;
+    padding: 10pt 14pt;
+    margin: 12pt 0 16pt 0;
+    color: #0F4F3A;
+    font-size: 11pt;
+    font-weight: 500;
+  }
+  h2 {
+    color: #0F4F3A;
+    font-size: 12pt;
+    font-weight: 700;
+    margin: 14pt 0 6pt 0;
+    border-bottom: 1px solid #BBF7D0;
+    padding-bottom: 3pt;
+  }
+  table.scorecard {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+  }
+  table.scorecard td {
+    padding: 4pt 6pt;
+    border-bottom: 1px solid #E2E8F0;
+  }
+  table.scorecard td.label {
+    color: #64748B;
+    width: 35%;
+  }
+  table.scorecard td.value {
+    color: #0F172A;
+    font-weight: 600;
+    text-align: right;
+    width: 15%;
+  }
+  .delta-grid {
+    display: table;
+    width: 100%;
+    margin: 6pt 0;
+  }
+  .delta-cell {
+    display: table-cell;
+    width: 33.3%;
+    text-align: center;
+    padding: 8pt;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 4pt;
+  }
+  .delta-cell .num {
+    font-size: 18pt;
+    font-weight: 700;
+    color: #0F4F3A;
+  }
+  .delta-cell .lbl {
+    font-size: 8pt;
+    color: #64748B;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .delta-cell.new .num { color: #DC2626; }
+  .delta-cell.resolved .num { color: #059669; }
+  .delta-cell.unchanged .num { color: #94A3B8; }
+  ul.findings, ul.recs, ul.cd {
+    list-style: none;
+    padding: 0;
+    margin: 4pt 0 8pt 0;
+  }
+  ul.findings li, ul.recs li, ul.cd li {
+    padding: 6pt 8pt;
+    border-left: 3px solid #E2E8F0;
+    background: #F8FAFC;
+    margin-bottom: 4pt;
+    font-size: 9pt;
+    page-break-inside: avoid;
+  }
+  ul.findings li.critical { border-left-color: #DC2626; }
+  ul.findings li.high { border-left-color: #F59E0B; }
+  .rule-id {
+    font-family: monospace;
+    font-size: 8pt;
+    color: #1D9E75;
+    font-weight: 600;
+  }
+  .severity {
+    display: inline-block;
+    font-size: 7pt;
+    padding: 1pt 5pt;
+    border-radius: 2pt;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    margin-right: 4pt;
+  }
+  .severity.critical { background: #FEE2E2; color: #DC2626; }
+  .severity.high     { background: #FEF3C7; color: #B45309; }
+  .severity.medium   { background: #FEF9C3; color: #A16207; }
+  .severity.low      { background: #DBEAFE; color: #1D4ED8; }
+  .severity.info     { background: #E2E8F0; color: #475569; }
+  .devices {
+    color: #64748B;
+    font-size: 8pt;
+    margin-top: 2pt;
+  }
+  .devices code {
+    font-family: monospace;
+    background: #F1F5F9;
+    padding: 0 3pt;
+    border-radius: 2pt;
+  }
+  .empty {
+    color: #94A3B8;
+    font-style: italic;
+    font-size: 9pt;
+    padding: 6pt 0;
+  }
+  .footer-note {
+    margin-top: 18pt;
+    padding-top: 8pt;
+    border-top: 1px solid #E2E8F0;
+    font-size: 8pt;
+    color: #94A3B8;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Shift Handover Report</h1>
+  <div class="subtitle">NetCopilot · Network Context Intelligence</div>
+  <div class="meta">
+    <b>Site:</b> {{ report.site or '—' }}
+    &nbsp;·&nbsp;
+    <b>Run:</b> {{ report.run_id }}
+    &nbsp;·&nbsp;
+    <b>Generated:</b> {{ report.generated_at }}
+  </div>
+</div>
+
+<div class="prose">
+  {{ report.prose_summary }}
+</div>
+
+<h2>Network Health</h2>
+<table class="scorecard">
+  <tr>
+    <td class="label">Total devices</td>
+    <td class="value">{{ report.health.devices_total }}</td>
+    <td class="label">Unreachable</td>
+    <td class="value">{{ report.health.devices_unreachable }}</td>
+  </tr>
+  <tr>
+    <td class="label">Physical links</td>
+    <td class="value">{{ report.health.physical_links }}</td>
+    <td class="label">Stack interconnects</td>
+    <td class="value">{{ report.health.stack_links }}</td>
+  </tr>
+  <tr>
+    <td class="label">HA / infrastructure links</td>
+    <td class="value">{{ report.health.infrastructure_links }}</td>
+    <td class="label">Routing adjacencies</td>
+    <td class="value">{{ report.health.routing_adjacencies }}</td>
+  </tr>
+</table>
+
+<h2>Finding Delta vs Previous Run</h2>
+{% if report.delta.previous_run_id %}
+<div class="delta-grid">
+  <div class="delta-cell new">
+    <div class="num">{{ report.delta.new_count }}</div>
+    <div class="lbl">New</div>
+  </div>
+  <div class="delta-cell resolved">
+    <div class="num">{{ report.delta.resolved_count }}</div>
+    <div class="lbl">Resolved</div>
+  </div>
+  <div class="delta-cell unchanged">
+    <div class="num">{{ report.delta.unchanged_count }}</div>
+    <div class="lbl">Unchanged</div>
+  </div>
+</div>
+{% if report.delta.new_critical_titles %}
+<div style="font-size: 9pt; color: #64748B; margin-top: 6pt;">
+  <b>New criticals:</b>
+  <ul style="margin: 4pt 0 0 16pt; padding: 0;">
+    {% for title in report.delta.new_critical_titles %}
+    <li>{{ title }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% else %}
+<p class="empty">No previous run available — first collection of this site.</p>
+{% endif %}
+
+<h2>Top Critical &amp; High Findings</h2>
+{% if report.top_criticals %}
+<ul class="findings">
+  {% for f in report.top_criticals %}
+  <li class="{{ f.severity }}">
+    <span class="severity {{ f.severity }}">{{ f.severity }}</span>
+    <span class="rule-id">{{ f.rule_id }}</span>
+    <div>{{ f.title }}</div>
+    {% if f.affected_devices %}
+    <div class="devices">
+      Affected:
+      {% for d in f.affected_devices %}<code>{{ d }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+    </div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">No unacknowledged critical or high findings — network is stable.</p>
+{% endif %}
+
+<h2>Top Recommendations</h2>
+{% if report.top_recommendations %}
+<ul class="recs">
+  {% for r in report.top_recommendations %}
+  <li>
+    <span class="severity {{ r.severity }}">{{ r.severity }}</span>
+    <span class="rule-id">{{ r.rule_id }}</span>
+    <span style="color: #64748B; font-size: 8pt;">({{ r.affected_count }} affected)</span>
+    <div>{{ r.headline }}</div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">No recommendations — engine has nothing critical to suggest.</p>
+{% endif %}
+
+<h2>Cross-Device Patterns</h2>
+{% if report.cross_device_count > 0 %}
+<p style="font-size: 9pt; color: #64748B; margin: 4pt 0;">
+  <b>{{ report.cross_device_count }}</b> cross-device finding{% if report.cross_device_count != 1 %}s{% endif %} active across the network.
+</p>
+<ul class="cd">
+  {% for p in report.cross_device_patterns %}
+  <li>
+    <span class="rule-id">{{ p.rule_id }}</span>
+    <span style="color: #64748B; font-size: 8pt;">×{{ p.count }}</span>
+    {% if p.sample_devices %}
+    <div class="devices">
+      Devices:
+      {% for d in p.sample_devices %}<code>{{ d }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+    </div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">No cross-device patterns detected.</p>
+{% endif %}
+
+<div class="footer-note">
+  Generated by NetCopilot · Every fact in this report is grounded in deterministic checks against the live network · Report ID: {{ report.report_id }}
+</div>
+
+</body>
+</html>

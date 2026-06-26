@@ -1,0 +1,91 @@
+# NetCopilot demo network — Containerlab topology
+#
+# A small but realistic ISP-edge / campus network used to produce a full
+# NetCopilot collected-run (all five dashboard views + findings).
+#
+# Fully synthetic. All addresses are RFC 5737 documentation ranges and all
+# ASNs are RFC 5398 documentation ASNs. No real device names, IPs, or
+# credentials appear anywhere in this lab.
+#
+#   mgmt net        192.0.2.0/24     (each node's mgmt IP — what NetCopilot connects to)
+#   internal links  198.51.100.0/24  (iBGP / OSPF / core fabric)
+#   ISP-facing      203.0.113.0/24   (eBGP to the three fictional ISPs)
+#
+# Nodes boot CONFIG-LESS and are configured post-boot over mgmt SSH by
+# apply-configs.py. Containerlab's serial-console startup-config push is
+# unreliable on these heavy images: it drops the scrapli session on xrv9k
+# under load and truncates on cat9kv (the routing section is silently lost).
+# Booting config-less keeps clab's mgmt/SSH setup intact on every node;
+# apply-configs.py then adds the routing config additively. See README.md.
+#
+# Roles:
+#   bdr-rtr-01/02/03  IOS-XR border routers   — eBGP to an ISP, iBGP client of the core RR
+#   isp-01/02/03      IOS-XR (XRd, container) — three fictional ISPs (eBGP peers)
+#   core-sw-01        Catalyst 9000v          — L3 core, iBGP route-reflector
+#   acc-sw-01         Catalyst 9000v          — access behind the firewall, OSPF
+#   acc-sw-03/04      Catalyst 9000v          — access on the core, VRF-lite + OSPF
+#   edge-fw-01        FortiGate 7.4.12        — firewall between core and acc-sw-01
+#                                               (eval license = 3 interfaces: mgmt + 2 data)
+
+name: netcopilot-demo
+
+mgmt:
+  network: netcopilot-demo-mgmt
+  ipv4-subnet: 192.0.2.0/24
+
+topology:
+  kinds:
+    cisco_xrv9k:
+      image: vrnetlab/cisco_xrv9k:7.11.1
+    cisco_xrd:
+      image: ios-xrd-control-plane:26-1-1
+    cisco_cat9kv:
+      image: vrnetlab/cisco_cat9kv:17.18.02
+    fortinet_fortigate:
+      image: vrnetlab/vr-fortios:7.4.12
+
+  nodes:
+    # ---- Border routers (IOS-XR) ----
+    bdr-rtr-01: { kind: cisco_xrv9k, mgmt-ipv4: 192.0.2.11, env: { QEMU_SMP: "4" } }
+    bdr-rtr-02: { kind: cisco_xrv9k, mgmt-ipv4: 192.0.2.12, env: { QEMU_SMP: "4" } }
+    bdr-rtr-03: { kind: cisco_xrv9k, mgmt-ipv4: 192.0.2.13, env: { QEMU_SMP: "4" } }
+
+    # ---- Fictional ISPs (IOS-XR / XRd, native container — no KVM) ----
+    isp-01: { kind: cisco_xrd, mgmt-ipv4: 192.0.2.21 }
+    isp-02: { kind: cisco_xrd, mgmt-ipv4: 192.0.2.22 }
+    isp-03: { kind: cisco_xrd, mgmt-ipv4: 192.0.2.23 }
+
+    # ---- Core L3 switch / iBGP route-reflector (Catalyst 9000v) ----
+    core-sw-01: { kind: cisco_cat9kv, mgmt-ipv4: 192.0.2.31, env: { QEMU_SMP: "4" } }
+
+    # ---- Access switch behind the firewall (OSPF) ----
+    acc-sw-01: { kind: cisco_cat9kv, mgmt-ipv4: 192.0.2.41, env: { QEMU_SMP: "4" } }
+
+    # ---- Access switches on the core, VRF-lite + OSPF ----
+    acc-sw-03: { kind: cisco_cat9kv, mgmt-ipv4: 192.0.2.43, env: { QEMU_SMP: "4" } }
+    acc-sw-04: { kind: cisco_cat9kv, mgmt-ipv4: 192.0.2.44, env: { QEMU_SMP: "4" } }
+
+    # ---- Edge firewall (FortiGate, eval mode) ----
+    edge-fw-01: { kind: fortinet_fortigate, mgmt-ipv4: 192.0.2.51 }
+
+  links:
+    # eBGP: each border router to its ISP (203.0.113.0/24)
+    # XRd requires Gi0-0-0-X interface names in the topology (maps to Gi0/0/0/X)
+    - endpoints: ["bdr-rtr-01:eth1", "isp-01:Gi0-0-0-0"]
+    - endpoints: ["bdr-rtr-02:eth1", "isp-02:Gi0-0-0-0"]
+    - endpoints: ["bdr-rtr-03:eth1", "isp-03:Gi0-0-0-0"]
+
+    # Core fabric: each border router to the core RR (198.51.100.0/24)
+    - endpoints: ["bdr-rtr-01:eth2", "core-sw-01:eth1"]
+    - endpoints: ["bdr-rtr-02:eth2", "core-sw-01:eth2"]
+    - endpoints: ["bdr-rtr-03:eth2", "core-sw-01:eth3"]
+
+    # Core to firewall
+    - endpoints: ["core-sw-01:eth4", "edge-fw-01:eth1"]
+
+    # Firewall to access switch (OSPF) — eval license caps the FW at 2 data ports
+    - endpoints: ["edge-fw-01:eth2", "acc-sw-01:eth1"]
+
+    # Core to VRF access switches (OSPF)
+    - endpoints: ["core-sw-01:eth5", "acc-sw-03:eth1"]
+    - endpoints: ["core-sw-01:eth6", "acc-sw-04:eth1"]

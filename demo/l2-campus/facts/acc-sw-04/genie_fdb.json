@@ -1,0 +1,22 @@
+{
+  "mac_aging_time": 300,
+  "mac_table": {
+    "vlans": {
+      "40": {
+        "vlan": 40,
+        "mac_addresses": {
+          "0c00.5ca3.ad64": {
+            "mac_address": "0c00.5ca3.ad64",
+            "interfaces": {
+              "Vlan40": {
+                "interface": "Vlan40",
+                "entry_type": "static"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "total_mac_addresses": 22
+}
