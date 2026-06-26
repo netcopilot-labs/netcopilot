@@ -237,6 +237,15 @@ def _check_ntp_source_inconsistent(
         for servers_key, hostnames in source_groups.items():
             if servers_key == majority_servers:
                 continue
+            # A device that still uses ALL the common (majority) NTP servers —
+            # just with extra/backup servers on top (a superset) — stays time-
+            # consistent: it syncs to the same shared source as everyone else.
+            # Only flag devices that are MISSING one or more of the common
+            # servers (a disjoint or partial set), which is the real
+            # inconsistency. Avoids false-positiving redundant NTP config.
+            missing = majority_servers - servers_key
+            if not missing:
+                continue
             findings.append(make_finding(
                 rule_id="NTP_SOURCE_INCONSISTENT",
                 severity="low",
@@ -244,15 +253,16 @@ def _check_ntp_source_inconsistent(
                 element_type="device",
                 element_id=f"ntp::source_inconsistent::{','.join(sorted(hostnames))}",
                 message=(
-                    f"NTP server mismatch: {', '.join(hostnames)} use "
-                    f"{sorted(servers_key)} while majority "
-                    f"({len(majority[1])} devices) use "
-                    f"{sorted(majority_servers)}."
+                    f"NTP server mismatch: {', '.join(hostnames)} are missing "
+                    f"common NTP server(s) {sorted(missing)} used by the "
+                    f"majority ({len(majority[1])} devices use "
+                    f"{sorted(majority_servers)}); they use {sorted(servers_key)}."
                 ),
                 key_facts={
                     "devices": hostnames,
                     "their_servers": sorted(servers_key),
                     "majority_servers": sorted(majority_servers),
+                    "missing_common_servers": sorted(missing),
                 },
                 recommendation=(
                     "Configure all devices to use the same NTP server(s) "
