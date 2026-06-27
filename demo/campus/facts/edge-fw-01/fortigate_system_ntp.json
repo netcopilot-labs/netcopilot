@@ -1,0 +1,32 @@
+{
+  "http_method": "GET",
+  "revision": "ec551cd4d3b668071b33730896126753",
+  "results": {
+    "ntpsync": "enable",
+    "type": "fortiguard",
+    "syncinterval": 60,
+    "ntpserver": [],
+    "source-ip": "0.0.0.0",
+    "source-ip6": "::",
+    "server-mode": "enable",
+    "authentication": "disable",
+    "key-type": "MD5",
+    "key": "",
+    "key-id": 0,
+    "interface": [
+      {
+        "interface-name": "fortilink",
+        "q_origin_key": "fortilink"
+      }
+    ]
+  },
+  "vdom": "root",
+  "path": "system",
+  "name": "ntp",
+  "action": "",
+  "status": "success",
+  "http_status": 200,
+  "serial": "FGVMEVJ7_ORGXTCC",
+  "version": "v7.4.12",
+  "build": 2902
+}

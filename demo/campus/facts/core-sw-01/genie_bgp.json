@@ -1,0 +1,203 @@
+{
+  "instance": {
+    "default": {
+      "bgp_id": 64496,
+      "vrf": {
+        "RED": {
+          "cluster_id": "198.51.100.100"
+        },
+        "BLUE": {
+          "cluster_id": "198.51.100.100"
+        },
+        "default": {
+          "cluster_id": "198.51.100.100",
+          "neighbor": {
+            "198.51.100.103": {
+              "description": "iBGP-RRC-bdr-rtr-03",
+              "remote_as": 64496,
+              "shutdown": false,
+              "bgp_version": 4,
+              "session_state": "Established",
+              "bgp_negotiated_keepalive_timers": {
+                "keepalive_interval": 60,
+                "hold_time": 180
+              },
+              "bgp_session_transport": {
+                "connection": {
+                  "state": "Established",
+                  "last_reset": "never"
+                },
+                "transport": {
+                  "local_port": "47932",
+                  "local_host": "198.51.100.100",
+                  "foreign_port": "179",
+                  "foreign_host": "198.51.100.103",
+                  "mss": 1240
+                }
+              },
+              "bgp_negotiated_capabilities": {
+                "route_refresh": "advertised and received(new)",
+                "four_octets_asn": "advertised and received",
+                "enhanced_refresh": "advertised",
+                "stateful_switchover": "NO for session 1"
+              },
+              "bgp_neighbor_counters": {
+                "messages": {
+                  "sent": {
+                    "opens": 1,
+                    "updates": 8,
+                    "notifications": 0,
+                    "keepalives": 9848
+                  },
+                  "received": {
+                    "opens": 1,
+                    "updates": 3,
+                    "notifications": 0,
+                    "keepalives": 8952
+                  }
+                }
+              },
+              "address_family": {
+                "ipv4 unicast": {
+                  "bgp_table_version": 11,
+                  "routing_table_version": 11,
+                  "prefixes": {
+                    "total_entries": 10,
+                    "memory_usage": 2480
+                  },
+                  "path": {
+                    "total_entries": 10,
+                    "memory_usage": 1360
+                  },
+                  "total_memory": 5432
+                }
+              }
+            },
+            "198.51.100.102": {
+              "description": "iBGP-RRC-bdr-rtr-02",
+              "remote_as": 64496,
+              "shutdown": false,
+              "bgp_version": 4,
+              "session_state": "Established",
+              "bgp_negotiated_keepalive_timers": {
+                "keepalive_interval": 60,
+                "hold_time": 180
+              },
+              "bgp_session_transport": {
+                "connection": {
+                  "state": "Established",
+                  "last_reset": "never"
+                },
+                "transport": {
+                  "local_port": "179",
+                  "local_host": "198.51.100.100",
+                  "foreign_port": "45472",
+                  "foreign_host": "198.51.100.102",
+                  "mss": 1240
+                }
+              },
+              "bgp_negotiated_capabilities": {
+                "route_refresh": "advertised and received(new)",
+                "four_octets_asn": "advertised and received",
+                "enhanced_refresh": "advertised",
+                "stateful_switchover": "NO for session 1"
+              },
+              "bgp_neighbor_counters": {
+                "messages": {
+                  "sent": {
+                    "opens": 1,
+                    "updates": 8,
+                    "notifications": 0,
+                    "keepalives": 9854
+                  },
+                  "received": {
+                    "opens": 1,
+                    "updates": 3,
+                    "notifications": 0,
+                    "keepalives": 8952
+                  }
+                }
+              },
+              "address_family": {
+                "ipv4 unicast": {
+                  "bgp_table_version": 11,
+                  "routing_table_version": 11,
+                  "prefixes": {
+                    "total_entries": 10,
+                    "memory_usage": 2480
+                  },
+                  "path": {
+                    "total_entries": 10,
+                    "memory_usage": 1360
+                  },
+                  "total_memory": 5432
+                }
+              }
+            },
+            "198.51.100.101": {
+              "description": "iBGP-RRC-bdr-rtr-01",
+              "remote_as": 64496,
+              "shutdown": false,
+              "bgp_version": 4,
+              "session_state": "Established",
+              "bgp_negotiated_keepalive_timers": {
+                "keepalive_interval": 60,
+                "hold_time": 180
+              },
+              "bgp_session_transport": {
+                "connection": {
+                  "state": "Established",
+                  "last_reset": "never"
+                },
+                "transport": {
+                  "local_port": "54270",
+                  "local_host": "198.51.100.100",
+                  "foreign_port": "179",
+                  "foreign_host": "198.51.100.101",
+                  "mss": 1240
+                }
+              },
+              "bgp_negotiated_capabilities": {
+                "route_refresh": "advertised and received(new)",
+                "four_octets_asn": "advertised and received",
+                "enhanced_refresh": "advertised",
+                "stateful_switchover": "NO for session 1"
+              },
+              "bgp_neighbor_counters": {
+                "messages": {
+                  "sent": {
+                    "opens": 1,
+                    "updates": 8,
+                    "notifications": 0,
+                    "keepalives": 9855
+                  },
+                  "received": {
+                    "opens": 1,
+                    "updates": 3,
+                    "notifications": 0,
+                    "keepalives": 8952
+                  }
+                }
+              },
+              "address_family": {
+                "ipv4 unicast": {
+                  "bgp_table_version": 11,
+                  "routing_table_version": 11,
+                  "prefixes": {
+                    "total_entries": 10,
+                    "memory_usage": 2480
+                  },
+                  "path": {
+                    "total_entries": 10,
+                    "memory_usage": 1360
+                  },
+                  "total_memory": 5432
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

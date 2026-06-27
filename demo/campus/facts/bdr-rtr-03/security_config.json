@@ -1,0 +1,77 @@
+{
+  "aaa": {
+    "accounting_configured": false
+  },
+  "ssh": {
+    "version": 2
+  },
+  "ntp": {
+    "authentication_enabled": false,
+    "trusted_keys": [],
+    "servers_with_key": 0
+  },
+  "logging": {
+    "hosts": []
+  },
+  "services": {
+    "password_encryption": false,
+    "tcp_keepalives_in": false,
+    "tcp_keepalives_out": false,
+    "timestamps_log": false
+  },
+  "vty_lines": {},
+  "console": {},
+  "snmp": {
+    "communities": [],
+    "hosts": [],
+    "v3_users": [],
+    "acls": []
+  },
+  "banner": {
+    "login_present": false,
+    "motd_present": false,
+    "exec_present": false
+  },
+  "http_server": {
+    "http_enabled": false,
+    "https_enabled": false
+  },
+  "cdp_lldp": {
+    "cdp_enabled": false,
+    "lldp_enabled": false
+  },
+  "domain_lookup": {
+    "enabled": true
+  },
+  "password_policy": {},
+  "tacacs_radius": {
+    "tacacs_servers": [],
+    "radius_servers": [],
+    "key_configured": false
+  },
+  "ip_source_routing": {
+    "enabled": true
+  },
+  "_parser_coverage": {
+    "sections_attempted": 15,
+    "sections_parsed": 10,
+    "sections_empty": 5,
+    "sections_detail": {
+      "aaa": "parsed",
+      "ssh": "parsed",
+      "ntp": "parsed",
+      "logging": "empty",
+      "services": "parsed",
+      "vty_lines": "empty",
+      "console": "empty",
+      "snmp": "empty",
+      "banner": "parsed",
+      "http_server": "parsed",
+      "cdp_lldp": "parsed",
+      "domain_lookup": "parsed",
+      "password_policy": "empty",
+      "tacacs_radius": "parsed",
+      "ip_source_routing": "parsed"
+    }
+  }
+}

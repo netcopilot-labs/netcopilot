@@ -1,0 +1,109 @@
+{
+  "interfaces": {
+    "Vlan30": {
+      "ipv4": {
+        "neighbors": {
+          "198.51.100.65": {
+            "ip": "198.51.100.65",
+            "link_layer_address": "0c00.017d.1a65",
+            "origin": "static"
+          }
+        }
+      },
+      "arp_dynamic_learning": {
+        "local_proxy_enable": false,
+        "proxy_enable": true
+      }
+    },
+    "Vlan10": {
+      "ipv4": {
+        "neighbors": {
+          "198.51.100.26": {
+            "ip": "198.51.100.26",
+            "link_layer_address": "0c00.017d.1a46",
+            "origin": "static"
+          },
+          "198.51.100.25": {
+            "ip": "198.51.100.25",
+            "link_layer_address": "0c00.816a.2a46",
+            "origin": "dynamic"
+          }
+        }
+      },
+      "arp_dynamic_learning": {
+        "local_proxy_enable": false,
+        "proxy_enable": true
+      }
+    },
+    "GigabitEthernet0/0": {
+      "ipv4": {
+        "neighbors": {
+          "10.0.0.15": {
+            "ip": "10.0.0.15",
+            "link_layer_address": "0c00.017d.1a00",
+            "origin": "static"
+          },
+          "10.0.0.2": {
+            "ip": "10.0.0.2",
+            "link_layer_address": "5255.0a00.0002",
+            "origin": "dynamic"
+          }
+        }
+      },
+      "arp_dynamic_learning": {
+        "local_proxy_enable": false,
+        "proxy_enable": true
+      }
+    },
+    "Vlan31": {
+      "ipv4": {
+        "neighbors": {
+          "198.51.100.97": {
+            "ip": "198.51.100.97",
+            "link_layer_address": "0c00.017d.1a55",
+            "origin": "static"
+          }
+        }
+      },
+      "arp_dynamic_learning": {
+        "local_proxy_enable": false,
+        "proxy_enable": true
+      }
+    },
+    "Vlan20": {
+      "ipv4": {
+        "neighbors": {
+          "198.51.100.34": {
+            "ip": "198.51.100.34",
+            "link_layer_address": "0c00.017d.1a56",
+            "origin": "static"
+          },
+          "198.51.100.33": {
+            "ip": "198.51.100.33",
+            "link_layer_address": "0c00.816a.2a56",
+            "origin": "dynamic"
+          }
+        }
+      },
+      "arp_dynamic_learning": {
+        "local_proxy_enable": false,
+        "proxy_enable": true
+      }
+    },
+    "Loopback0": {
+      "arp_dynamic_learning": {
+        "local_proxy_enable": false,
+        "proxy_enable": true
+      }
+    }
+  },
+  "statistics": {
+    "incomplete_total": 0,
+    "in_requests_pkts": 36,
+    "entries_total": 8,
+    "in_replies_pkts": 65,
+    "out_requests_pkts": 64,
+    "out_replies_pkts": 55,
+    "in_drops": 0
+  }
+}

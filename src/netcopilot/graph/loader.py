@@ -255,6 +255,35 @@ def _delete_run_data(driver, site: str, run_id: str) -> None:
             )
 
 
+def delete_run(driver, run_id: str, site: str | None = None) -> int:
+    """Delete all graph nodes for a run (optionally scoped to a site).
+
+    Returns the number of nodes removed (0 if the run was not found).
+    """
+    where = "n.run_id = $run_id" + (" AND n.site = $site" if site else "")
+    params = {"run_id": run_id}
+    if site:
+        params["site"] = site
+    with driver.session() as session:
+        summary = session.run(f"MATCH (n) WHERE {where} DETACH DELETE n", **params).consume()
+        return summary.counters.nodes_deleted
+
+
+def list_runs(driver) -> list[dict]:
+    """Return the runs loaded in Neo4j, newest first:
+    ``[{site, run_id, loaded_at, devices, findings}]``."""
+    cypher = f"""
+    MATCH (r:{RUN})
+    OPTIONAL MATCH (d:{DEVICE} {{site: r.site, run_id: r.run_id}})
+    OPTIONAL MATCH (f:{FINDING} {{site: r.site, run_id: r.run_id}})
+    RETURN r.site AS site, r.run_id AS run_id, r.loaded_at AS loaded_at,
+           count(DISTINCT d) AS devices, count(DISTINCT f) AS findings
+    ORDER BY loaded_at DESC
+    """
+    with driver.session() as session:
+        return [dict(rec) for rec in session.run(cypher)]
+
+
 # -------------------------------------------------------------------------
 # Private — Device loading
 # -------------------------------------------------------------------------

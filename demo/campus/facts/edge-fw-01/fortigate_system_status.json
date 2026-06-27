@@ -1,0 +1,17 @@
+{
+  "http_method": "GET",
+  "results": {
+    "model_name": "FortiGate",
+    "model_number": "VM64-KVM",
+    "model": "FGVMK6",
+    "hostname": "edge-fw-01",
+    "log_disk_status": "available"
+  },
+  "vdom": "root",
+  "path": "system",
+  "name": "status",
+  "status": "success",
+  "serial": "FGVMEVJ7_ORGXTCC",
+  "version": "v7.4.12",
+  "build": 2902
+}

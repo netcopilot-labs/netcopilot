@@ -113,6 +113,28 @@ def _cmd_diagram(args: argparse.Namespace) -> None:
         print(f"  warning:  {w}")
 
 
+def _cmd_neo4j(args: argparse.Namespace) -> None:
+    from .graph.client import get_driver
+    from .graph.loader import delete_run, list_runs
+
+    driver = get_driver()
+    if args.neo4j_command == "runs":
+        runs = list_runs(driver)
+        if not runs:
+            print("No runs loaded.")
+            return
+        for r in runs:
+            print(f"  {r['site']:<14} {r['run_id']:<26} "
+                  f"{r['devices']:>3} devices  {r['findings']:>4} findings")
+    elif args.neo4j_command == "delete":
+        n = delete_run(driver, args.run_id, site=args.site)
+        if n > 0:
+            print(f"Deleted run {args.run_id} ({n} nodes removed)")
+        else:
+            print(f"Run {args.run_id} not found in Neo4j", file=sys.stderr)
+            raise SystemExit(1)
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(prog="netcopilot", description=__doc__.splitlines()[0])
@@ -135,6 +157,14 @@ def main() -> None:
     diagram_p.add_argument("run_id", help="run identifier (directory under the runs dir)")
     diagram_p.add_argument("--runs-dir", default=None, help="base directory for run folders (overrides RUNS_DIR)")
     diagram_p.set_defaults(func=_cmd_diagram)
+
+    neo4j_p = sub.add_parser("neo4j", help="manage loaded runs in Neo4j (list / delete)")
+    neo4j_sub = neo4j_p.add_subparsers(dest="neo4j_command", required=True)
+    neo4j_sub.add_parser("runs", help="list loaded runs")
+    del_p = neo4j_sub.add_parser("delete", help="delete a run and all its graph data")
+    del_p.add_argument("run_id", help="run identifier to delete")
+    del_p.add_argument("--site", default=None, help="restrict deletion to this site")
+    neo4j_p.set_defaults(func=_cmd_neo4j)
 
     args = parser.parse_args(sys.argv[1:])
     args.func(args)

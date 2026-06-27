@@ -1,0 +1,71 @@
+{
+  "http_method": "GET",
+  "size": 2,
+  "limit_reached": false,
+  "matched_count": 2,
+  "next_idx": 1,
+  "revision": "62b2ba3d8fd2f0c566278e06a65bbf10",
+  "results": [
+    {
+      "name": "G Suite",
+      "q_origin_key": "G Suite",
+      "type": "default",
+      "category": "default",
+      "uuid": "7a4237da-6c95-51f1-662b-6c9e83614b11",
+      "allow-routing": "disable",
+      "member": [
+        {
+          "name": "gmail.com",
+          "q_origin_key": "gmail.com"
+        },
+        {
+          "name": "wildcard.google.com",
+          "q_origin_key": "wildcard.google.com"
+        }
+      ],
+      "comment": "",
+      "exclude": "disable",
+      "exclude-member": [],
+      "color": 0,
+      "tagging": [],
+      "fabric-object": "disable"
+    },
+    {
+      "name": "Microsoft Office 365",
+      "q_origin_key": "Microsoft Office 365",
+      "type": "default",
+      "category": "default",
+      "uuid": "7a424144-6c95-51f1-e3ac-47aecc92f384",
+      "allow-routing": "disable",
+      "member": [
+        {
+          "name": "login.microsoftonline.com",
+          "q_origin_key": "login.microsoftonline.com"
+        },
+        {
+          "name": "login.microsoft.com",
+          "q_origin_key": "login.microsoft.com"
+        },
+        {
+          "name": "login.windows.net",
+          "q_origin_key": "login.windows.net"
+        }
+      ],
+      "comment": "",
+      "exclude": "disable",
+      "exclude-member": [],
+      "color": 0,
+      "tagging": [],
+      "fabric-object": "disable"
+    }
+  ],
+  "vdom": "root",
+  "path": "firewall",
+  "name": "addrgrp",
+  "action": "",
+  "status": "success",
+  "http_status": 200,
+  "serial": "FGVMEVJ7_ORGXTCC",
+  "version": "v7.4.12",
+  "build": 2902
+}

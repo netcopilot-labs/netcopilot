@@ -43,10 +43,13 @@ def _registry_path() -> Path | None:
     env = os.environ.get("MODELS_CONFIG")
     if env:
         p = Path(env)
-        return p if p.exists() else None
+        # .is_file() (not .exists()): if a user forgets `cp models.example.yaml
+        # models.yaml`, a Docker file-bind-mount auto-creates a *directory* at the
+        # path — fall back to the legacy default instead of crashing on read.
+        return p if p.is_file() else None
     here = Path(__file__).resolve()
     for cand in (Path.cwd() / "models.yaml", here.parents[3] / "models.yaml"):
-        if cand.exists():
+        if cand.is_file():
             return cand
     return None
 

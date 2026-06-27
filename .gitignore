@@ -6,12 +6,17 @@
 
 # ── Data & secrets (BYO — never shipped) ─────────────────────────
 /runs/
-/inventory/
+# Ship the (empty) BYO dirs so a fresh clone owns them — otherwise Docker
+# bind-mount auto-creates them root-owned and the user can't drop files in.
+# Ignore their contents, keep the README placeholder.
+/inventory/*
+!/inventory/README.md
 /data/
 # RAG ChromaDB store: default path is package-relative (rag/store.py), so a user
 # who ingests their own docs would otherwise commit the embeddings. Ignore it.
 src/netcopilot/data/
-/knowledge_base/
+/knowledge_base/*
+!/knowledge_base/README.md
 .env
 .env.*
 !.env.example
@@ -49,6 +54,10 @@ build/
 # Built frontend bundle (produced by `npm run build` → copied to backend/static)
 src/netcopilot/dashboard/backend/static/
 
-# L2 demo run: commit facts + manifest, not generated model/findings
+# Demo runs: commit facts + manifest, not generated model/findings
+demo/campus/model/
+demo/campus/findings/
+demo/branch/model/
+demo/branch/findings/
 demo/l2-campus/model/
 demo/l2-campus/findings/

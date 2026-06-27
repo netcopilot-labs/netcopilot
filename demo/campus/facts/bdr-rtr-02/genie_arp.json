@@ -1,0 +1,59 @@
+{
+  "interfaces": {
+    "GigabitEthernet0/0/0/0": {
+      "ipv4": {
+        "neighbors": {
+          "203.0.113.6": {
+            "ip": "203.0.113.6",
+            "link_layer_address": "aac1.ab19.ceb6",
+            "origin": "dynamic"
+          },
+          "203.0.113.5": {
+            "ip": "203.0.113.5",
+            "link_layer_address": "aac1.ab61.24bb",
+            "origin": "static"
+          }
+        }
+      },
+      "arp_dynamic_learning": {
+        "proxy_enable": false
+      }
+    },
+    "GigabitEthernet0/0/0/1": {
+      "ipv4": {
+        "neighbors": {
+          "198.51.100.6": {
+            "ip": "198.51.100.6",
+            "link_layer_address": "0c00.816a.2a56",
+            "origin": "dynamic"
+          },
+          "198.51.100.5": {
+            "ip": "198.51.100.5",
+            "link_layer_address": "aac1.ab4f.5105",
+            "origin": "static"
+          }
+        }
+      },
+      "arp_dynamic_learning": {
+        "proxy_enable": false
+      }
+    },
+    "MgmtEth0/RP0/CPU0/0": {
+      "arp_dynamic_learning": {
+        "proxy_enable": false
+      }
+    },
+    "Loopback0": {
+      "arp_dynamic_learning": {
+        "proxy_enable": false
+      }
+    }
+  },
+  "statistics": {
+    "in_replies_pkts": 64,
+    "in_requests_pkts": 17,
+    "out_requests_pkts": 65,
+    "out_replies_pkts": 19,
+    "out_gratuitous_pkts": 2
+  }
+}

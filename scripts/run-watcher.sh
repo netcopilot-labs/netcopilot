@@ -47,6 +47,7 @@ TRIGGER_DIR="$RUNS_DIR/.trigger"
 FLAG_REQUESTED="$TRIGGER_DIR/run_requested"
 FLAG_COMPLETE="$TRIGGER_DIR/run_complete"
 PROGRESS_FILE="$TRIGGER_DIR/.progress.jsonl"
+RUN_CONFIG="$TRIGGER_DIR/run_config.json"   # dashboard writes which inventory to run
 
 INVENTORY="${NETCOPILOT_INVENTORY:-$PROJECT_ROOT/demo/containerlab/inventory.yaml}"
 SITE="${NETCOPILOT_SITE:-demo}"
@@ -94,16 +95,33 @@ while true; do
     # shellcheck disable=SC1091
     source .venv/bin/activate 2>/dev/null || true
 
+    # What did the dashboard ask us to run? run_config.json names an inventory to
+    # collect, or the demo to replay offline. Falls back to the env inventory.
+    MODE="collect"; RUN_INV="$INVENTORY"; RUN_SITE="$SITE"
+    if [ -f "$RUN_CONFIG" ]; then
+      MODE=$("$PYTHON" -c "import json;print(json.load(open('$RUN_CONFIG')).get('mode','collect'))" 2>/dev/null || echo collect)
+      RUN_INV=$("$PYTHON" -c "import json;print(json.load(open('$RUN_CONFIG')).get('inventory',''))" 2>/dev/null || echo "$INVENTORY")
+      RUN_SITE=$("$PYTHON" -c "import json;print(json.load(open('$RUN_CONFIG')).get('site','demo'))" 2>/dev/null || echo "$SITE")
+    fi
+
     # Signal pipeline start to the progress file the dashboard tails.
     echo "{\"ts\":\"$(date -u +%FT%TZ)\",\"stage\":\"watcher_start\",\"message\":\"Pipeline starting...\"}" >> "$PROGRESS_FILE"
 
-    echo "[run-watcher] Executing: $PYTHON -m netcopilot.cli run --inventory $INVENTORY --site $SITE --runs-dir $RUNS_DIR"
-    if "$PYTHON" -m netcopilot.cli run --inventory "$INVENTORY" --site "$SITE" --runs-dir "$RUNS_DIR"; then
+    if [ "$MODE" = "demo" ]; then
+      echo "[run-watcher] Replaying demo '$RUN_INV' (offline, no devices)"
+      RUN_CMD=(env "NETCOPILOT_DEMO_RUN=$RUN_INV" "NETCOPILOT_DEMO_SITE=$RUN_SITE" "$PYTHON" -m netcopilot.demo_seed)
+    else
+      echo "[run-watcher] Collecting inventory=$RUN_INV site=$RUN_SITE"
+      RUN_CMD=("$PYTHON" -m netcopilot.cli run --inventory "$RUN_INV" --site "$RUN_SITE" --runs-dir "$RUNS_DIR")
+    fi
+
+    if "${RUN_CMD[@]}"; then
       echo "[run-watcher] Run completed successfully at $(date -u +%FT%TZ)"
     else
       echo "[run-watcher] Run failed at $(date -u +%FT%TZ)" >&2
       echo "{\"ts\":\"$(date -u +%FT%TZ)\",\"stage\":\"error\",\"message\":\"Pipeline failed\"}" >> "$PROGRESS_FILE"
     fi
+    rm -f "$RUN_CONFIG"
 
     # Signal completion regardless of success/failure — the dashboard refreshes.
     date -u +%FT%TZ > "$FLAG_COMPLETE"

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, Component, useMemo } from 'react'
 import RunSelector from './components/RunSelector.jsx'
+import DropdownPicker from './components/DropdownPicker.jsx'
 import TopologyMap from './components/TopologyMap.jsx'
 import DeviceDetail from './components/DeviceDetail.jsx'
 import FindingsPage from './components/FindingsPage.jsx'
@@ -237,6 +238,35 @@ function AppContent() {
   // S20-B8: Run trigger state
   const [runInProgress, setRunInProgress] = useState(false)
   const runPollRef = useRef(null)
+  // Bumped when a run completes, to force a data reload even if the run_id is
+  // unchanged (e.g. re-running the same demo) — otherwise the view stays stale.
+  const [refreshSeq, setRefreshSeq] = useState(0)
+
+  // Inventory picker for Run Now: the bundled demo (offline replay) + any
+  // inventories the operator dropped in ./inventory.
+  const [inventories, setInventories] = useState([])
+  const [selectedInventory, setSelectedInventory] = useState('')
+
+  const refreshInventories = useCallback(() => {
+    return fetch('/api/inventories')
+      .then((r) => r.json())
+      .then((d) => {
+        const invs = d.inventories || []
+        setInventories(invs)
+        setSelectedInventory((cur) => (invs.some((i) => i.id === cur) ? cur : (invs[0]?.id || '')))
+        return invs
+      })
+      .catch(() => setInventories([{ id: 'campus', label: 'Demo — campus', kind: 'demo' }]))
+  }, [])
+
+  useEffect(() => { refreshInventories() }, [refreshInventories])
+
+  const deleteInventory = useCallback(async (item) => {
+    try {
+      await fetch(`/api/inventories/${encodeURIComponent(item.id)}`, { method: 'DELETE' })
+    } catch { /* surfaced via refresh */ }
+    refreshInventories()
+  }, [refreshInventories])
 
   // ── Data loading ──
 
@@ -257,7 +287,7 @@ function AppContent() {
     if (selectedView === 'l2vlan') {
       loadVlanData(selectedRun)
     }
-  }, [selectedRun])
+  }, [selectedRun, refreshSeq])
 
   useEffect(() => {
     if (!selectedRun) return
@@ -513,7 +543,11 @@ function AppContent() {
   const handleRunNow = useCallback(async () => {
     if (runInProgress) return
     try {
-      const res = await fetch('/api/runs/trigger', { method: 'POST' })
+      const res = await fetch('/api/runs/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inventory_id: selectedInventory }),
+      })
       const body = await res.json()
       if (body.status === 'requested' || body.status === 'already_pending') {
         setRunInProgress(true)
@@ -538,14 +572,16 @@ function AppContent() {
               clearInterval(runPollRef.current)
               setRunInProgress(false)
               if (status.latest_run_id) setSelectedRun(status.latest_run_id)
+              // Force a reload even if the run_id didn't change (re-run demo).
+              setRefreshSeq((s) => s + 1)
             }
           } catch { /* ignore poll errors */ }
-        }, 10000)
+        }, 3000)
       }
     } catch (err) {
       console.error('Run trigger failed:', err)
     }
-  }, [runInProgress])
+  }, [runInProgress, selectedInventory])
 
   // S19A-2: Device list for Level 2 dropdown
   const deviceList = useMemo(() => {
@@ -608,8 +644,8 @@ function AppContent() {
     <div className="h-screen flex flex-col" style={{ background: '#F1F5F9' }}>
       {/* ── Level 1: Header bar ── */}
       <header
-        className="shrink-0 flex items-center justify-between px-4"
-        style={{ background: '#FFFFFF', height: 48, borderBottom: '1px solid #E5E7EB' }}
+        className="shrink-0 grid items-center px-4"
+        style={{ background: '#FFFFFF', height: 48, borderBottom: '1px solid #E5E7EB', gridTemplateColumns: '1fr auto 1fr' }}
       >
         <div className="flex items-center gap-3">
           {/* Inline logo — network graph icon + wordmark */}
@@ -643,7 +679,7 @@ function AppContent() {
           </svg>
         </div>
 
-        <nav className="flex items-center gap-1">
+        <nav className="flex items-center gap-1 justify-self-center">
           {/* C1A2: Topology / Audit / Report — all switch left panel mode.
               "Findings" was renamed to "Audit" in the top-bar label only;
               the internal mode name remains 'findings' to avoid churn. */}
@@ -682,7 +718,20 @@ function AppContent() {
           </button>
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 justify-self-end">
+          {/* Inventory picker — what Run Now collects (demo replay or a real inventory) */}
+          <span className="text-xs text-gray-500 font-medium">Inventory:</span>
+          <DropdownPicker
+            items={inventories.map((inv) => ({ id: inv.id, label: inv.label, deletable: inv.kind === 'real' }))}
+            selectedId={selectedInventory}
+            onSelect={setSelectedInventory}
+            onDelete={deleteInventory}
+            disabled={runInProgress}
+            placeholder="Select inventory…"
+            deleteTitle={() => 'Delete inventory'}
+            deleteMessage={(it) =>
+              `Delete the inventory "${it.label}"? This removes the inventory file from ./inventory. Any data it loaded stays until you delete that run.`}
+          />
           {/* S20-B8: Run Now button */}
           <button
             onClick={handleRunNow}
@@ -704,7 +753,6 @@ function AppContent() {
               '▶ Run Now'
             )}
           </button>
-          <RunSelector selectedRun={selectedRun} onRunChange={setSelectedRun} />
         </div>
       </header>
 
@@ -744,18 +792,8 @@ function AppContent() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 font-medium">Device:</span>
-            <select
-              value={selectedDevice || ''}
-              onChange={e => handleDeviceSelect(e.target.value || null)}
-              className="text-xs px-2 py-1 rounded border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
-              style={{ maxWidth: 200 }}
-            >
-              <option value="">All devices</option>
-              {deviceList.map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
+            <span className="text-xs text-gray-500 font-medium">Run:</span>
+            <RunSelector selectedRun={selectedRun} onRunChange={setSelectedRun} refreshKey={refreshSeq} />
           </div>
         </div>
       )}
@@ -1035,6 +1073,7 @@ function AppContent() {
               findingsData={findingsData}
               selectedDevice={selectedDevice}
               onDeviceSelect={handleDeviceSelect}
+              deviceList={deviceList}
               onLinkSelect={handleLinkSelect}
               selectedView={selectedView}
               severityFilters={severityFilters}

@@ -1,0 +1,36 @@
+{
+  "http_method": "GET",
+  "results": [
+    {
+      "ip": "10.0.0.2",
+      "age": 0,
+      "mac": "52:55:0a:00:00:02",
+      "interface": "port1"
+    },
+    {
+      "ip": "198.51.100.13",
+      "age": 526190,
+      "mac": "0c:00:81:6a:2a:76",
+      "interface": "port2"
+    },
+    {
+      "ip": "198.51.100.18",
+      "age": 526195,
+      "mac": "0c:00:b9:09:e3:64",
+      "interface": "port3"
+    },
+    {
+      "ip": "10.0.0.3",
+      "age": 30,
+      "mac": "52:55:0a:00:00:03",
+      "interface": "port1"
+    }
+  ],
+  "vdom": "root",
+  "path": "network",
+  "name": "arp",
+  "status": "success",
+  "serial": "FGVMEVJ7_ORGXTCC",
+  "version": "v7.4.12",
+  "build": 2902
+}

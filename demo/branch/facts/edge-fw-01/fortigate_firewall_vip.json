@@ -1,0 +1,18 @@
+{
+  "http_method": "GET",
+  "size": 0,
+  "limit_reached": false,
+  "matched_count": 0,
+  "next_idx": 0,
+  "revision": "42dad10f72be18056fb3852229b2bf3b",
+  "results": [],
+  "vdom": "root",
+  "path": "firewall",
+  "name": "vip",
+  "action": "",
+  "status": "success",
+  "http_status": 200,
+  "serial": "FGVMEVJ7_ORGXTCC",
+  "version": "v7.4.12",
+  "build": 2902
+}

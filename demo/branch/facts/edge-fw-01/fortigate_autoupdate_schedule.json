@@ -1,0 +1,19 @@
+{
+  "http_method": "GET",
+  "revision": "9745ec797a63577cdea40a78f9c6d1ec",
+  "results": {
+    "status": "enable",
+    "frequency": "daily",
+    "time": "01:240",
+    "day": "Monday"
+  },
+  "vdom": "root",
+  "path": "system.autoupdate",
+  "name": "schedule",
+  "action": "",
+  "status": "success",
+  "http_status": 200,
+  "serial": "FGVMEVJ7_ORGXTCC",
+  "version": "v7.4.12",
+  "build": 2902
+}

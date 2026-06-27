@@ -1,0 +1,107 @@
+Fri Jun 26 16:11:37.599 UTC
+!! Building configuration...
+!! IOS XR Configuration 7.11.1
+!! Last configuration change at Sat Jun 20 10:58:10 2026 by clab
+!
+hostname bdr-rtr-01
+username clab
+ group root-lr
+ group cisco-support
+ secret 10 $6$C66/m/0GUQ265m/.$HzHVofjFM2hW9UMIEWTxXfQTjljb7dU4hq.s/.ntlrthYbV5zZlNQpI6mxfLEIepZ72F0JPzC15aG2FzCZ8xw/
+!
+username admin
+ group root-lr
+ group cisco-support
+ secret 10 $6$9IZ3G1JNVoK6BG1.$iYAaDodc92OU3HUxJl0K9/Syeo67BmE2ZEqlbTNAs/hzm6l1mJaS53oNiY4OwtA5VvwIPlWYuPdAfm5FeXb0T/
+!
+grpc
+ vrf clab-mgmt
+ port 57400
+ no-tls
+!
+vrf clab-mgmt
+ description Containerlab management VRF (DO NOT DELETE)
+ address-family ipv4 unicast
+ !
+ address-family ipv6 unicast
+ !
+!
+call-home
+ service active
+ contact smart-licensing
+ profile CiscoTAC-1
+  active
+  destination transport-method email disable
+  destination transport-method http
+ !
+!
+interface Loopback0
+ ipv4 address 198.51.100.101 255.255.255.255
+!
+interface MgmtEth0/RP0/CPU0/0
+ description Containerlab management interface
+ vrf clab-mgmt
+ ipv4 address 10.0.0.15 255.255.255.0
+ ipv6 address 2001:db8::2/64
+!
+interface GigabitEthernet0/0/0/0
+ description eBGP to isp-01
+ ipv4 address 203.0.113.1 255.255.255.252
+!
+interface GigabitEthernet0/0/0/1
+ description core fabric to core-sw-01
+ ipv4 address 198.51.100.1 255.255.255.252
+!
+route-policy PASS
+  pass
+end-policy
+!
+router static
+ vrf clab-mgmt
+  address-family ipv4 unicast
+   0.0.0.0/0 10.0.0.2
+  !
+  address-family ipv6 unicast
+   ::/0 2001:db8::1
+  !
+ !
+!
+router ospf 1
+ router-id 198.51.100.101
+ area 0
+  interface Loopback0
+   passive enable
+  !
+  interface GigabitEthernet0/0/0/1
+   network point-to-point
+  !
+ !
+!
+router bgp 64496
+ bgp router-id 198.51.100.101
+ address-family ipv4 unicast
+  network 198.51.100.101/32
+ !
+ neighbor 203.0.113.2
+  remote-as 64497
+  description eBGP-isp-01
+  address-family ipv4 unicast
+   route-policy PASS in
+   route-policy PASS out
+  !
+ !
+ neighbor 198.51.100.100
+  remote-as 64496
+  description iBGP-RR-core-sw-01
+  update-source Loopback0
+  address-family ipv4 unicast
+   next-hop-self
+  !
+ !
+!
+xml agent tty
+!
+ssh server v2
+ssh server vrf clab-mgmt
+ssh server netconf vrf default
+end

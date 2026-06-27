@@ -9,6 +9,7 @@ agent, ...) can discover and call these tools. Read-only — never changes devic
 from __future__ import annotations
 
 import logging
+import os
 
 from fastmcp import FastMCP
 
@@ -86,7 +87,13 @@ async def blast_radius(
 
 
 def main() -> None:
-    mcp.run()
+    # Default to stdio (Claude Desktop etc.); bind HTTP in the container so any
+    # networked MCP client can reach it. Toggle via MCP_TRANSPORT/MCP_PORT.
+    transport = os.environ.get("MCP_TRANSPORT", "stdio")
+    if transport == "http":
+        mcp.run(transport="http", host="0.0.0.0", port=int(os.environ.get("MCP_PORT", "3002")))
+    else:
+        mcp.run()
 
 
 if __name__ == "__main__":

@@ -1,32 +1,138 @@
-# NetCopilot — supporting services.
+# NetCopilot — full stack: graph store + dashboard + MCP + Telegram + collector.
 #
-#   docker compose up -d     # start Neo4j (the graph store)
-#   docker compose down      # stop (data persists in the named volume)
+#   cp .env.example .env            # set NEO4J_PASSWORD (+ optional BYO keys)
+#   cp models.example.yaml models.yaml
+#   docker compose up               # builds the image on first run
 #
-# The app reads NEO4J_* from the environment (.env). More services (ChromaDB,
-# dashboard, MCP server) are added here as later phases land.
+# Dashboard → http://localhost:8080   Neo4j browser → http://localhost:7474
+# MCP (HTTP) → http://localhost:3002/mcp
+#
+# All four app services share ONE image (netcopilot-app:latest) with a command
+# override. `down` stops; data persists in the named volumes. `down -v` wipes.
+
+# Shared build/image/env for every app service. Each service overrides command
+# and (where needed) ports / environment / volumes.
+x-app: &app
+  image: netcopilot-app:latest
+  build:
+    context: .
+  env_file:
+    - .env          # NEO4J_PASSWORD, LLM keys, SMTP, Telegram, SSH creds
+  networks:
+    - netcopilot
+  restart: unless-stopped
 
 services:
+  # ── Graph store ────────────────────────────────────────────────────────────
   neo4j:
     image: neo4j:5-community
-    container_name: netcopilot-neo4j
     ports:
       - "${NEO4J_HTTP_PORT:-7474}:7474"   # browser  http://localhost:7474
       - "${NEO4J_BOLT_PORT:-7687}:7687"   # bolt
     environment:
-      # Password is required — no weak default. Set NEO4J_PASSWORD in .env.
       - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD in .env (see .env.example)}
       - NEO4J_PLUGINS=["apoc"]
+      # Laptop-safe memory caps (a fresh machine may be tight on RAM).
+      - NEO4J_server_memory_heap_max__size=512m
+      - NEO4J_server_memory_pagecache_size=256m
     volumes:
       - neo4j_data:/data
+    networks:
+      - netcopilot
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "neo4j", "status"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      # Real readiness: bolt accepts an authenticated query (not just "process up",
+      # which reports healthy before bolt is listening and races the seed).
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p '${NEO4J_PASSWORD}' 'RETURN 1' >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
+
+  # ── Web dashboard + REST API (serves the SPA at /) ─────────────────────────
+  # Starts empty: the demo is loaded on demand via Run Now (offline replay), so
+  # there is no auto-seed step. Users pick the demo (or their own inventory) and
+  # click Run Now to populate.
+  dashboard:
+    <<: *app
+    # No fixed container_name (avoids clashing with other NetCopilot stacks on the
+    # same host). Telegram reaches the dashboard via this network alias instead.
+    networks:
+      netcopilot:
+        aliases:
+          - netcopilot-dashboard
+    ports:
+      - "${DASHBOARD_PORT:-8080}:8080"
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      RUNS_DIR: /app/runs
+      MODELS_CONFIG: /app/models.yaml
+      RAG_CHROMA_DIR: /app/data/chromadb
+    volumes:
+      - runs:/app/runs
+      - chromadb:/app/data/chromadb
+      - ./models.yaml:/app/models.yaml:ro
+      - ./inventory:/app/inventory          # BYO inventories (gitignored)
+      - ./knowledge_base:/app/knowledge_base # BYO PDFs for RAG ingest
+    depends_on:
+      neo4j:
+        condition: service_healthy
+
+  # ── Collection engine behind the "Run Now" button (polls runs/.trigger) ────
+  watcher:
+    <<: *app
+    command: bash scripts/run-watcher.sh
+    working_dir: /app
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      RUNS_DIR: /app/runs
+    volumes:
+      - runs:/app/runs                       # shared trigger dir with dashboard
+      - ./inventory:/app/inventory           # BYO inventories
+    depends_on:
+      neo4j:
+        condition: service_healthy
+
+  # ── MCP server over HTTP (any MCP client can reach :3002/mcp) ──────────────
+  mcp:
+    <<: *app
+    command: python -m netcopilot.mcp.server
+    ports:
+      - "${MCP_PORT:-3002}:3002"
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      RUNS_DIR: /app/runs
+      MCP_TRANSPORT: http
+      MCP_PORT: "3002"
+    volumes:
+      - runs:/app/runs
+    depends_on:
+      neo4j:
+        condition: service_healthy
+
+  # ── Telegram bot (optional — exits cleanly if TELEGRAM_BOT_TOKEN unset) ─────
+  telegram:
+    <<: *app
+    command: python -m netcopilot.telegram_bot
+    restart: on-failure                       # one getUpdates poller per token
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      RUNS_DIR: /app/runs
+      RAG_CHROMA_DIR: /app/data/chromadb
+    volumes:
+      - runs:/app/runs
+      - chromadb:/app/data/chromadb
+    depends_on:
+      - dashboard
+
+networks:
+  netcopilot:
+    driver: bridge
 
 volumes:
   neo4j_data:
+    driver: local
+  runs:
+    driver: local
+  chromadb:
     driver: local

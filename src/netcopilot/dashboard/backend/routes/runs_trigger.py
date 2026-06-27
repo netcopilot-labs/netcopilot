@@ -31,6 +31,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -43,10 +44,92 @@ _FLAG_REQUESTED = _TRIGGER_DIR / "run_requested"
 _FLAG_COMPLETE = _TRIGGER_DIR / "run_complete"
 _FLAG_TRIGGERED_AT = _TRIGGER_DIR / "triggered_at"
 _PROGRESS_FILE = _TRIGGER_DIR / ".progress.jsonl"
+# The watcher reads this to know WHICH inventory to collect (or to replay the demo).
+_FLAG_RUN_CONFIG = _TRIGGER_DIR / "run_config.json"
+
+# Where operators drop their own inventory YAMLs (bind-mounted into the container).
+_INVENTORY_DIR = Path(os.environ.get("NETCOPILOT_INVENTORY_DIR", "/app/inventory"))
+# Bundled demo labs — each demo/<name>/ (facts + manifest) is replayed offline.
+_DEMO_DIR = Path(os.environ.get("NETCOPILOT_DEMO_DIR", "/app/demo"))
+
+
+def _demo_inventories() -> list[dict]:
+    """Each demo/<name>/ with committed facts is a replayable demo lab (its own
+    site). Run Now on it rebuilds + loads offline — no devices needed."""
+    demos = []
+    if _DEMO_DIR.is_dir():
+        for sub in sorted(p for p in _DEMO_DIR.iterdir() if p.is_dir()):
+            manifest = sub / "manifest.json"
+            if not (sub / "facts").is_dir() or not manifest.is_file():
+                continue
+            try:
+                m = json.loads(manifest.read_text())
+            except (OSError, ValueError):
+                continue
+            demos.append({
+                "id": sub.name,
+                "label": m.get("demo_label", f"Demo — {sub.name} ({m.get('device_count', '?')} devices)"),
+                "kind": "demo",
+                "site": sub.name,
+            })
+    return demos
+
+
+def _list_inventories() -> list[dict]:
+    """Inventories selectable for 'Run Now': the bundled demo labs (offline
+    replay) + any YAML files the operator dropped in the mounted inventory dir."""
+    items = _demo_inventories()
+    if _INVENTORY_DIR.is_dir():
+        for f in sorted(_INVENTORY_DIR.glob("*.y*ml")):
+            items.append({
+                "id": f.stem, "label": f.stem, "kind": "real",
+                "site": f.stem, "path": str(f),
+            })
+    return items
+
+
+def _resolve_inventory(inv_id: str) -> dict | None:
+    return next((i for i in _list_inventories() if i["id"] == inv_id), None)
+
+
+class TriggerRequest(BaseModel):
+    inventory_id: str = ""
 
 
 def _ensure_trigger_dir() -> None:
     _TRIGGER_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@router.get("/api/inventories")
+def list_inventories():
+    """List selectable inventories for the Run Now picker."""
+    return {"inventories": _list_inventories()}
+
+
+@router.delete("/api/runs/{site}/{run_id}")
+def delete_run_endpoint(site: str, run_id: str):
+    """Delete a loaded run's graph data (the run-dropdown trashcan)."""
+    from netcopilot.graph.client import get_driver
+    from netcopilot.graph.loader import delete_run
+
+    n = delete_run(get_driver(), run_id, site=site)
+    return {"deleted": n > 0, "nodes_deleted": n}
+
+
+@router.delete("/api/inventories/{inv_id}")
+def delete_inventory(inv_id: str):
+    """Delete a user inventory YAML file (the inventory-dropdown trashcan).
+    Bundled demo labs cannot be deleted."""
+    inv = _resolve_inventory(inv_id)
+    if inv is None:
+        raise HTTPException(status_code=404, detail=f"Unknown inventory '{inv_id}'")
+    if inv["kind"] != "real":
+        raise HTTPException(status_code=400, detail="Demo labs cannot be deleted")
+    try:
+        Path(inv["path"]).unlink()
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Could not delete inventory: {e}")
+    return {"deleted": True, "id": inv_id}
 
 
 def _latest_run_id() -> str | None:
@@ -65,22 +148,28 @@ def _latest_run_id() -> str | None:
 
 
 @router.post("/api/runs/trigger")
-def trigger_run():
-    """Create the run-requested flag file.
+def trigger_run(req: Optional[TriggerRequest] = None):
+    """Create the run-requested flag + run_config for the watcher.
 
-    A separate watcher process polls for this file and executes
-    ``netcopilot run``. Returns immediately — does not wait for completion.
-
-    Returns 409-equivalent ``already_pending`` if a run is already pending.
+    The watcher reads ``run_config.json`` to know which inventory to collect — or,
+    for the bundled demo, to replay the committed demo capture offline. Returns
+    immediately; ``already_pending`` if a run is already in flight.
     """
     _ensure_trigger_dir()
 
+    inv_id = req.inventory_id if req else ""
+    if inv_id:
+        inv = _resolve_inventory(inv_id)
+        if inv is None:
+            raise HTTPException(status_code=404, detail=f"Unknown inventory '{inv_id}'")
+    else:
+        avail = _list_inventories()
+        if not avail:
+            raise HTTPException(status_code=404, detail="No inventories available")
+        inv = avail[0]
+
     # Clear a stale FLAG_COMPLETE from any earlier run whose completion was
     # never consumed by /api/runs/status (e.g. browser closed mid-poll).
-    # Without this, the next status poll after this trigger would read the
-    # stale flag, set new_run_available=true, and the frontend would
-    # setSelectedRun to the in-progress run dir — which exists on disk
-    # before the Neo4j load completes, producing a "Topology: HTTP 404" banner.
     if _FLAG_COMPLETE.exists():
         try:
             _FLAG_COMPLETE.unlink()
@@ -90,6 +179,13 @@ def trigger_run():
     if _FLAG_REQUESTED.exists():
         return {"status": "already_pending"}
 
+    # Tell the watcher what to run: replay the demo, or collect a real inventory.
+    if inv["kind"] == "demo":
+        run_config = {"mode": "demo", "inventory": inv["id"], "site": inv["site"]}
+    else:
+        run_config = {"mode": "collect", "inventory": inv["path"], "site": inv["site"]}
+    _FLAG_RUN_CONFIG.write_text(json.dumps(run_config))
+
     now = datetime.now(timezone.utc).isoformat()
     _FLAG_REQUESTED.write_text(now)
     _FLAG_TRIGGERED_AT.write_text(now)
@@ -97,11 +193,11 @@ def trigger_run():
     # Overwrite progress file with initial event (T=0, immediate feedback)
     _PROGRESS_FILE.write_text(
         json.dumps({"ts": now, "stage": "triggered",
-                    "message": "Run triggered, waiting for the collector..."}) + "\n"
+                    "message": f"Run triggered for {inv['label']}…"}) + "\n"
     )
 
-    log.info("Run requested at %s", now)
-    return {"status": "requested", "triggered_at": now}
+    log.info("Run requested at %s (inventory=%s mode=%s)", now, inv["id"], run_config["mode"])
+    return {"status": "requested", "triggered_at": now, "inventory": inv["id"]}
 
 
 @router.get("/api/runs/status")

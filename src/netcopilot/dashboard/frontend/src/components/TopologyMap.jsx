@@ -1113,6 +1113,7 @@ export default function TopologyMap({
   findingsData,
   selectedDevice,
   onDeviceSelect,
+  deviceList,
   onLinkSelect,
   selectedView,
   severityFilters,
@@ -1848,8 +1849,22 @@ export default function TopologyMap({
         </div>
       )}
 
-      {/* ── S19A-10: Toolbar — 3 groups ── */}
+      {/* ── S19A-10: Toolbar — device focus + 3 groups ── */}
       <div className="absolute top-3 right-3 flex items-center gap-1">
+        {/* Device focus selector (moved here from the top bar) */}
+        <select
+          value={selectedDevice || ''}
+          onChange={(e) => onDeviceSelect(e.target.value || null)}
+          className="bg-white border border-gray-300 rounded-md px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-50 shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+          style={{ maxWidth: 170 }}
+          title="Focus a device"
+        >
+          <option value="">All devices</option>
+          {(deviceList || []).map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
+        </select>
+        <div className="w-px h-5 bg-gray-300 mx-0.5" />
         {/* Group 1: Zoom */}
         <button
           onClick={handleZoomIn}

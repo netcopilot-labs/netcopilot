@@ -1,0 +1,354 @@
+Building configuration...
+
+Current configuration : 11115 bytes
+!
+! Last configuration change at 14:35:27 UTC Mon Jun 22 2026 by admin
+!
+version 17.18
+service timestamps debug datetime msec
+service timestamps log datetime msec
+!
+hostname core-sw-01
+!
+!
+vrf definition BLUE
+ rd 64496:20
+ !
+ address-family ipv4
+ exit-address-family
+!
+vrf definition Mgmt-vrf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+vrf definition RED
+ rd 64496:10
+ !
+ address-family ipv4
+ exit-address-family
+!
+no aaa new-model
+switch 1 provision c9kv-uadp-8p
+!
+!
+!
+!
+ip routing
+!
+!
+!
+!
+!
+no ip domain lookup
+ip domain name example.com
+!
+!
+!
+login on-success log
+!
+!
+!
+!
+!
+!
+!
+!
+crypto pki trustpoint TP-self-signed-94454623
+ enrollment selfsigned
+ subject-name cn=IOS-Self-Signed-Certificate-94454623
+ revocation-check none
+ rsakeypair TP-self-signed-94454623
+ hash sha512
+!
+crypto pki trustpoint SLA-TrustPoint
+ enrollment pkcs12
+ revocation-check crl
+ hash sha512
+!
+!
+crypto pki certificate chain TP-self-signed-94454623
+ certificate self-signed 01
+  3082032C 30820214 A0030201 02020101 300D0609 2A864886 F70D0101 0D050030 
+  2F312D30 2B060355 04030C24 494F532D 53656C66 2D536967 6E65642D 43657274 
+  69666963 6174652D 39343435 34363233 301E170D 32363036 32303130 35313135 
+  5A170D33 36303631 39313035 3131355A 302F312D 302B0603 5504030C 24494F53 
+  2D53656C 662D5369 676E6564 2D436572 74696669 63617465 2D393434 35343632 
+  33308201 22300D06 092A8648 86F70D01 01010500 0382010F 00308201 0A028201 
+  0100D6C5 192F7586 F5B32E9A 7062DD42 3581792B 532235FB 3E1F70F9 F1F299CA 
+  520AD20D 34F98D57 6C3083E8 C5AD3449 DB1DB801 AB65197C 32614FDD 6DF949DD 
+  2713867E C944125F 70A1F4C8 E63E20C4 5C812691 BA3F6602 7CCE394C 862CC939 
+  0F882B02 41D536B8 4147F49A 4A72D300 1C83B024 790F9592 97DFDE0C 2679E02F 
+  3DAF4AB7 23F66A22 2F64B7F5 AFF0DC40 78EBE8E4 85E14785 3A52BB17 2BD9DAEB 
+  759DC905 39522DBF E5076B28 51003AF4 74397808 FB341C5E 244DD7C1 87506553 
+  BAFCF45E 9F921D71 02A673F9 5BFCD396 8A6E01B7 89B9D738 582A7089 383E8D6A 
+  491089C2 4C298EFE 5D815138 C6554078 91956FD4 EB286413 818299EE 0C7E0F5F 
+  A0450203 010001A3 53305130 1D060355 1D0E0416 0414743D 81617960 7B1AF2EF 
+  BA209F14 9BDF1FFF 1432301F 0603551D 23041830 16801474 3D816179 607B1AF2 
+  EFBA209F 149BDF1F FF143230 0F060355 1D130101 FF040530 030101FF 300D0609 
+  2A864886 F70D0101 0D050003 82010100 06EC2274 13960F43 88ABE8BC F14B410B 
+  3177AC41 8E32B68A 7BE464E0 F6C9D676 27EFC025 322D4B23 E205BB81 7EEAD629 
+  34E8C66D A3C9FA72 42FC137D 30097084 925813D2 8D9CB266 97DAE60B 0DCC88FF 
+  E43C489B 2D2C4E7F 33784E08 CDAC657B E73F0A2B 9BDCEC42 862EA665 2167728F 
+  0C56FED9 AE893603 8E4DA674 F0CCD4A1 C1CF0389 6737048E A71C6A22 CEE11E26 
+  BD939804 CB414124 4D232E9C ADB38D4A 49EB47CA 65EF6EEC 21002ACB C00FDE11 
+  EF100BD5 FA796EE4 3316EFA3 1466C5F8 299A850C 8B2F1C2A 26A48B17 EDFAF999 
+  B492501D 04DC5B78 36FAA12F 885BBC65 F85233A5 F8ACA9AA 468E567D 6EA72A32 
+  6EFD3E22 B71FC0EC C93F702E 88D5A7BD
+  	quit
+crypto pki certificate chain SLA-TrustPoint
+ certificate ca 01
+  30820321 30820209 A0030201 02020101 300D0609 2A864886 F70D0101 0B050030 
+  32310E30 0C060355 040A1305 43697363 6F312030 1E060355 04031317 43697363 
+  6F204C69 63656E73 696E6720 526F6F74 20434130 1E170D31 33303533 30313934 
+  3834375A 170D3338 30353330 31393438 34375A30 32310E30 0C060355 040A1305 
+  43697363 6F312030 1E060355 04031317 43697363 6F204C69 63656E73 696E6720 
+  526F6F74 20434130 82012230 0D06092A 864886F7 0D010101 05000382 010F0030 
+  82010A02 82010100 A6BCBD96 131E05F7 145EA72C 2CD686E6 17222EA1 F1EFF64D 
+  CBB4C798 212AA147 C655D8D7 9471380D 8711441E 1AAF071A 9CAE6388 8A38E520 
+  1C394D78 462EF239 C659F715 B98C0A59 5BBB5CBD 0CFEBEA3 700A8BF7 D8F256EE 
+  4AA4E80D DB6FD1C9 60B1FD18 FFC69C96 6FA68957 A2617DE7 104FDC5F EA2956AC 
+  7390A3EB 2B5436AD C847A2C5 DAB553EB 69A9A535 58E9F3E3 C0BD23CF 58BD7188 
+  68E69491 20F320E7 948E71D7 AE3BCC84 F10684C7 4BC8E00F 539BA42B 42C68BB7 
+  C7479096 B4CB2D62 EA2F505D C7B062A4 6811D95B E8250FC4 5D5D5FB8 8F27D191 
+  C55F0D76 61F9A4CD 3D992327 A8BB03BD 4E6D7069 7CBADF8B DF5F4368 95135E44 
+  DFC7C6CF 04DD7FD1 02030100 01A34230 40300E06 03551D0F 0101FF04 04030201 
+  06300F06 03551D13 0101FF04 05300301 01FF301D 0603551D 0E041604 1449DC85 
+  4B3D31E5 1B3E6A17 606AF333 3D3B4C73 E8300D06 092A8648 86F70D01 010B0500 
+  03820101 00507F24 D3932A66 86025D9F E838AE5C 6D4DF6B0 49631C78 240DA905 
+  604EDCDE FF4FED2B 77FC460E CD636FDB DD44681E 3A5673AB 9093D3B1 6C9E3D8B 
+  D98987BF E40CBD9E 1AECA0C2 2189BB5C 8FA85686 CD98B646 5575B146 8DFC66A8 
+  467A3DF4 4D565700 6ADF0F0D CF835015 3C04FF7C 21E878AC 11BA9CD2 55A9232C 
+  7CA7B7E6 C1AF74F6 152E99B7 B1FCF9BB E973DE7F 5BDDEB86 C71E3B49 1765308B 
+  5FB0DA06 B92AFE7F 494E8A9E 07B85737 F3A58BE1 1A48A229 C37C1E69 39F08678 
+  80DDCD16 D6BACECA EEBC7CF9 8428787B 35202CDC 60E4616A B623CDBD 230E3AFB 
+  418616A9 4093E049 4D10AB75 27E86F73 932E35B5 8862FDAE 0275156F 719BB2F0 
+  D697DF7F 28
+  	quit
+!
+!
+license boot level network-advantage addon dna-advantage
+memory free low-watermark processor 73925
+!
+diagnostic bootup level minimal
+!
+spanning-tree mode rapid-pvst
+spanning-tree extend system-id
+!
+!
+!
+username admin privilege 15 password 0 admin
+!
+redundancy
+ mode sso
+crypto engine compliance shield disable
+!
+!
+!
+!
+!
+!
+class-map match-any system-cpp-police-ewlc-control
+ description EWLC Control 
+class-map match-any system-cpp-police-topology-control
+ description Topology control
+class-map match-any system-cpp-police-sw-forward
+ description Sw forwarding, L2 LVX data packets, LOGGING, Transit Traffic
+class-map match-any system-cpp-default
+ description EWLC Data, Inter FED Traffic 
+class-map match-any system-cpp-police-sys-data
+ description Openflow, Exception, EGR Exception, NFL Sampled Data, RPF Failed
+class-map match-any system-cpp-police-punt-webauth
+ description Punt Webauth
+class-map match-any system-cpp-police-l2lvx-control
+ description L2 LVX control packets
+class-map match-any system-cpp-police-forus
+ description Forus traffic
+class-map match-any system-cpp-police-multicast-end-station
+ description MCAST END STATION
+class-map match-any system-cpp-police-forus-addr-resolution
+ description Forus address resolution
+class-map match-any system-cpp-police-high-rate-app
+ description High Rate Applications 
+class-map match-any system-cpp-police-multicast
+ description MCAST Data
+class-map match-any system-cpp-police-meraki-next-tunnel
+ description Meraki Next tunnel
+class-map match-any system-cpp-police-l2-control
+ description L2 control
+class-map match-any system-cpp-police-dot1x-auth
+ description DOT1X Auth
+class-map match-any system-cpp-police-data
+ description ICMP redirect, ICMP_GEN and BROADCAST
+class-map match-any system-cpp-police-stackwise-virt-control
+ description Stackwise Virtual OOB
+class-map match-any non-client-nrt-class
+class-map match-any system-cpp-police-routing-control
+ description Routing control and Low Latency
+class-map match-any system-cpp-police-protocol-snooping
+ description Protocol snooping
+class-map match-any system-cpp-police-dhcp-snooping
+ description DHCP snooping
+class-map match-any system-cpp-police-ios-routing
+ description L2 control, Topology control, Routing control, Low Latency
+class-map match-any system-cpp-police-system-critical
+ description System Critical and Gold Pkt
+class-map match-any system-cpp-police-ios-feature
+ description ICMPGEN,BROADCAST,ICMP,L2LVXCntrl,ProtoSnoop,PuntWebauth,MCASTData,Transit,DOT1XAuth,Swfwd,LOGGING,L2LVXData,ForusTraffic,ForusARP,McastEndStn,Openflow,Exception,EGRExcption,NflSampled,RpfFailed
+!
+policy-map system-cpp-policy
+!
+! 
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+interface Loopback0
+ ip address 198.51.100.100 255.255.255.255
+!
+interface GigabitEthernet0/0
+ description Containerlab management interface
+ vrf forwarding Mgmt-vrf
+ ip address 10.0.0.15 255.255.255.0
+ negotiation auto
+ ipv6 address 2001:DB8::2/64
+!
+interface GigabitEthernet1/0/1
+ description core fabric to bdr-rtr-01
+ no switchport
+ ip address 198.51.100.2 255.255.255.252
+ ip ospf network point-to-point
+!
+interface GigabitEthernet1/0/2
+ description core fabric to bdr-rtr-02
+ no switchport
+ ip address 198.51.100.6 255.255.255.252
+ ip ospf network point-to-point
+!
+interface GigabitEthernet1/0/3
+ description core fabric to bdr-rtr-03
+ no switchport
+ ip address 198.51.100.10 255.255.255.252
+ ip ospf network point-to-point
+!
+interface GigabitEthernet1/0/4
+ description to edge-fw-01
+ no switchport
+ ip address 198.51.100.13 255.255.255.252
+ ip ospf network point-to-point
+!
+interface GigabitEthernet1/0/5
+ description to acc-sw-03 (VRF RED)
+ switchport trunk allowed vlan 10,20
+ switchport mode trunk
+!
+interface GigabitEthernet1/0/6
+ description to acc-sw-04 (VRF BLUE)
+ no switchport
+ vrf forwarding BLUE
+ ip address 198.51.100.29 255.255.255.252
+ ip ospf network point-to-point
+!
+interface GigabitEthernet1/0/7
+!
+interface GigabitEthernet1/0/8
+!
+interface Vlan1
+ no ip address
+ shutdown
+!
+interface Vlan10
+ description RED transit to acc-sw-03
+ vrf forwarding RED
+ ip address 198.51.100.25 255.255.255.252
+ ip ospf network point-to-point
+ no autostate
+!
+interface Vlan20
+ description BLUE transit to acc-sw-03
+ vrf forwarding BLUE
+ ip address 198.51.100.33 255.255.255.252
+ ip ospf network point-to-point
+ no autostate
+!
+router ospf 10 vrf RED
+ router-id 198.51.100.225
+ network 198.51.100.24 0.0.0.3 area 0
+!
+router ospf 20 vrf BLUE
+ router-id 198.51.100.229
+ network 198.51.100.28 0.0.0.3 area 0
+ network 198.51.100.32 0.0.0.3 area 0
+!
+router ospf 1
+ router-id 198.51.100.100
+ passive-interface Loopback0
+ network 198.51.100.0 0.0.0.3 area 0
+ network 198.51.100.4 0.0.0.3 area 0
+ network 198.51.100.8 0.0.0.3 area 0
+ network 198.51.100.12 0.0.0.3 area 0
+ network 198.51.100.100 0.0.0.0 area 0
+!
+router bgp 64496
+ bgp router-id 198.51.100.100
+ bgp log-neighbor-changes
+ neighbor 198.51.100.101 remote-as 64496
+ neighbor 198.51.100.101 description iBGP-RRC-bdr-rtr-01
+ neighbor 198.51.100.101 update-source Loopback0
+ !
+ address-family ipv4
+  network 198.51.100.100 mask 255.255.255.255
+  neighbor 198.51.100.101 activate
+  neighbor 198.51.100.101 route-reflector-client
+ exit-address-family
+!
+ip forward-protocol nd
+ip tcp mss 1280
+ip tcp window-size 212000
+ip http server
+ip http authentication local
+ip http secure-server
+ip route vrf Mgmt-vrf 0.0.0.0 0.0.0.0 10.0.0.2
+ip ssh bulk-mode 131072
+ip ssh server algorithm mac hmac-sha2-512
+!
+!
+ipv6 route vrf Mgmt-vrf ::/0 2001:DB8::1
+!
+!
+control-plane
+ service-policy input system-cpp-policy
+!
+!
+!
+line con 0
+ logging synchronous
+ stopbits 1
+line vty 0 4
+ logging synchronous
+ login local
+ transport input all
+line vty 5 15
+ login
+ transport input ssh
+!
+!
+netconf detailed-error
+netconf max-sessions 16
+!
+!
+!
+!
+!
+netconf-yang
+restconf
+end

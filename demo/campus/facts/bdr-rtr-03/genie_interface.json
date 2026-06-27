@@ -1,0 +1,254 @@
+{
+  "GigabitEthernet0/0/0/1": {
+    "description": "core fabric to core-sw-01",
+    "type": "gigabitethernet",
+    "oper_status": "up",
+    "phys_address": "aac1.ab54.879a",
+    "mtu": 1514,
+    "enabled": true,
+    "mac_address": "aac1.ab54.879a",
+    "bandwidth": 1000000,
+    "flow_control": {
+      "flow_control_send": false,
+      "flow_control_receive": false
+    },
+    "accounting": {
+      "ipv4_unicast": {
+        "pkts_in": 76982,
+        "chars_in": 6841221,
+        "pkts_out": 18778,
+        "chars_out": 921625
+      },
+      "ipv4_multicast": {
+        "pkts_in": 0,
+        "chars_in": 0,
+        "pkts_out": 58189,
+        "chars_out": 5771636
+      },
+      "arp": {
+        "pkts_in": 42,
+        "chars_in": 2520,
+        "pkts_out": 41,
+        "chars_out": 1722
+      }
+    },
+    "ipv4": {
+      "198.51.100.9/30": {
+        "ip": "198.51.100.9",
+        "prefix_length": "30"
+      }
+    },
+    "counters": {
+      "in_pkts": 87351,
+      "in_octets": 12292671,
+      "in_broadcast_pkts": 3,
+      "in_multicast_pkts": 0,
+      "in_discards": 164,
+      "out_octets": 8080595,
+      "in_crc_errors": 0,
+      "out_pkts": 77009,
+      "out_broadcast_pkts": 1,
+      "out_multicast_pkts": 0,
+      "out_errors": 0,
+      "last_clear": "never",
+      "rate": {
+        "load_interval": 300,
+        "in_rate": 0,
+        "in_rate_pkts": 0,
+        "out_rate": 0,
+        "out_rate_pkts": 0
+      }
+    },
+    "encapsulation": {
+      "encapsulation": "arpa"
+    },
+    "ipv6": {
+      "enabled": true
+    }
+  },
+  "GigabitEthernet0/0/0/0": {
+    "description": "eBGP to isp-03",
+    "type": "gigabitethernet",
+    "oper_status": "up",
+    "phys_address": "aac1.abe6.9c5a",
+    "mtu": 1514,
+    "enabled": true,
+    "mac_address": "aac1.abe6.9c5a",
+    "bandwidth": 1000000,
+    "flow_control": {
+      "flow_control_send": false,
+      "flow_control_receive": false
+    },
+    "accounting": {
+      "ipv4_unicast": {
+        "pkts_in": 17912,
+        "chars_in": 940508,
+        "pkts_out": 17913,
+        "chars_out": 887184
+      },
+      "arp": {
+        "pkts_in": 42,
+        "chars_in": 2520,
+        "pkts_out": 44,
+        "chars_out": 1848
+      }
+    },
+    "ipv4": {
+      "203.0.113.9/30": {
+        "ip": "203.0.113.9",
+        "prefix_length": "30"
+      }
+    },
+    "counters": {
+      "in_pkts": 17955,
+      "in_octets": 1265672,
+      "in_broadcast_pkts": 1,
+      "in_multicast_pkts": 0,
+      "in_discards": 0,
+      "out_octets": 1211876,
+      "in_crc_errors": 0,
+      "out_pkts": 17962,
+      "out_broadcast_pkts": 4,
+      "out_multicast_pkts": 0,
+      "out_errors": 0,
+      "last_clear": "never",
+      "rate": {
+        "load_interval": 300,
+        "in_rate": 0,
+        "in_rate_pkts": 0,
+        "out_rate": 0,
+        "out_rate_pkts": 0
+      }
+    },
+    "encapsulation": {
+      "encapsulation": "arpa"
+    },
+    "ipv6": {
+      "enabled": true
+    }
+  },
+  "MgmtEth0/RP0/CPU0/0": {
+    "description": "Containerlab management interface",
+    "type": "management ethernet",
+    "oper_status": "up",
+    "phys_address": "0c00.2327.7b00",
+    "port_speed": "1000",
+    "mtu": 1514,
+    "enabled": true,
+    "mac_address": "0c00.2327.7b00",
+    "auto_negotiate": true,
+    "duplex_mode": "full",
+    "bandwidth": 1000000,
+    "vrf": "clab-mgmt",
+    "accounting": {
+      "ipv4_unicast": {
+        "pkts_in": 8383,
+        "chars_in": 626670,
+        "pkts_out": 7047,
+        "chars_out": 2095309
+      },
+      "ipv6_multicast": {
+        "pkts_in": 1360,
+        "chars_in": 149600,
+        "pkts_out": 0,
+        "chars_out": 0
+      },
+      "arp": {
+        "pkts_in": 40,
+        "chars_in": 2560,
+        "pkts_out": 41,
+        "chars_out": 1722
+      },
+      "ipv6_nd": {
+        "pkts_in": 1360,
+        "chars_in": 149600,
+        "pkts_out": 7,
+        "chars_out": 488
+      }
+    },
+    "ipv4": {
+      "10.0.0.15/24": {
+        "ip": "10.0.0.15",
+        "prefix_length": "24"
+      }
+    },
+    "ipv6": {
+      "2001:db8::2/64": {
+        "ip": "2001:db8::2",
+        "prefix_length": "64"
+      },
+      "enabled": true
+    },
+    "counters": {
+      "in_pkts": 9767,
+      "in_octets": 777724,
+      "in_broadcast_pkts": 0,
+      "in_multicast_pkts": 1360,
+      "in_discards": 0,
+      "out_octets": 2188897,
+      "in_crc_errors": 0,
+      "out_pkts": 7082,
+      "out_broadcast_pkts": 0,
+      "out_multicast_pkts": 0,
+      "out_errors": 0,
+      "last_clear": "never",
+      "rate": {
+        "load_interval": 300,
+        "in_rate": 1000,
+        "in_rate_pkts": 2,
+        "out_rate": 4000,
+        "out_rate_pkts": 2
+      }
+    },
+    "encapsulation": {
+      "encapsulation": "arpa"
+    }
+  },
+  "Null0": {
+    "type": "null",
+    "oper_status": "up",
+    "mtu": 1500,
+    "enabled": true,
+    "bandwidth": 0,
+    "counters": {
+      "in_pkts": 0,
+      "in_octets": 0,
+      "in_broadcast_pkts": 0,
+      "in_multicast_pkts": 0,
+      "in_discards": 0,
+      "out_octets": 0,
+      "out_pkts": 0,
+      "out_broadcast_pkts": 0,
+      "out_multicast_pkts": 0,
+      "last_clear": "never",
+      "rate": {
+        "load_interval": 300,
+        "in_rate": 0,
+        "in_rate_pkts": 0,
+        "out_rate": 0,
+        "out_rate_pkts": 0
+      }
+    },
+    "encapsulation": {
+      "encapsulation": "null"
+    }
+  },
+  "Loopback0": {
+    "oper_status": "up",
+    "mtu": 1500,
+    "enabled": true,
+    "bandwidth": 0,
+    "ipv4": {
+      "198.51.100.103/32": {
+        "ip": "198.51.100.103",
+        "prefix_length": "32"
+      }
+    },
+    "encapsulation": {
+      "encapsulation": "loopback"
+    },
+    "ipv6": {
+      "enabled": true
+    }
+  }
+}

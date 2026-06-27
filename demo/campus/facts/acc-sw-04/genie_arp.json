@@ -1,0 +1,74 @@
+{
+  "interfaces": {
+    "GigabitEthernet0/0": {
+      "ipv4": {
+        "neighbors": {
+          "10.0.0.15": {
+            "ip": "10.0.0.15",
+            "link_layer_address": "0c00.5ca3.ad00",
+            "origin": "static"
+          },
+          "10.0.0.2": {
+            "ip": "10.0.0.2",
+            "link_layer_address": "5255.0a00.0002",
+            "origin": "dynamic"
+          }
+        }
+      },
+      "arp_dynamic_learning": {
+        "local_proxy_enable": false,
+        "proxy_enable": true
+      }
+    },
+    "Vlan40": {
+      "ipv4": {
+        "neighbors": {
+          "198.51.100.81": {
+            "ip": "198.51.100.81",
+            "link_layer_address": "0c00.5ca3.ad64",
+            "origin": "static"
+          }
+        }
+      },
+      "arp_dynamic_learning": {
+        "local_proxy_enable": false,
+        "proxy_enable": true
+      }
+    },
+    "GigabitEthernet1/0/1": {
+      "ipv4": {
+        "neighbors": {
+          "198.51.100.30": {
+            "ip": "198.51.100.30",
+            "link_layer_address": "0c00.5ca3.ad64",
+            "origin": "static"
+          },
+          "198.51.100.29": {
+            "ip": "198.51.100.29",
+            "link_layer_address": "0c00.816a.2a56",
+            "origin": "dynamic"
+          }
+        }
+      },
+      "arp_dynamic_learning": {
+        "local_proxy_enable": false,
+        "proxy_enable": true
+      }
+    },
+    "Loopback0": {
+      "arp_dynamic_learning": {
+        "local_proxy_enable": false,
+        "proxy_enable": true
+      }
+    }
+  },
+  "statistics": {
+    "incomplete_total": 0,
+    "in_requests_pkts": 22,
+    "entries_total": 5,
+    "in_replies_pkts": 54,
+    "out_requests_pkts": 53,
+    "out_replies_pkts": 34,
+    "in_drops": 0
+  }
+}

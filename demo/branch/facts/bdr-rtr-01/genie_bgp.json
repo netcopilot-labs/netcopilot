@@ -1,0 +1,140 @@
+{
+  "instance": {
+    "default": {
+      "bgp_id": 64496,
+      "protocol_state": "RUNNING",
+      "vrf": {
+        "default": {
+          "cluster_id": "198.51.100.101",
+          "log_neighbor_changes": true,
+          "router_id": "198.51.100.101",
+          "enforce_first_as": true,
+          "fast_external_fallover": true,
+          "address_family": {
+            "ipv4 unicast": {
+              "dampening": false,
+              "client_to_client_reflection": true
+            }
+          },
+          "neighbor": {
+            "203.0.113.2": {
+              "description": "eBGP-isp-01",
+              "local_as_as_no": 64496,
+              "local_as_no_prepend": false,
+              "local_as_replace_as": false,
+              "local_as_dual_as": false,
+              "remote_as": 64497,
+              "keepalive_interval": 60,
+              "holdtime": 180,
+              "session_state": "established",
+              "minimum_neighbor_hold": 3,
+              "up_time": "6d05h",
+              "bgp_session_transport": {
+                "connection": {
+                  "state": "established",
+                  "connections_established": 1,
+                  "connections_dropped": 0
+                },
+                "transport": {
+                  "local_host": "203.0.113.1",
+                  "local_port": "179",
+                  "if_handle": "0x01000018",
+                  "foreign_host": "203.0.113.2",
+                  "foreign_port": "24023"
+                }
+              },
+              "bgp_negotiated_capabilities": {
+                "route_refresh": "advertised received",
+                "four_octets_asn": "advertised received"
+              },
+              "bgp_neighbor_counters": {
+                "messages": {
+                  "sent": {
+                    "scoped sync ilist elem flags s": 0,
+                    "opens": 2,
+                    "notifications": 0,
+                    "updates": 7,
+                    "keepalives": 8954,
+                    "totals": 3
+                  },
+                  "received": {
+                    "scoped sync ilist elem flags s": 0,
+                    "opens": 1,
+                    "notifications": 0,
+                    "updates": 2,
+                    "keepalives": 8954,
+                    "totals": 7
+                  }
+                }
+              },
+              "address_family": {
+                "ipv4 unicast": {
+                  "bgp_table_version": 12,
+                  "route_map_name_in": "PASS",
+                  "route_map_name_out": "PASS"
+                }
+              }
+            },
+            "198.51.100.100": {
+              "description": "iBGP-RR-core-sw-01",
+              "local_as_as_no": 64496,
+              "local_as_no_prepend": false,
+              "local_as_replace_as": false,
+              "local_as_dual_as": false,
+              "remote_as": 64496,
+              "keepalive_interval": 60,
+              "holdtime": 180,
+              "session_state": "established",
+              "minimum_neighbor_hold": 3,
+              "up_time": "6d05h",
+              "bgp_session_transport": {
+                "connection": {
+                  "state": "established",
+                  "connections_established": 1,
+                  "connections_dropped": 0,
+                  "last_reset": "00:00:00"
+                },
+                "transport": {
+                  "local_host": "198.51.100.101",
+                  "local_port": "179",
+                  "if_handle": "0x00000000",
+                  "foreign_host": "198.51.100.100",
+                  "foreign_port": "54270"
+                }
+              },
+              "bgp_negotiated_capabilities": {
+                "route_refresh": "advertised received",
+                "four_octets_asn": "advertised received"
+              },
+              "bgp_neighbor_counters": {
+                "messages": {
+                  "sent": {
+                    "scoped sync ilist elem flags s": 0,
+                    "opens": 1,
+                    "notifications": 0,
+                    "updates": 3,
+                    "keepalives": 8952,
+                    "totals": 6
+                  },
+                  "received": {
+                    "scoped sync ilist elem flags s": 0,
+                    "opens": 1,
+                    "notifications": 0,
+                    "updates": 8,
+                    "keepalives": 9855,
+                    "totals": 4
+                  }
+                }
+              },
+              "address_family": {
+                "ipv4 unicast": {
+                  "bgp_table_version": 12
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

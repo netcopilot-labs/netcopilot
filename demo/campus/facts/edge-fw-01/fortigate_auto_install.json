@@ -1,0 +1,19 @@
+{
+  "http_method": "GET",
+  "revision": "f39c6bb55f96149a3b337bd80ba5978e",
+  "results": {
+    "auto-install-config": "enable",
+    "auto-install-image": "enable",
+    "default-config-file": "fgt_system.conf",
+    "default-image-file": "image.out"
+  },
+  "vdom": "root",
+  "path": "system",
+  "name": "auto-install",
+  "action": "",
+  "status": "success",
+  "http_status": 200,
+  "serial": "FGVMEVJ7_ORGXTCC",
+  "version": "v7.4.12",
+  "build": 2902
+}

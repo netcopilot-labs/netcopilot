@@ -1,0 +1,340 @@
+{
+  "run_id": "branch",
+  "timestamp_utc": "2026-06-26T16:11:41Z",
+  "device_count": 3,
+  "collection_mode": "synthetic",
+  "collection_seconds": 77.9,
+  "devices": [
+    {
+      "inventory_name": "bdr-rtr-01",
+      "target": "192.0.2.11",
+      "hostname": "bdr-rtr-01",
+      "os": "ios-xr",
+      "role": "border_router",
+      "site": "branch",
+      "collection_strategy": "pyats",
+      "cluster": null,
+      "status": "success",
+      "error": null,
+      "commands": [
+        {
+          "command": "show version",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/bdr-rtr-01/show_version.txt",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "show inventory",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/bdr-rtr-01/show_inventory.txt",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "show interfaces brief",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/bdr-rtr-01/show_interfaces_brief.txt",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "show ipv4 interface brief",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/bdr-rtr-01/show_ipv4_interface_brief.txt",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "show cdp neighbors",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/bdr-rtr-01/show_cdp_neighbors.txt",
+          "status": "success",
+          "error": null
+        }
+      ]
+    },
+    {
+      "inventory_name": "core-sw-01",
+      "target": "192.0.2.31",
+      "hostname": "core-sw-01",
+      "os": "ios-xe",
+      "role": "core_switch",
+      "site": "branch",
+      "collection_strategy": "pyats",
+      "cluster": null,
+      "status": "success",
+      "error": null,
+      "commands": [
+        {
+          "command": "show version",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/core-sw-01/show_version.txt",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "show inventory",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/core-sw-01/show_inventory.txt",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "show interfaces status",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/core-sw-01/show_interfaces_status.txt",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "show ip interface brief",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/core-sw-01/show_ip_interface_brief.txt",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "show cdp neighbors",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/core-sw-01/show_cdp_neighbors.txt",
+          "status": "success",
+          "error": null
+        }
+      ]
+    },
+    {
+      "inventory_name": "edge-fw-01",
+      "target": "192.0.2.51",
+      "hostname": "edge-fw-01",
+      "os": "fortios",
+      "role": "firewall",
+      "site": "branch",
+      "collection_strategy": "rest",
+      "cluster": null,
+      "status": "success",
+      "error": "HTTP 404: {\"path\":\"system\",\"name\":\"interface\",\"action\":\"transceivers\",\"serial\":\"FGVMEVJ7_ORGXTCC\",\"version\":\"v7.4.12\",\"build\":2902,\"status\":\"error\",\"http_status\":404}",
+      "commands": [
+        {
+          "command": "REST:GET /api/v2/monitor/system/status",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_system_status.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/monitor/system/ha-peer",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_ha_peer.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/monitor/web-ui/state",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_web_ui_state.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/system/interface",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_system_interface.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/monitor/system/interface",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_monitor_interface.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/monitor/system/interface/transceivers",
+          "output_file": null,
+          "status": "error",
+          "error": "HTTP 404: {\"path\":\"system\",\"name\":\"interface\",\"action\":\"transceivers\",\"serial\":\"FGVMEVJ7_ORGXTCC\",\"version\":\"v7.4.12\",\"build\":2902,\"status\":\"error\",\"http_status\":404}"
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/system/auto-install",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_auto_install.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/system.autoupdate/schedule",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_autoupdate_schedule.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/system/global",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_system_global.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/system/dns",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_system_dns.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/system/ntp",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_system_ntp.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/system/password-policy",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_password_policy.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/system.snmp/sysinfo",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_snmp_sysinfo.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/system.snmp/community",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_snmp_community.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/system.snmp/user",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_snmp_user.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/system/admin",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_system_admin.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/system/accprofile",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_system_accprofile.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/system/ha",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_system_ha.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/system/csf",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_system_csf.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/firewall/policy",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_firewall_policy.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/firewall/local-in-policy",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_local_in_policy.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/system/zone",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_system_zone.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/firewall/address",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_firewall_address.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/firewall/addrgrp",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_firewall_addrgrp.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/firewall.service/custom",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_firewall_service_custom.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/firewall.service/group",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_firewall_service_group.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/firewall/vip",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_firewall_vip.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/ips/sensor",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_ips_sensor.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/antivirus/profile",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_antivirus_profile.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/application/list",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_application_list.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/dnsfilter/profile",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_dnsfilter_profile.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/vpn.ssl/settings",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_vpn_ssl.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/user/setting",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_user_setting.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/log.fortianalyzer/setting",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_fortianalyzer.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/log/eventfilter",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_eventfilter.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/monitor/network/arp",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_arp.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/cmdb/router/static",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_static_route.json",
+          "status": "success",
+          "error": null
+        },
+        {
+          "command": "REST:GET /api/v2/monitor/router/ipv4",
+          "output_file": "/tmp/labs-runs/2026-06-26_16-11-41/raw/edge-fw-01/fortigate_routing.json",
+          "status": "success",
+          "error": null
+        }
+      ]
+    }
+  ],
+  "demo_label": "Demo \u2014 Branch office (3 devices)"
+}

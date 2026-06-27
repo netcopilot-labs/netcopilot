@@ -36,16 +36,63 @@ Inventory (YAML)
 NetCopilot ships **no network data**. You point it at your own network
 (your inventory, your devices) and it builds the context from what it collects.
 
-## Quickstart
+## Quickstart (Docker — one command)
+
+Requires **Docker** (Docker Desktop on Windows/macOS, with WSL2 on Windows). No
+Python, Node, GPU, or lab needed.
+
+> New to Docker or want every step explained? See the full
+> **[INSTALLATION.md](INSTALLATION.md)** guide.
 
 ```bash
-cp .env.example .env     # set NEO4J_PASSWORD (and your LLM provider)
-docker compose up -d     # starts Neo4j — no manual install
+git clone <repo-url> && cd netcopilot
+cp .env.example .env                  # set NEO4J_PASSWORD
+cp models.example.yaml models.yaml    # your model registry
+docker compose up                     # builds the image on first run (~10–15 min)
+```
+
+Open **http://localhost:8080** — the dashboard starts **empty** (it ships no
+network data). With **`Demo — campus network`** selected in the inventory
+dropdown, click **▶ Run Now**: it replays a bundled **synthetic 8-device
+capture** (offline, no devices needed) and populates the topology + findings in a
+few seconds. Neo4j browser is at **http://localhost:7474**; the MCP server at
+**http://localhost:3002/mcp**.
+
+The first build is large (the image bundles collection, RAG, PDF reports and the
+Telegram bot). Data persists in named volumes across `docker compose down`; add
+`-v` to wipe.
+
+## Bring your own (all optional, all via `.env` + `models.yaml`)
+
+- **Any LLM (chat).** Edit `models.yaml` — local (Ollama/vLLM, on-prem, no
+  anonymization) or commercial (Claude / GPT / Gemini, auto-anonymized before any
+  data leaves the host). Put the key in `.env` (`ANTHROPIC_API_KEY` etc.); pick a
+  cloud-only default by setting `default:` in `models.yaml` or in the dropdown.
+  Reach a local LLM from the container via `http://host.docker.internal:<port>/v1`.
+  Without a model, everything but chat still works.
+- **Your network.** Copy `examples/inventory.yaml` to `inventory/<name>.yaml`,
+  replace the devices, set `NETCOPILOT_INVENTORY` + SSH creds in `.env`, then press
+  **Run Now** in the dashboard. The collector reaches your devices from the
+  container (pyATS → NETCONF → RESTCONF → SSH). Multiple inventories = multiple
+  sites, isolated in the graph. No hardware? The bundled `demo/containerlab/`
+  topology lets you exercise collection end to end.
+- **Your documents (RAG).** The vector store ships empty. Drop PDFs in
+  `./knowledge_base/`, then ingest:
+  ```bash
+  docker compose exec dashboard \
+    python -m netcopilot.rag.ingest --docs-dir /app/knowledge_base
+  ```
+- **Your Telegram bot.** Set `TELEGRAM_BOT_TOKEN` (from @BotFather) and
+  `TELEGRAM_ALLOWED_USERS` in `.env`, then `docker compose up -d telegram`.
+- **Your email (reports).** Set the `SMTP_*` block in `.env` (any SMTP server).
+  Reports always generate as PDF; SMTP only adds emailing.
+
+## Developing (without Docker)
+
+```bash
 make install             # pip install -e ".[dev]"
 make test                # run the test suite
 ```
-
-The synthetic demo seed and the end-to-end CLI land as the spine is completed.
 
 ## License
 

@@ -1,0 +1,60 @@
+# Build-context excludes — mirror .gitignore so nothing private or bulky reaches
+# the image. The frontend SPA is rebuilt inside the image (stage 1), so its
+# node_modules/dist in the context are never needed.
+
+# ── Internal / private (never published, never in an image) ──────────────────
+CLAUDE.md
+internal/
+.claude/
+*.local.*
+
+# ── Data & secrets (BYO — never shipped) ─────────────────────────────────────
+.env
+.env.*
+!.env.example
+models.yaml
+runs/
+inventory/
+data/
+src/netcopilot/data/
+knowledge_base/
+*.pem
+*.key
+
+# Demo: ship demo-lab facts + manifest; model/findings are rebuilt on replay.
+demo/campus/model/
+demo/campus/findings/
+demo/branch/model/
+demo/branch/findings/
+# The l2-campus run is a test fixture only (tests/test_l2_campus_demo.py) — not
+# a shipped demo, so keep it out of the image entirely.
+demo/l2-campus/
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# ── Node / frontend (rebuilt in stage 1) ─────────────────────────────────────
+**/node_modules/
+**/dist/
+**/build/
+*.log
+
+# Pre-built backend static bundle (stage 1 produces a fresh one).
+src/netcopilot/dashboard/backend/static/
+
+# ── Caches / model weights / VCS / IDE ───────────────────────────────────────
+.cache/
+*.bin
+*.safetensors
+.git/
+.github/
+.idea/
+.vscode/
+*.swp
+.DS_Store

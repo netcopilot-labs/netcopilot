@@ -1,0 +1,3230 @@
+{
+  "hostname": "core-sw-01",
+  "os": "ios-xe",
+  "collection_strategy": "pyats",
+  "source_run_id": "2026-06-26_16-11-41",
+  "collection_timestamp": "2026-06-26T16:11:41Z",
+  "device_info": {
+    "hostname": "core-sw-01",
+    "version": "17.18.02",
+    "platform": "System",
+    "serial": "9TRTXNDMAT0",
+    "uptime_text": "6 days, 5 hours, 21 minutes",
+    "mac_address": "0c:00:81:6a:2a:00",
+    "role": "core_switch",
+    "site": "demo"
+  },
+  "interfaces": [
+    {
+      "name": "Vlan1",
+      "ip_address": "unassigned",
+      "status": "administratively down",
+      "protocol": "down"
+    },
+    {
+      "name": "Vlan10",
+      "ip_address": "198.51.100.25",
+      "status": "up",
+      "protocol": "up"
+    },
+    {
+      "name": "Vlan20",
+      "ip_address": "198.51.100.33",
+      "status": "up",
+      "protocol": "up"
+    },
+    {
+      "name": "GigabitEthernet0/0",
+      "ip_address": "10.0.0.15",
+      "status": "up",
+      "protocol": "up"
+    },
+    {
+      "name": "GigabitEthernet1/0/1",
+      "ip_address": "198.51.100.2",
+      "status": "up",
+      "protocol": "up"
+    },
+    {
+      "name": "GigabitEthernet1/0/2",
+      "ip_address": "198.51.100.6",
+      "status": "up",
+      "protocol": "up"
+    },
+    {
+      "name": "GigabitEthernet1/0/3",
+      "ip_address": "198.51.100.10",
+      "status": "up",
+      "protocol": "up"
+    },
+    {
+      "name": "GigabitEthernet1/0/4",
+      "ip_address": "198.51.100.13",
+      "status": "up",
+      "protocol": "up"
+    },
+    {
+      "name": "GigabitEthernet1/0/5",
+      "ip_address": "unassigned",
+      "status": "up",
+      "protocol": "up"
+    },
+    {
+      "name": "GigabitEthernet1/0/6",
+      "ip_address": "198.51.100.29",
+      "status": "up",
+      "protocol": "up"
+    },
+    {
+      "name": "GigabitEthernet1/0/7",
+      "ip_address": "unassigned",
+      "status": "up",
+      "protocol": "up"
+    },
+    {
+      "name": "GigabitEthernet1/0/8",
+      "ip_address": "unassigned",
+      "status": "up",
+      "protocol": "up"
+    },
+    {
+      "name": "Loopback0",
+      "ip_address": "198.51.100.100",
+      "status": "up",
+      "protocol": "up"
+    }
+  ],
+  "cdp_neighbors": [
+    {
+      "neighbor_hostname": "acc-sw-04",
+      "local_interface": "Gig 1/0/6",
+      "neighbor_interface": "Gig 1/0/1",
+      "neighbor_platform": "C9KV-UADP",
+      "capability": "R S I"
+    },
+    {
+      "neighbor_hostname": "acc-sw-03",
+      "local_interface": "Gig 1/0/5",
+      "neighbor_interface": "Gig 1/0/1",
+      "neighbor_platform": "C9KV-UADP",
+      "capability": "R S I"
+    }
+  ],
+  "cluster_members": [],
+  "fortigate": {},
+  "genie": {
+    "arp": {
+      "interfaces": {
+        "GigabitEthernet1/0/4": {
+          "ipv4": {
+            "neighbors": {
+              "198.51.100.14": {
+                "ip": "198.51.100.14",
+                "link_layer_address": "aac1.ab9f.f7a9",
+                "origin": "dynamic"
+              },
+              "198.51.100.13": {
+                "ip": "198.51.100.13",
+                "link_layer_address": "0c00.816a.2a76",
+                "origin": "static"
+              }
+            }
+          },
+          "arp_dynamic_learning": {
+            "local_proxy_enable": false,
+            "proxy_enable": true
+          }
+        },
+        "GigabitEthernet1/0/3": {
+          "ipv4": {
+            "neighbors": {
+              "198.51.100.10": {
+                "ip": "198.51.100.10",
+                "link_layer_address": "0c00.816a.2a58",
+                "origin": "static"
+              },
+              "198.51.100.9": {
+                "ip": "198.51.100.9",
+                "link_layer_address": "aac1.ab54.879a",
+                "origin": "dynamic"
+              }
+            }
+          },
+          "arp_dynamic_learning": {
+            "local_proxy_enable": false,
+            "proxy_enable": true
+          }
+        },
+        "GigabitEthernet1/0/2": {
+          "ipv4": {
+            "neighbors": {
+              "198.51.100.6": {
+                "ip": "198.51.100.6",
+                "link_layer_address": "0c00.816a.2a56",
+                "origin": "static"
+              },
+              "198.51.100.5": {
+                "ip": "198.51.100.5",
+                "link_layer_address": "aac1.ab4f.5105",
+                "origin": "dynamic"
+              }
+            }
+          },
+          "arp_dynamic_learning": {
+            "local_proxy_enable": false,
+            "proxy_enable": true
+          }
+        },
+        "GigabitEthernet1/0/1": {
+          "ipv4": {
+            "neighbors": {
+              "198.51.100.2": {
+                "ip": "198.51.100.2",
+                "link_layer_address": "0c00.816a.2a64",
+                "origin": "static"
+              },
+              "198.51.100.1": {
+                "ip": "198.51.100.1",
+                "link_layer_address": "aac1.abed.0880",
+                "origin": "dynamic"
+              }
+            }
+          },
+          "arp_dynamic_learning": {
+            "local_proxy_enable": false,
+            "proxy_enable": true
+          }
+        },
+        "Vlan10": {
+          "ipv4": {
+            "neighbors": {
+              "198.51.100.26": {
+                "ip": "198.51.100.26",
+                "link_layer_address": "0c00.017d.1a46",
+                "origin": "dynamic"
+              },
+              "198.51.100.25": {
+                "ip": "198.51.100.25",
+                "link_layer_address": "0c00.816a.2a46",
+                "origin": "static"
+              }
+            }
+          },
+          "arp_dynamic_learning": {
+            "local_proxy_enable": false,
+            "proxy_enable": true
+          }
+        },
+        "GigabitEthernet0/0": {
+          "ipv4": {
+            "neighbors": {
+              "10.0.0.15": {
+                "ip": "10.0.0.15",
+                "link_layer_address": "0c00.816a.2a00",
+                "origin": "static"
+              },
+              "10.0.0.2": {
+                "ip": "10.0.0.2",
+                "link_layer_address": "5255.0a00.0002",
+                "origin": "dynamic"
+              }
+            }
+          },
+          "arp_dynamic_learning": {
+            "local_proxy_enable": false,
+            "proxy_enable": true
+          }
+        },
+        "Vlan20": {
+          "ipv4": {
+            "neighbors": {
+              "198.51.100.34": {
+                "ip": "198.51.100.34",
+                "link_layer_address": "0c00.017d.1a56",
+                "origin": "dynamic"
+              },
+              "198.51.100.33": {
+                "ip": "198.51.100.33",
+                "link_layer_address": "0c00.816a.2a56",
+                "origin": "static"
+              }
+            }
+          },
+          "arp_dynamic_learning": {
+            "local_proxy_enable": false,
+            "proxy_enable": true
+          }
+        },
+        "GigabitEthernet1/0/6": {
+          "ipv4": {
+            "neighbors": {
+              "198.51.100.30": {
+                "ip": "198.51.100.30",
+                "link_layer_address": "0c00.5ca3.ad64",
+                "origin": "dynamic"
+              },
+              "198.51.100.29": {
+                "ip": "198.51.100.29",
+                "link_layer_address": "0c00.816a.2a56",
+                "origin": "static"
+              }
+            }
+          },
+          "arp_dynamic_learning": {
+            "local_proxy_enable": false,
+            "proxy_enable": true
+          }
+        },
+        "Loopback0": {
+          "arp_dynamic_learning": {
+            "local_proxy_enable": false,
+            "proxy_enable": true
+          }
+        }
+      },
+      "statistics": {
+        "incomplete_total": 0,
+        "in_requests_pkts": 159,
+        "entries_total": 16,
+        "in_replies_pkts": 136,
+        "out_requests_pkts": 134,
+        "out_replies_pkts": 189,
+        "in_drops": 0
+      }
+    },
+    "bgp": {
+      "instance": {
+        "default": {
+          "bgp_id": 64496,
+          "vrf": {
+            "RED": {
+              "cluster_id": "198.51.100.100"
+            },
+            "BLUE": {
+              "cluster_id": "198.51.100.100"
+            },
+            "default": {
+              "cluster_id": "198.51.100.100",
+              "neighbor": {
+                "198.51.100.101": {
+                  "description": "iBGP-RRC-bdr-rtr-01",
+                  "remote_as": 64496,
+                  "shutdown": false,
+                  "bgp_version": 4,
+                  "session_state": "Established",
+                  "bgp_negotiated_keepalive_timers": {
+                    "keepalive_interval": 60,
+                    "hold_time": 180
+                  },
+                  "bgp_session_transport": {
+                    "connection": {
+                      "state": "Established",
+                      "last_reset": "never"
+                    },
+                    "transport": {
+                      "local_port": "54270",
+                      "local_host": "198.51.100.100",
+                      "foreign_port": "179",
+                      "foreign_host": "198.51.100.101",
+                      "mss": 1240
+                    }
+                  },
+                  "bgp_negotiated_capabilities": {
+                    "route_refresh": "advertised and received(new)",
+                    "four_octets_asn": "advertised and received",
+                    "enhanced_refresh": "advertised",
+                    "stateful_switchover": "NO for session 1"
+                  },
+                  "bgp_neighbor_counters": {
+                    "messages": {
+                      "sent": {
+                        "opens": 1,
+                        "updates": 8,
+                        "notifications": 0,
+                        "keepalives": 9855
+                      },
+                      "received": {
+                        "opens": 1,
+                        "updates": 3,
+                        "notifications": 0,
+                        "keepalives": 8952
+                      }
+                    }
+                  },
+                  "address_family": {
+                    "ipv4 unicast": {
+                      "bgp_table_version": 11,
+                      "routing_table_version": 11,
+                      "prefixes": {
+                        "total_entries": 10,
+                        "memory_usage": 2480
+                      },
+                      "path": {
+                        "total_entries": 10,
+                        "memory_usage": 1360
+                      },
+                      "total_memory": 5432
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "fdb": {
+      "mac_aging_time": 300,
+      "mac_table": {
+        "vlans": {
+          "20": {
+            "vlan": 20,
+            "mac_addresses": {
+              "0c00.017d.1a01": {
+                "mac_address": "0c00.017d.1a01",
+                "interfaces": {
+                  "GigabitEthernet1/0/5": {
+                    "interface": "GigabitEthernet1/0/5",
+                    "entry_type": "dynamic"
+                  }
+                }
+              },
+              "0c00.017d.1a56": {
+                "mac_address": "0c00.017d.1a56",
+                "interfaces": {
+                  "GigabitEthernet1/0/5": {
+                    "interface": "GigabitEthernet1/0/5",
+                    "entry_type": "dynamic"
+                  }
+                }
+              },
+              "0c00.816a.2a56": {
+                "mac_address": "0c00.816a.2a56",
+                "interfaces": {
+                  "Vlan20": {
+                    "interface": "Vlan20",
+                    "entry_type": "static"
+                  }
+                }
+              }
+            }
+          },
+          "10": {
+            "vlan": 10,
+            "mac_addresses": {
+              "0c00.017d.1a01": {
+                "mac_address": "0c00.017d.1a01",
+                "interfaces": {
+                  "GigabitEthernet1/0/5": {
+                    "interface": "GigabitEthernet1/0/5",
+                    "entry_type": "dynamic"
+                  }
+                }
+              },
+              "0c00.017d.1a46": {
+                "mac_address": "0c00.017d.1a46",
+                "interfaces": {
+                  "GigabitEthernet1/0/5": {
+                    "interface": "GigabitEthernet1/0/5",
+                    "entry_type": "dynamic"
+                  }
+                }
+              },
+              "0c00.816a.2a46": {
+                "mac_address": "0c00.816a.2a46",
+                "interfaces": {
+                  "Vlan10": {
+                    "interface": "Vlan10",
+                    "entry_type": "static"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "total_mac_addresses": 27
+    },
+    "interface": {
+      "GigabitEthernet1/0/6": {
+        "description": "to acc-sw-04 (VRF BLUE)",
+        "type": "Gigabit Ethernet",
+        "oper_status": "up",
+        "phys_address": "0c00.816a.2a56",
+        "port_speed": "1000mb/s",
+        "mtu": 1500,
+        "enabled": true,
+        "bandwidth": 1000000,
+        "flow_control": {
+          "receive": true,
+          "send": false
+        },
+        "mac_address": "0c00.816a.2a56",
+        "auto_negotiate": true,
+        "port_channel": {
+          "port_channel_member": false
+        },
+        "duplex_mode": "full",
+        "delay": 10,
+        "vrf": "BLUE",
+        "accounting": {
+          "other": {
+            "pkts_in": 97,
+            "chars_in": 11454,
+            "pkts_out": 0,
+            "chars_out": 0
+          },
+          "arp": {
+            "pkts_in": 38,
+            "chars_in": 2280,
+            "pkts_out": 39,
+            "chars_out": 2340
+          },
+          "cdp": {
+            "pkts_in": 9941,
+            "chars_in": 3976400,
+            "pkts_out": 9955,
+            "chars_out": 3991955
+          }
+        },
+        "ipv4": {
+          "198.51.100.29/30": {
+            "ip": "198.51.100.29",
+            "prefix_length": "30",
+            "secondary": false
+          }
+        },
+        "counters": {
+          "in_pkts": 67442,
+          "in_octets": 10783096,
+          "in_broadcast_pkts": 67394,
+          "in_multicast_pkts": 67391,
+          "in_errors": 0,
+          "in_mac_pause_frames": 0,
+          "out_mac_pause_frames": 0,
+          "in_crc_errors": 0,
+          "out_pkts": 67507,
+          "out_octets": 10809045,
+          "out_broadcast_pkts": 3,
+          "out_multicast_pkts": 0,
+          "out_errors": 0,
+          "last_clear": "never",
+          "rate": {
+            "load_interval": 300,
+            "in_rate": 0,
+            "in_rate_pkts": 0,
+            "out_rate": 0,
+            "out_rate_pkts": 0
+          }
+        },
+        "encapsulation": {
+          "encapsulation": "arpa"
+        },
+        "switchport_enable": false
+      },
+      "GigabitEthernet1/0/5": {
+        "description": "to acc-sw-03 (VRF RED)",
+        "type": "Gigabit Ethernet",
+        "oper_status": "up",
+        "phys_address": "0c00.816a.2a05",
+        "port_speed": "1000mb/s",
+        "mtu": 1500,
+        "enabled": true,
+        "bandwidth": 1000000,
+        "flow_control": {
+          "receive": true,
+          "send": false
+        },
+        "mac_address": "0c00.816a.2a05",
+        "auto_negotiate": true,
+        "port_channel": {
+          "port_channel_member": false
+        },
+        "duplex_mode": "full",
+        "delay": 10,
+        "accounting": {
+          "other": {
+            "pkts_in": 1,
+            "chars_in": 118,
+            "pkts_out": 0,
+            "chars_out": 0
+          },
+          "spanning tree": {
+            "pkts_in": 703074,
+            "chars_in": 44992490,
+            "pkts_out": 30,
+            "chars_out": 1832
+          },
+          "cdp": {
+            "pkts_in": 6505,
+            "chars_in": 2706424,
+            "pkts_out": 6532,
+            "chars_out": 2724191
+          },
+          "dtp": {
+            "pkts_in": 11725,
+            "chars_in": 562800,
+            "pkts_out": 11727,
+            "chars_out": 703620
+          }
+        },
+        "counters": {
+          "in_pkts": 468103,
+          "in_octets": 41650219,
+          "in_broadcast_pkts": 468028,
+          "in_multicast_pkts": 468026,
+          "in_errors": 0,
+          "in_mac_pause_frames": 0,
+          "out_mac_pause_frames": 0,
+          "in_crc_errors": 0,
+          "out_pkts": 116421,
+          "out_octets": 16359064,
+          "out_broadcast_pkts": 4,
+          "out_multicast_pkts": 116343,
+          "out_errors": 0,
+          "last_clear": "never",
+          "rate": {
+            "load_interval": 300,
+            "in_rate": 1000,
+            "in_rate_pkts": 1,
+            "out_rate": 0,
+            "out_rate_pkts": 0
+          }
+        },
+        "encapsulation": {
+          "encapsulation": "arpa"
+        },
+        "switchport_enable": false
+      },
+      "GigabitEthernet1/0/4": {
+        "description": "to edge-fw-01",
+        "type": "Gigabit Ethernet",
+        "oper_status": "up",
+        "phys_address": "0c00.816a.2a76",
+        "port_speed": "1000mb/s",
+        "mtu": 1500,
+        "enabled": true,
+        "bandwidth": 1000000,
+        "flow_control": {
+          "receive": true,
+          "send": false
+        },
+        "mac_address": "0c00.816a.2a76",
+        "auto_negotiate": true,
+        "port_channel": {
+          "port_channel_member": false
+        },
+        "duplex_mode": "full",
+        "delay": 10,
+        "accounting": {
+          "other": {
+            "pkts_in": 95,
+            "chars_in": 8214,
+            "pkts_out": 0,
+            "chars_out": 0
+          },
+          "ip": {
+            "pkts_in": 4,
+            "chars_in": 240,
+            "pkts_out": 0,
+            "chars_out": 0
+          },
+          "arp": {
+            "pkts_in": 37,
+            "chars_in": 2220,
+            "pkts_out": 38,
+            "chars_out": 2280
+          },
+          "cdp": {
+            "pkts_in": 0,
+            "chars_in": 0,
+            "pkts_out": 9964,
+            "chars_out": 3995564
+          }
+        },
+        "ipv4": {
+          "198.51.100.13/30": {
+            "ip": "198.51.100.13",
+            "prefix_length": "30",
+            "secondary": false
+          }
+        },
+        "counters": {
+          "in_pkts": 55558,
+          "in_octets": 4801926,
+          "in_broadcast_pkts": 55522,
+          "in_multicast_pkts": 55520,
+          "in_errors": 0,
+          "in_mac_pause_frames": 0,
+          "out_mac_pause_frames": 0,
+          "in_crc_errors": 0,
+          "out_pkts": 68431,
+          "out_octets": 10934107,
+          "out_broadcast_pkts": 4,
+          "out_multicast_pkts": 0,
+          "out_errors": 0,
+          "last_clear": "never",
+          "rate": {
+            "load_interval": 300,
+            "in_rate": 0,
+            "in_rate_pkts": 0,
+            "out_rate": 0,
+            "out_rate_pkts": 0
+          }
+        },
+        "encapsulation": {
+          "encapsulation": "arpa"
+        },
+        "switchport_enable": false
+      },
+      "GigabitEthernet1/0/3": {
+        "description": "core fabric to bdr-rtr-03",
+        "type": "Gigabit Ethernet",
+        "oper_status": "up",
+        "phys_address": "0c00.816a.2a58",
+        "port_speed": "1000mb/s",
+        "mtu": 1500,
+        "enabled": true,
+        "bandwidth": 1000000,
+        "flow_control": {
+          "receive": true,
+          "send": false
+        },
+        "mac_address": "0c00.816a.2a58",
+        "auto_negotiate": true,
+        "port_channel": {
+          "port_channel_member": false
+        },
+        "duplex_mode": "full",
+        "delay": 10,
+        "accounting": {
+          "other": {
+            "pkts_in": 133,
+            "chars_in": 14043,
+            "pkts_out": 0,
+            "chars_out": 0
+          },
+          "ip": {
+            "pkts_in": 0,
+            "chars_in": 0,
+            "pkts_out": 18771,
+            "chars_out": 1254867
+          },
+          "arp": {
+            "pkts_in": 40,
+            "chars_in": 2400,
+            "pkts_out": 42,
+            "chars_out": 2520
+          },
+          "cdp": {
+            "pkts_in": 0,
+            "chars_in": 0,
+            "pkts_out": 9957,
+            "chars_out": 3992757
+          }
+        },
+        "ipv4": {
+          "198.51.100.10/30": {
+            "ip": "198.51.100.10",
+            "prefix_length": "30",
+            "secondary": false
+          }
+        },
+        "counters": {
+          "in_pkts": 77153,
+          "in_octets": 8150855,
+          "in_broadcast_pkts": 58335,
+          "in_multicast_pkts": 58334,
+          "in_errors": 0,
+          "in_mac_pause_frames": 0,
+          "out_mac_pause_frames": 0,
+          "in_crc_errors": 0,
+          "out_pkts": 87208,
+          "out_octets": 12282861,
+          "out_broadcast_pkts": 3,
+          "out_multicast_pkts": 0,
+          "out_errors": 0,
+          "last_clear": "never",
+          "rate": {
+            "load_interval": 300,
+            "in_rate": 0,
+            "in_rate_pkts": 0,
+            "out_rate": 0,
+            "out_rate_pkts": 0
+          }
+        },
+        "encapsulation": {
+          "encapsulation": "arpa"
+        },
+        "switchport_enable": false
+      },
+      "GigabitEthernet1/0/2": {
+        "description": "core fabric to bdr-rtr-02",
+        "type": "Gigabit Ethernet",
+        "oper_status": "up",
+        "phys_address": "0c00.816a.2a56",
+        "port_speed": "1000mb/s",
+        "mtu": 1500,
+        "enabled": true,
+        "bandwidth": 1000000,
+        "flow_control": {
+          "receive": true,
+          "send": false
+        },
+        "mac_address": "0c00.816a.2a56",
+        "auto_negotiate": true,
+        "port_channel": {
+          "port_channel_member": false
+        },
+        "duplex_mode": "full",
+        "delay": 10,
+        "accounting": {
+          "other": {
+            "pkts_in": 131,
+            "chars_in": 13871,
+            "pkts_out": 0,
+            "chars_out": 0
+          },
+          "ip": {
+            "pkts_in": 0,
+            "chars_in": 0,
+            "pkts_out": 18797,
+            "chars_out": 1256514
+          },
+          "arp": {
+            "pkts_in": 40,
+            "chars_in": 2400,
+            "pkts_out": 42,
+            "chars_out": 2520
+          },
+          "cdp": {
+            "pkts_in": 0,
+            "chars_in": 0,
+            "pkts_out": 9953,
+            "chars_out": 3991153
+          }
+        },
+        "ipv4": {
+          "198.51.100.6/30": {
+            "ip": "198.51.100.6",
+            "prefix_length": "30",
+            "secondary": false
+          }
+        },
+        "counters": {
+          "in_pkts": 77157,
+          "in_octets": 8150815,
+          "in_broadcast_pkts": 58332,
+          "in_multicast_pkts": 58331,
+          "in_errors": 0,
+          "in_mac_pause_frames": 0,
+          "out_mac_pause_frames": 0,
+          "in_crc_errors": 0,
+          "out_pkts": 87213,
+          "out_octets": 12280957,
+          "out_broadcast_pkts": 3,
+          "out_multicast_pkts": 0,
+          "out_errors": 0,
+          "last_clear": "never",
+          "rate": {
+            "load_interval": 300,
+            "in_rate": 0,
+            "in_rate_pkts": 0,
+            "out_rate": 0,
+            "out_rate_pkts": 0
+          }
+        },
+        "encapsulation": {
+          "encapsulation": "arpa"
+        },
+        "switchport_enable": false
+      },
+      "GigabitEthernet1/0/1": {
+        "description": "core fabric to bdr-rtr-01",
+        "type": "Gigabit Ethernet",
+        "oper_status": "up",
+        "phys_address": "0c00.816a.2a64",
+        "port_speed": "1000mb/s",
+        "mtu": 1500,
+        "enabled": true,
+        "bandwidth": 1000000,
+        "flow_control": {
+          "receive": true,
+          "send": false
+        },
+        "mac_address": "0c00.816a.2a64",
+        "auto_negotiate": true,
+        "port_channel": {
+          "port_channel_member": false
+        },
+        "duplex_mode": "full",
+        "delay": 10,
+        "accounting": {
+          "other": {
+            "pkts_in": 131,
+            "chars_in": 13915,
+            "pkts_out": 0,
+            "chars_out": 0
+          },
+          "ip": {
+            "pkts_in": 0,
+            "chars_in": 0,
+            "pkts_out": 18783,
+            "chars_out": 1255678
+          },
+          "arp": {
+            "pkts_in": 40,
+            "chars_in": 2400,
+            "pkts_out": 42,
+            "chars_out": 2520
+          },
+          "cdp": {
+            "pkts_in": 0,
+            "chars_in": 0,
+            "pkts_out": 9953,
+            "chars_out": 3991153
+          }
+        },
+        "ipv4": {
+          "198.51.100.2/30": {
+            "ip": "198.51.100.2",
+            "prefix_length": "30",
+            "secondary": false
+          }
+        },
+        "counters": {
+          "in_pkts": 77157,
+          "in_octets": 8150719,
+          "in_broadcast_pkts": 58331,
+          "in_multicast_pkts": 58330,
+          "in_errors": 0,
+          "in_mac_pause_frames": 0,
+          "out_mac_pause_frames": 0,
+          "in_crc_errors": 0,
+          "out_pkts": 87198,
+          "out_octets": 12279920,
+          "out_broadcast_pkts": 3,
+          "out_multicast_pkts": 0,
+          "out_errors": 0,
+          "last_clear": "never",
+          "rate": {
+            "load_interval": 300,
+            "in_rate": 0,
+            "in_rate_pkts": 0,
+            "out_rate": 0,
+            "out_rate_pkts": 0
+          }
+        },
+        "encapsulation": {
+          "encapsulation": "arpa"
+        },
+        "switchport_enable": false
+      },
+      "GigabitEthernet0/0": {
+        "description": "Containerlab management interface",
+        "type": "RP management port",
+        "oper_status": "up",
+        "phys_address": "0c00.816a.2a00",
+        "port_speed": "auto speed",
+        "mtu": 1500,
+        "enabled": true,
+        "bandwidth": 1000000,
+        "flow_control": {
+          "receive": false,
+          "send": false
+        },
+        "mac_address": "0c00.816a.2a00",
+        "auto_negotiate": true,
+        "port_channel": {
+          "port_channel_member": false
+        },
+        "duplex_mode": "auto",
+        "delay": 10,
+        "vrf": "Mgmt-vrf",
+        "accounting": {
+          "ip": {
+            "pkts_in": 0,
+            "chars_in": 0,
+            "pkts_out": 143930,
+            "chars_out": 19385796
+          },
+          "arp": {
+            "pkts_in": 39,
+            "chars_in": 2496,
+            "pkts_out": 84,
+            "chars_out": 5040
+          },
+          "cdp": {
+            "pkts_in": 0,
+            "chars_in": 0,
+            "pkts_out": 19924,
+            "chars_out": 9821722
+          },
+          "ipv6": {
+            "pkts_in": 1511,
+            "chars_in": 166210,
+            "pkts_out": 86,
+            "chars_out": 8480
+          }
+        },
+        "ipv4": {
+          "10.0.0.15/24": {
+            "ip": "10.0.0.15",
+            "prefix_length": "24",
+            "secondary": false
+          }
+        },
+        "ipv6": {
+          "2001:DB8::2/64": {
+            "ip": "2001:DB8::2",
+            "prefix_length": "64",
+            "status": "valid"
+          },
+          "FE80::E00:81FF:FE6A:2A00": {
+            "ip": "FE80::E00:81FF:FE6A:2A00",
+            "status": "valid",
+            "origin": "link_layer"
+          }
+        },
+        "counters": {
+          "in_pkts": 74486,
+          "in_octets": 4799374,
+          "in_broadcast_pkts": 0,
+          "in_multicast_pkts": 0,
+          "in_errors": 0,
+          "in_mac_pause_frames": 0,
+          "out_mac_pause_frames": 0,
+          "in_crc_errors": 0,
+          "out_pkts": 82266,
+          "out_octets": 14730327,
+          "out_broadcast_pkts": 0,
+          "out_multicast_pkts": 0,
+          "out_errors": 0,
+          "last_clear": "never",
+          "rate": {
+            "load_interval": 300,
+            "in_rate": 2000,
+            "in_rate_pkts": 9,
+            "out_rate": 12000,
+            "out_rate_pkts": 9
+          }
+        },
+        "encapsulation": {
+          "encapsulation": "arpa"
+        },
+        "switchport_enable": false
+      },
+      "Vlan20": {
+        "description": "BLUE transit to acc-sw-03",
+        "type": "Ethernet SVI",
+        "oper_status": "up",
+        "phys_address": "0c00.816a.2a56",
+        "mtu": 1500,
+        "enabled": true,
+        "bandwidth": 1000000,
+        "mac_address": "0c00.816a.2a56",
+        "port_channel": {
+          "port_channel_member": false
+        },
+        "delay": 10,
+        "vrf": "BLUE",
+        "accounting": {
+          "other": {
+            "pkts_in": 98,
+            "chars_in": 11920,
+            "pkts_out": 0,
+            "chars_out": 0
+          },
+          "arp": {
+            "pkts_in": 24,
+            "chars_in": 1440,
+            "pkts_out": 26,
+            "chars_out": 1560
+          }
+        },
+        "ipv4": {
+          "198.51.100.33/30": {
+            "ip": "198.51.100.33",
+            "prefix_length": "30",
+            "secondary": false
+          }
+        },
+        "counters": {
+          "in_pkts": 98,
+          "in_octets": 11920,
+          "in_broadcast_pkts": 0,
+          "in_multicast_pkts": 0,
+          "in_errors": 0,
+          "in_crc_errors": 0,
+          "out_pkts": 0,
+          "out_octets": 0,
+          "out_broadcast_pkts": 0,
+          "out_multicast_pkts": 0,
+          "out_errors": 0,
+          "last_clear": "never",
+          "rate": {
+            "load_interval": 300,
+            "in_rate": 0,
+            "in_rate_pkts": 0,
+            "out_rate": 0,
+            "out_rate_pkts": 0
+          }
+        },
+        "encapsulation": {
+          "encapsulation": "arpa"
+        },
+        "switchport_enable": false
+      },
+      "Vlan10": {
+        "description": "RED transit to acc-sw-03",
+        "type": "Ethernet SVI",
+        "oper_status": "up",
+        "phys_address": "0c00.816a.2a46",
+        "mtu": 1500,
+        "enabled": true,
+        "bandwidth": 1000000,
+        "mac_address": "0c00.816a.2a46",
+        "port_channel": {
+          "port_channel_member": false
+        },
+        "delay": 10,
+        "vrf": "RED",
+        "accounting": {
+          "other": {
+            "pkts_in": 98,
+            "chars_in": 11920,
+            "pkts_out": 0,
+            "chars_out": 0
+          },
+          "arp": {
+            "pkts_in": 24,
+            "chars_in": 1440,
+            "pkts_out": 26,
+            "chars_out": 1560
+          }
+        },
+        "ipv4": {
+          "198.51.100.25/30": {
+            "ip": "198.51.100.25",
+            "prefix_length": "30",
+            "secondary": false
+          }
+        },
+        "counters": {
+          "in_pkts": 98,
+          "in_octets": 11920,
+          "in_broadcast_pkts": 0,
+          "in_multicast_pkts": 0,
+          "in_errors": 0,
+          "in_crc_errors": 0,
+          "out_pkts": 0,
+          "out_octets": 0,
+          "out_broadcast_pkts": 0,
+          "out_multicast_pkts": 0,
+          "out_errors": 0,
+          "last_clear": "never",
+          "rate": {
+            "load_interval": 300,
+            "in_rate": 0,
+            "in_rate_pkts": 0,
+            "out_rate": 0,
+            "out_rate_pkts": 0
+          }
+        },
+        "encapsulation": {
+          "encapsulation": "arpa"
+        },
+        "switchport_enable": false
+      },
+      "Loopback0": {
+        "type": "Loopback",
+        "oper_status": "up",
+        "mtu": 1514,
+        "enabled": true,
+        "bandwidth": 8000000,
+        "port_channel": {
+          "port_channel_member": false
+        },
+        "delay": 5000,
+        "ipv4": {
+          "198.51.100.100/32": {
+            "ip": "198.51.100.100",
+            "prefix_length": "32",
+            "secondary": false
+          }
+        },
+        "counters": {
+          "in_pkts": 0,
+          "in_octets": 0,
+          "in_broadcast_pkts": 0,
+          "in_multicast_pkts": 0,
+          "in_errors": 0,
+          "in_crc_errors": 0,
+          "out_pkts": 0,
+          "out_octets": 0,
+          "out_broadcast_pkts": 0,
+          "out_multicast_pkts": 0,
+          "out_errors": 0,
+          "last_clear": "never",
+          "rate": {
+            "load_interval": 300,
+            "in_rate": 0,
+            "in_rate_pkts": 0,
+            "out_rate": 0,
+            "out_rate_pkts": 0
+          }
+        },
+        "encapsulation": {
+          "encapsulation": "loopback"
+        },
+        "switchport_enable": false
+      },
+      "GigabitEthernet1/0/8": {
+        "type": "Gigabit Ethernet",
+        "oper_status": "up",
+        "phys_address": "0c00.816a.2a08",
+        "port_speed": "1000mb/s",
+        "mtu": 1500,
+        "enabled": true,
+        "bandwidth": 1000000,
+        "flow_control": {
+          "receive": true,
+          "send": false
+        },
+        "mac_address": "0c00.816a.2a08",
+        "auto_negotiate": true,
+        "port_channel": {
+          "port_channel_member": false
+        },
+        "duplex_mode": "full",
+        "delay": 10,
+        "accounting": {
+          "spanning tree": {
+            "pkts_in": 0,
+            "chars_in": 0,
+            "pkts_out": 268776,
+            "chars_out": 16126560
+          },
+          "cdp": {
+            "pkts_in": 0,
+            "chars_in": 0,
+            "pkts_out": 9962,
+            "chars_out": 4582520
+          },
+          "dtp": {
+            "pkts_in": 0,
+            "chars_in": 0,
+            "pkts_out": 17919,
+            "chars_out": 1075140
+          }
+        },
+        "counters": {
+          "in_pkts": 0,
+          "in_octets": 0,
+          "in_broadcast_pkts": 0,
+          "in_multicast_pkts": 0,
+          "in_errors": 0,
+          "in_mac_pause_frames": 0,
+          "out_mac_pause_frames": 0,
+          "in_crc_errors": 0,
+          "out_pkts": 296662,
+          "out_octets": 22971064,
+          "out_broadcast_pkts": 3,
+          "out_multicast_pkts": 296659,
+          "out_errors": 0,
+          "last_clear": "never",
+          "rate": {
+            "load_interval": 300,
+            "in_rate": 0,
+            "in_rate_pkts": 0,
+            "out_rate": 0,
+            "out_rate_pkts": 0
+          }
+        },
+        "encapsulation": {
+          "encapsulation": "arpa"
+        },
+        "switchport_enable": false
+      },
+      "GigabitEthernet1/0/7": {
+        "type": "Gigabit Ethernet",
+        "oper_status": "up",
+        "phys_address": "0c00.816a.2a07",
+        "port_speed": "1000mb/s",
+        "mtu": 1500,
+        "enabled": true,
+        "bandwidth": 1000000,
+        "flow_control": {
+          "receive": true,
+          "send": false
+        },
+        "mac_address": "0c00.816a.2a07",
+        "auto_negotiate": true,
+        "port_channel": {
+          "port_channel_member": false
+        },
+        "duplex_mode": "full",
+        "delay": 10,
+        "accounting": {
+          "spanning tree": {
+            "pkts_in": 0,
+            "chars_in": 0,
+            "pkts_out": 268704,
+            "chars_out": 16122240
+          },
+          "cdp": {
+            "pkts_in": 0,
+            "chars_in": 0,
+            "pkts_out": 9983,
+            "chars_out": 4218384
+          },
+          "dtp": {
+            "pkts_in": 0,
+            "chars_in": 0,
+            "pkts_out": 17913,
+            "chars_out": 1074780
+          }
+        },
+        "counters": {
+          "in_pkts": 0,
+          "in_octets": 0,
+          "in_broadcast_pkts": 0,
+          "in_multicast_pkts": 0,
+          "in_errors": 0,
+          "in_mac_pause_frames": 0,
+          "out_mac_pause_frames": 0,
+          "in_crc_errors": 0,
+          "out_pkts": 296614,
+          "out_octets": 22606070,
+          "out_broadcast_pkts": 3,
+          "out_multicast_pkts": 296611,
+          "out_errors": 0,
+          "last_clear": "never",
+          "rate": {
+            "load_interval": 300,
+            "in_rate": 0,
+            "in_rate_pkts": 0,
+            "out_rate": 0,
+            "out_rate_pkts": 0
+          }
+        },
+        "encapsulation": {
+          "encapsulation": "arpa"
+        },
+        "switchport_enable": false
+      },
+      "Vlan1": {
+        "type": "Ethernet SVI",
+        "oper_status": "down",
+        "phys_address": "0c00.816a.2a47",
+        "mtu": 1500,
+        "enabled": false,
+        "bandwidth": 1000000,
+        "mac_address": "0c00.816a.2a47",
+        "port_channel": {
+          "port_channel_member": false
+        },
+        "delay": 10,
+        "counters": {
+          "in_pkts": 0,
+          "in_octets": 0,
+          "in_broadcast_pkts": 0,
+          "in_multicast_pkts": 0,
+          "in_errors": 0,
+          "in_crc_errors": 0,
+          "out_pkts": 0,
+          "out_octets": 0,
+          "out_broadcast_pkts": 0,
+          "out_multicast_pkts": 0,
+          "out_errors": 0,
+          "last_clear": "never",
+          "rate": {
+            "load_interval": 300,
+            "in_rate": 0,
+            "in_rate_pkts": 0,
+            "out_rate": 0,
+            "out_rate_pkts": 0
+          }
+        },
+        "encapsulation": {
+          "encapsulation": "arpa"
+        },
+        "switchport_enable": false
+      },
+      "LI-Null0": {
+        "ipv6": {
+          "FE80::E00:81FF:FE6A:2A00": {
+            "ip": "FE80::E00:81FF:FE6A:2A00",
+            "status": "valid",
+            "origin": "link_layer"
+          }
+        },
+        "switchport_enable": false
+      }
+    },
+    "lldp": {},
+    "ospf": {
+      "vrf": {
+        "default": {
+          "address_family": {
+            "ipv4": {
+              "instance": {
+                "10": {
+                  "router_id": "198.51.100.225",
+                  "areas": {
+                    "0.0.0.0": {
+                      "database": {
+                        "lsa_types": {
+                          "1": {
+                            "lsa_type": 1,
+                            "lsas": {
+                              "198.51.100.225 198.51.100.225": {
+                                "lsa_id": "198.51.100.225",
+                                "adv_router": "198.51.100.225",
+                                "ospfv2": {
+                                  "header": {
+                                    "option": "None",
+                                    "lsa_id": "198.51.100.225",
+                                    "age": 795,
+                                    "type": 1,
+                                    "adv_router": "198.51.100.225",
+                                    "seq_num": "80000112",
+                                    "checksum": "0x2FA5",
+                                    "length": 48
+                                  },
+                                  "body": {
+                                    "router": {
+                                      "num_of_links": 2,
+                                      "links": {
+                                        "198.51.100.24": {
+                                          "link_id": "198.51.100.24",
+                                          "link_data": "255.255.255.252",
+                                          "type": "stub network",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "area_id": "0.0.0.0",
+                      "area_type": "normal",
+                      "statistics": {
+                        "spf_runs_count": 10,
+                        "area_scope_lsa_count": 2,
+                        "area_scope_lsa_cksum_sum": "0x009047"
+                      }
+                    }
+                  },
+                  "nsr": {
+                    "enable": false
+                  },
+                  "graceful_restart": {
+                    "cisco": {
+                      "enable": false,
+                      "type": "cisco"
+                    },
+                    "ietf": {
+                      "enable": false,
+                      "type": "ietf"
+                    }
+                  },
+                  "auto_cost": {
+                    "enable": false
+                  },
+                  "spf_control": {
+                    "throttle": {
+                      "spf": {
+                        "start": 50,
+                        "hold": 200,
+                        "maximum": 5000
+                      },
+                      "lsa": {
+                        "start": 50,
+                        "hold": 200,
+                        "maximum": 5000
+                      }
+                    }
+                  },
+                  "database_control": {
+                    "max_lsa": 50000
+                  },
+                  "stub_router": {
+                    "always": {
+                      "always": false,
+                      "include_stub": false,
+                      "summary_lsa": false,
+                      "external_lsa": false
+                    }
+                  },
+                  "bfd": {
+                    "enable": false
+                  },
+                  "adjacency_stagger": {
+                    "initial_number": 300,
+                    "maximum_number": 300
+                  }
+                },
+                "20": {
+                  "router_id": "198.51.100.229",
+                  "areas": {
+                    "0.0.0.0": {
+                      "database": {
+                        "lsa_types": {
+                          "1": {
+                            "lsa_type": 1,
+                            "lsas": {
+                              "198.51.100.229 198.51.100.229": {
+                                "lsa_id": "198.51.100.229",
+                                "adv_router": "198.51.100.229",
+                                "ospfv2": {
+                                  "header": {
+                                    "option": "None",
+                                    "lsa_id": "198.51.100.229",
+                                    "age": 1120,
+                                    "type": 1,
+                                    "adv_router": "198.51.100.229",
+                                    "seq_num": "80000113",
+                                    "checksum": "0x9D38",
+                                    "length": 72
+                                  },
+                                  "body": {
+                                    "router": {
+                                      "num_of_links": 4,
+                                      "links": {
+                                        "198.51.100.28": {
+                                          "link_id": "198.51.100.28",
+                                          "link_data": "255.255.255.252",
+                                          "type": "stub network",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        },
+                                        "198.51.100.32": {
+                                          "link_id": "198.51.100.32",
+                                          "link_data": "255.255.255.252",
+                                          "type": "stub network",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "area_id": "0.0.0.0",
+                      "area_type": "normal",
+                      "statistics": {
+                        "spf_runs_count": 10,
+                        "area_scope_lsa_count": 3,
+                        "area_scope_lsa_cksum_sum": "0x01CE54"
+                      }
+                    }
+                  },
+                  "nsr": {
+                    "enable": false
+                  },
+                  "graceful_restart": {
+                    "cisco": {
+                      "enable": false,
+                      "type": "cisco"
+                    },
+                    "ietf": {
+                      "enable": false,
+                      "type": "ietf"
+                    }
+                  },
+                  "auto_cost": {
+                    "enable": false
+                  },
+                  "spf_control": {
+                    "throttle": {
+                      "spf": {
+                        "start": 50,
+                        "hold": 200,
+                        "maximum": 5000
+                      },
+                      "lsa": {
+                        "start": 50,
+                        "hold": 200,
+                        "maximum": 5000
+                      }
+                    }
+                  },
+                  "database_control": {
+                    "max_lsa": 50000
+                  },
+                  "stub_router": {
+                    "always": {
+                      "always": false,
+                      "include_stub": false,
+                      "summary_lsa": false,
+                      "external_lsa": false
+                    }
+                  },
+                  "bfd": {
+                    "enable": false
+                  },
+                  "adjacency_stagger": {
+                    "initial_number": 300,
+                    "maximum_number": 300
+                  }
+                },
+                "1": {
+                  "router_id": "198.51.100.100",
+                  "preference": {
+                    "single_value": {
+                      "all": 110
+                    }
+                  },
+                  "mpls": {
+                    "ldp": {
+                      "autoconfig": false,
+                      "autoconfig_area_id": "0.0.0.0"
+                    }
+                  },
+                  "areas": {
+                    "0.0.0.0": {
+                      "mpls": {
+                        "te": {
+                          "enable": false
+                        }
+                      },
+                      "database": {
+                        "lsa_types": {
+                          "1": {
+                            "lsa_type": 1,
+                            "lsas": {
+                              "198.51.100.120 198.51.100.120": {
+                                "lsa_id": "198.51.100.120",
+                                "adv_router": "198.51.100.120",
+                                "ospfv2": {
+                                  "header": {
+                                    "option": "None",
+                                    "lsa_id": "198.51.100.120",
+                                    "age": 1282,
+                                    "type": 1,
+                                    "adv_router": "198.51.100.120",
+                                    "seq_num": "8000012D",
+                                    "checksum": "0x699F",
+                                    "length": 72
+                                  },
+                                  "body": {
+                                    "router": {
+                                      "num_of_links": 4,
+                                      "links": {
+                                        "198.51.100.16": {
+                                          "link_id": "198.51.100.16",
+                                          "link_data": "255.255.255.252",
+                                          "type": "stub network",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        },
+                                        "198.51.100.111": {
+                                          "link_id": "198.51.100.111",
+                                          "link_data": "198.51.100.17",
+                                          "type": "another router (point-to-point)",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        },
+                                        "198.51.100.12": {
+                                          "link_id": "198.51.100.12",
+                                          "link_data": "255.255.255.252",
+                                          "type": "stub network",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        },
+                                        "198.51.100.100": {
+                                          "link_id": "198.51.100.100",
+                                          "link_data": "198.51.100.14",
+                                          "type": "another router (point-to-point)",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "198.51.100.111 198.51.100.111": {
+                                "lsa_id": "198.51.100.111",
+                                "adv_router": "198.51.100.111",
+                                "ospfv2": {
+                                  "header": {
+                                    "option": "None",
+                                    "lsa_id": "198.51.100.111",
+                                    "age": 197,
+                                    "type": 1,
+                                    "adv_router": "198.51.100.111",
+                                    "seq_num": "80000119",
+                                    "checksum": "0x3913",
+                                    "length": 72
+                                  },
+                                  "body": {
+                                    "router": {
+                                      "num_of_links": 4,
+                                      "links": {
+                                        "198.51.100.16": {
+                                          "link_id": "198.51.100.16",
+                                          "link_data": "255.255.255.252",
+                                          "type": "stub network",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        },
+                                        "198.51.100.120": {
+                                          "link_id": "198.51.100.120",
+                                          "link_data": "198.51.100.18",
+                                          "type": "another router (point-to-point)",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        },
+                                        "198.51.100.48": {
+                                          "link_id": "198.51.100.48",
+                                          "link_data": "255.255.255.240",
+                                          "type": "stub network",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        },
+                                        "198.51.100.111": {
+                                          "link_id": "198.51.100.111",
+                                          "link_data": "255.255.255.255",
+                                          "type": "stub network",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "198.51.100.101 198.51.100.101": {
+                                "lsa_id": "198.51.100.101",
+                                "adv_router": "198.51.100.101",
+                                "ospfv2": {
+                                  "header": {
+                                    "option": "None",
+                                    "lsa_id": "198.51.100.101",
+                                    "age": 452,
+                                    "type": 1,
+                                    "adv_router": "198.51.100.101",
+                                    "seq_num": "8000010E",
+                                    "checksum": "0x2417",
+                                    "length": 60
+                                  },
+                                  "body": {
+                                    "router": {
+                                      "num_of_links": 3,
+                                      "links": {
+                                        "198.51.100.0": {
+                                          "link_id": "198.51.100.0",
+                                          "link_data": "255.255.255.252",
+                                          "type": "stub network",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        },
+                                        "198.51.100.100": {
+                                          "link_id": "198.51.100.100",
+                                          "link_data": "198.51.100.1",
+                                          "type": "another router (point-to-point)",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        },
+                                        "198.51.100.101": {
+                                          "link_id": "198.51.100.101",
+                                          "link_data": "255.255.255.255",
+                                          "type": "stub network",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "198.51.100.100 198.51.100.100": {
+                                "lsa_id": "198.51.100.100",
+                                "adv_router": "198.51.100.100",
+                                "ospfv2": {
+                                  "header": {
+                                    "option": "None",
+                                    "lsa_id": "198.51.100.100",
+                                    "age": 1238,
+                                    "type": 1,
+                                    "adv_router": "198.51.100.100",
+                                    "seq_num": "80000115",
+                                    "checksum": "0x7B95",
+                                    "length": 132
+                                  },
+                                  "body": {
+                                    "router": {
+                                      "num_of_links": 9,
+                                      "links": {
+                                        "198.51.100.0": {
+                                          "link_id": "198.51.100.0",
+                                          "link_data": "255.255.255.252",
+                                          "type": "stub network",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        },
+                                        "198.51.100.101": {
+                                          "link_id": "198.51.100.101",
+                                          "link_data": "198.51.100.2",
+                                          "type": "another router (point-to-point)",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        },
+                                        "198.51.100.4": {
+                                          "link_id": "198.51.100.4",
+                                          "link_data": "255.255.255.252",
+                                          "type": "stub network",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        },
+                                        "198.51.100.8": {
+                                          "link_id": "198.51.100.8",
+                                          "link_data": "255.255.255.252",
+                                          "type": "stub network",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        },
+                                        "198.51.100.12": {
+                                          "link_id": "198.51.100.12",
+                                          "link_data": "255.255.255.252",
+                                          "type": "stub network",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        },
+                                        "198.51.100.120": {
+                                          "link_id": "198.51.100.120",
+                                          "link_data": "198.51.100.13",
+                                          "type": "another router (point-to-point)",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        },
+                                        "198.51.100.100": {
+                                          "link_id": "198.51.100.100",
+                                          "link_data": "255.255.255.255",
+                                          "type": "stub network",
+                                          "topologies": {
+                                            "0": {
+                                              "mt_id": 0,
+                                              "metric": 1
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "area_id": "0.0.0.0",
+                      "area_type": "normal",
+                      "statistics": {
+                        "spf_runs_count": 22,
+                        "area_scope_lsa_count": 6,
+                        "area_scope_lsa_cksum_sum": "0x024CA9"
+                      },
+                      "interfaces": {
+                        "GigabitEthernet1/0/1": {
+                          "name": "GigabitEthernet1/0/1",
+                          "interface_type": "point-to-point",
+                          "passive": false,
+                          "demand_circuit": false,
+                          "transmit_delay": 1,
+                          "bfd": {
+                            "enable": false
+                          },
+                          "hello_interval": 10,
+                          "dead_interval": 40,
+                          "retransmit_interval": 5,
+                          "lls": true,
+                          "enable": true,
+                          "cost": 1,
+                          "state": "point-to-point",
+                          "hello_timer": "00:00:02",
+                          "neighbors": {
+                            "198.51.100.101": {
+                              "neighbor_router_id": "198.51.100.101",
+                              "address": "198.51.100.1",
+                              "dr_ip_addr": "0.0.0.0",
+                              "bdr_ip_addr": "0.0.0.0",
+                              "state": "full",
+                              "dead_timer": "00:00:35",
+                              "statistics": {
+                                "nbr_event_count": 6,
+                                "nbr_retrans_qlen": 0
+                              }
+                            }
+                          }
+                        },
+                        "GigabitEthernet1/0/2": {
+                          "name": "GigabitEthernet1/0/2",
+                          "interface_type": "point-to-point",
+                          "passive": false,
+                          "demand_circuit": false,
+                          "transmit_delay": 1,
+                          "bfd": {
+                            "enable": false
+                          },
+                          "hello_interval": 10,
+                          "dead_interval": 40,
+                          "retransmit_interval": 5,
+                          "lls": true,
+                          "enable": true,
+                          "cost": 1,
+                          "state": "point-to-point",
+                          "hello_timer": "00:00:04",
+                          "neighbors": {}
+                        },
+                        "GigabitEthernet1/0/3": {
+                          "name": "GigabitEthernet1/0/3",
+                          "interface_type": "point-to-point",
+                          "passive": false,
+                          "demand_circuit": false,
+                          "transmit_delay": 1,
+                          "bfd": {
+                            "enable": false
+                          },
+                          "hello_interval": 10,
+                          "dead_interval": 40,
+                          "retransmit_interval": 5,
+                          "lls": true,
+                          "enable": true,
+                          "cost": 1,
+                          "state": "point-to-point",
+                          "hello_timer": "00:00:00",
+                          "neighbors": {}
+                        },
+                        "GigabitEthernet1/0/4": {
+                          "name": "GigabitEthernet1/0/4",
+                          "interface_type": "point-to-point",
+                          "passive": false,
+                          "demand_circuit": false,
+                          "transmit_delay": 1,
+                          "bfd": {
+                            "enable": false
+                          },
+                          "hello_interval": 10,
+                          "dead_interval": 40,
+                          "retransmit_interval": 5,
+                          "lls": true,
+                          "enable": true,
+                          "cost": 1,
+                          "state": "point-to-point",
+                          "hello_timer": "00:00:05",
+                          "neighbors": {
+                            "198.51.100.120": {
+                              "neighbor_router_id": "198.51.100.120",
+                              "address": "198.51.100.14",
+                              "dr_ip_addr": "0.0.0.0",
+                              "bdr_ip_addr": "0.0.0.0",
+                              "state": "full",
+                              "dead_timer": "00:00:37",
+                              "statistics": {
+                                "nbr_event_count": 12,
+                                "nbr_retrans_qlen": 0
+                              }
+                            }
+                          }
+                        },
+                        "Loopback0": {
+                          "name": "Loopback0",
+                          "interface_type": "loopback",
+                          "demand_circuit": false,
+                          "bfd": {
+                            "enable": false
+                          },
+                          "enable": true,
+                          "cost": 1
+                        }
+                      }
+                    }
+                  },
+                  "nsr": {
+                    "enable": false
+                  },
+                  "graceful_restart": {
+                    "cisco": {
+                      "enable": false,
+                      "type": "cisco"
+                    },
+                    "ietf": {
+                      "enable": false,
+                      "type": "ietf"
+                    }
+                  },
+                  "auto_cost": {
+                    "enable": false
+                  },
+                  "spf_control": {
+                    "paths": 4,
+                    "throttle": {
+                      "spf": {
+                        "start": 50,
+                        "hold": 200,
+                        "maximum": 5000
+                      },
+                      "lsa": {
+                        "start": 50,
+                        "hold": 200,
+                        "maximum": 5000
+                      }
+                    }
+                  },
+                  "database_control": {
+                    "max_lsa": 50000
+                  },
+                  "stub_router": {
+                    "always": {
+                      "always": false,
+                      "include_stub": false,
+                      "summary_lsa": false,
+                      "external_lsa": false
+                    }
+                  },
+                  "bfd": {
+                    "enable": false
+                  },
+                  "adjacency_stagger": {
+                    "initial_number": 300,
+                    "maximum_number": 300
+                  }
+                }
+              }
+            }
+          }
+        },
+        "RED": {
+          "address_family": {
+            "ipv4": {
+              "instance": {
+                "10": {
+                  "mpls": {
+                    "ldp": {
+                      "autoconfig": false,
+                      "autoconfig_area_id": "0.0.0.0"
+                    }
+                  },
+                  "areas": {
+                    "0.0.0.0": {
+                      "mpls": {
+                        "te": {
+                          "enable": false
+                        }
+                      },
+                      "interfaces": {
+                        "Vlan10": {
+                          "name": "Vlan10",
+                          "interface_type": "point-to-point",
+                          "passive": false,
+                          "demand_circuit": false,
+                          "transmit_delay": 1,
+                          "bfd": {
+                            "enable": false
+                          },
+                          "hello_interval": 10,
+                          "dead_interval": 40,
+                          "retransmit_interval": 5,
+                          "lls": true,
+                          "enable": true,
+                          "cost": 1,
+                          "state": "point-to-point",
+                          "hello_timer": "00:00:08",
+                          "neighbors": {}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "BLUE": {
+          "address_family": {
+            "ipv4": {
+              "instance": {
+                "20": {
+                  "mpls": {
+                    "ldp": {
+                      "autoconfig": false,
+                      "autoconfig_area_id": "0.0.0.0"
+                    }
+                  },
+                  "areas": {
+                    "0.0.0.0": {
+                      "mpls": {
+                        "te": {
+                          "enable": false
+                        }
+                      },
+                      "interfaces": {
+                        "GigabitEthernet1/0/6": {
+                          "name": "GigabitEthernet1/0/6",
+                          "interface_type": "point-to-point",
+                          "passive": false,
+                          "demand_circuit": false,
+                          "transmit_delay": 1,
+                          "bfd": {
+                            "enable": false
+                          },
+                          "hello_interval": 10,
+                          "dead_interval": 40,
+                          "retransmit_interval": 5,
+                          "lls": true,
+                          "enable": true,
+                          "cost": 1,
+                          "state": "point-to-point",
+                          "hello_timer": "00:00:04",
+                          "neighbors": {}
+                        },
+                        "Vlan20": {
+                          "name": "Vlan20",
+                          "interface_type": "point-to-point",
+                          "passive": false,
+                          "demand_circuit": false,
+                          "transmit_delay": 1,
+                          "bfd": {
+                            "enable": false
+                          },
+                          "hello_interval": 10,
+                          "dead_interval": 40,
+                          "retransmit_interval": 5,
+                          "lls": true,
+                          "enable": true,
+                          "cost": 1,
+                          "state": "point-to-point",
+                          "hello_timer": "00:00:01",
+                          "neighbors": {}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "policy_map": {
+      "policy_map": {
+        "system-cpp-policy": {
+          "class": {
+            "system-cpp-police-ios-routing": {
+              "police": {
+                "rate_pps": 13000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-ios-feature": {
+              "police": {
+                "rate_pps": 6000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-data": {
+              "police": {
+                "rate_pps": 600,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-sys-data": {
+              "police": {
+                "rate_pps": 200,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-sw-forward": {
+              "police": {
+                "rate_pps": 1000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-multicast": {
+              "police": {
+                "rate_pps": 400,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-multicast-end-station": {
+              "police": {
+                "rate_pps": 2000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-punt-webauth": {
+              "police": {
+                "rate_pps": 1000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-l2-control": {
+              "police": {
+                "rate_pps": 2000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-stackwise-virt-control": {
+              "police": {
+                "rate_pps": 8000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-routing-control": {
+              "police": {
+                "rate_pps": 5400,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-system-critical": {
+              "police": {
+                "rate_pps": 1000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-l2lvx-control": {
+              "police": {
+                "rate_pps": 1000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-topology-control": {
+              "police": {
+                "rate_pps": 13000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-dot1x-auth": {
+              "police": {
+                "rate_pps": 1000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-protocol-snooping": {
+              "police": {
+                "rate_pps": 2000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-dhcp-snooping": {
+              "police": {
+                "rate_pps": 400,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-forus": {
+              "police": {
+                "rate_pps": 1000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-default": {
+              "police": {
+                "rate_pps": 2000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-high-rate-app": {
+              "police": {
+                "rate_pps": 13000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-ewlc-control": {
+              "police": {
+                "rate_pps": 13000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-meraki-next-tunnel": {
+              "police": {
+                "rate_pps": 600,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            },
+            "system-cpp-police-forus-addr-resolution": {
+              "police": {
+                "rate_pps": 3000,
+                "conform_action": [
+                  "transmit"
+                ],
+                "exceed_action": [
+                  "drop"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "routing": {
+      "vrf": {
+        "BLUE": {
+          "address_family": {
+            "ipv4": {
+              "routes": {
+                "198.51.100.96/28": {
+                  "route": "198.51.100.96/28",
+                  "active": true,
+                  "route_preference": 110,
+                  "metric": 2,
+                  "source_protocol": "ospf",
+                  "source_protocol_codes": "O",
+                  "next_hop": {
+                    "next_hop_list": {
+                      "1": {
+                        "index": 1,
+                        "next_hop": "198.51.100.34",
+                        "outgoing_interface": "Vlan20",
+                        "updated": "4d01h"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.80/28": {
+                  "route": "198.51.100.80/28",
+                  "active": true,
+                  "route_preference": 110,
+                  "metric": 2,
+                  "source_protocol": "ospf",
+                  "source_protocol_codes": "O",
+                  "next_hop": {
+                    "next_hop_list": {
+                      "1": {
+                        "index": 1,
+                        "next_hop": "198.51.100.30",
+                        "outgoing_interface": "GigabitEthernet1/0/6",
+                        "updated": "3d08h"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.33/32": {
+                  "route": "198.51.100.33/32",
+                  "active": true,
+                  "source_protocol": "local",
+                  "source_protocol_codes": "L",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "Vlan20": {
+                        "outgoing_interface": "Vlan20"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.32/30": {
+                  "route": "198.51.100.32/30",
+                  "active": true,
+                  "source_protocol": "connected",
+                  "source_protocol_codes": "C",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "Vlan20": {
+                        "outgoing_interface": "Vlan20"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.29/32": {
+                  "route": "198.51.100.29/32",
+                  "active": true,
+                  "source_protocol": "local",
+                  "source_protocol_codes": "L",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "GigabitEthernet1/0/6": {
+                        "outgoing_interface": "GigabitEthernet1/0/6"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.28/30": {
+                  "route": "198.51.100.28/30",
+                  "active": true,
+                  "source_protocol": "connected",
+                  "source_protocol_codes": "C",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "GigabitEthernet1/0/6": {
+                        "outgoing_interface": "GigabitEthernet1/0/6"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "Mgmt-vrf": {
+          "address_family": {
+            "ipv4": {
+              "routes": {
+                "10.0.0.15/32": {
+                  "route": "10.0.0.15/32",
+                  "active": true,
+                  "source_protocol": "local",
+                  "source_protocol_codes": "L",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "GigabitEthernet0/0": {
+                        "outgoing_interface": "GigabitEthernet0/0"
+                      }
+                    }
+                  }
+                },
+                "10.0.0.0/24": {
+                  "route": "10.0.0.0/24",
+                  "active": true,
+                  "source_protocol": "connected",
+                  "source_protocol_codes": "C",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "GigabitEthernet0/0": {
+                        "outgoing_interface": "GigabitEthernet0/0"
+                      }
+                    }
+                  }
+                },
+                "0.0.0.0/0": {
+                  "route": "0.0.0.0/0",
+                  "active": true,
+                  "route_preference": 1,
+                  "metric": 0,
+                  "source_protocol": "static",
+                  "source_protocol_codes": "S*",
+                  "next_hop": {
+                    "next_hop_list": {
+                      "1": {
+                        "index": 1,
+                        "next_hop": "10.0.0.2"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "RED": {
+          "address_family": {
+            "ipv4": {
+              "routes": {
+                "198.51.100.64/28": {
+                  "route": "198.51.100.64/28",
+                  "active": true,
+                  "route_preference": 110,
+                  "metric": 2,
+                  "source_protocol": "ospf",
+                  "source_protocol_codes": "O",
+                  "next_hop": {
+                    "next_hop_list": {
+                      "1": {
+                        "index": 1,
+                        "next_hop": "198.51.100.26",
+                        "outgoing_interface": "Vlan10",
+                        "updated": "4d01h"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.25/32": {
+                  "route": "198.51.100.25/32",
+                  "active": true,
+                  "source_protocol": "local",
+                  "source_protocol_codes": "L",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "Vlan10": {
+                        "outgoing_interface": "Vlan10"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.24/30": {
+                  "route": "198.51.100.24/30",
+                  "active": true,
+                  "source_protocol": "connected",
+                  "source_protocol_codes": "C",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "Vlan10": {
+                        "outgoing_interface": "Vlan10"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "default": {
+          "address_family": {
+            "ipv4": {
+              "routes": {
+                "203.0.113.224/27": {
+                  "route": "203.0.113.224/27",
+                  "active": true,
+                  "route_preference": 200,
+                  "metric": 0,
+                  "source_protocol": "bgp",
+                  "source_protocol_codes": "B",
+                  "next_hop": {
+                    "next_hop_list": {
+                      "1": {
+                        "index": 1,
+                        "updated": "6d05h"
+                      }
+                    }
+                  }
+                },
+                "203.0.113.192/27": {
+                  "route": "203.0.113.192/27",
+                  "active": true,
+                  "route_preference": 200,
+                  "metric": 0,
+                  "source_protocol": "bgp",
+                  "source_protocol_codes": "B",
+                  "next_hop": {
+                    "next_hop_list": {
+                      "1": {
+                        "index": 1,
+                        "updated": "6d05h"
+                      }
+                    }
+                  }
+                },
+                "203.0.113.160/27": {
+                  "route": "203.0.113.160/27",
+                  "active": true,
+                  "route_preference": 200,
+                  "metric": 0,
+                  "source_protocol": "bgp",
+                  "source_protocol_codes": "B",
+                  "next_hop": {
+                    "next_hop_list": {
+                      "1": {
+                        "index": 1,
+                        "next_hop": "198.51.100.101",
+                        "updated": "6d05h"
+                      }
+                    }
+                  }
+                },
+                "203.0.113.103/32": {
+                  "route": "203.0.113.103/32",
+                  "active": true,
+                  "route_preference": 200,
+                  "metric": 0,
+                  "source_protocol": "bgp",
+                  "source_protocol_codes": "B",
+                  "next_hop": {
+                    "next_hop_list": {
+                      "1": {
+                        "index": 1,
+                        "updated": "6d05h"
+                      }
+                    }
+                  }
+                },
+                "203.0.113.102/32": {
+                  "route": "203.0.113.102/32",
+                  "active": true,
+                  "route_preference": 200,
+                  "metric": 0,
+                  "source_protocol": "bgp",
+                  "source_protocol_codes": "B",
+                  "next_hop": {
+                    "next_hop_list": {
+                      "1": {
+                        "index": 1,
+                        "updated": "6d05h"
+                      }
+                    }
+                  }
+                },
+                "203.0.113.101/32": {
+                  "route": "203.0.113.101/32",
+                  "active": true,
+                  "route_preference": 200,
+                  "metric": 0,
+                  "source_protocol": "bgp",
+                  "source_protocol_codes": "B",
+                  "next_hop": {
+                    "next_hop_list": {
+                      "1": {
+                        "index": 1,
+                        "next_hop": "198.51.100.101",
+                        "updated": "6d05h"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.111/32": {
+                  "route": "198.51.100.111/32",
+                  "active": true,
+                  "route_preference": 110,
+                  "metric": 3,
+                  "source_protocol": "ospf",
+                  "source_protocol_codes": "O",
+                  "next_hop": {
+                    "next_hop_list": {
+                      "1": {
+                        "index": 1,
+                        "next_hop": "198.51.100.14",
+                        "outgoing_interface": "GigabitEthernet1/0/4",
+                        "updated": "6d05h"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.101/32": {
+                  "route": "198.51.100.101/32",
+                  "active": true,
+                  "route_preference": 110,
+                  "metric": 2,
+                  "source_protocol": "ospf",
+                  "source_protocol_codes": "O",
+                  "next_hop": {
+                    "next_hop_list": {
+                      "1": {
+                        "index": 1,
+                        "next_hop": "198.51.100.1",
+                        "outgoing_interface": "GigabitEthernet1/0/1",
+                        "updated": "6d05h"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.100/32": {
+                  "route": "198.51.100.100/32",
+                  "active": true,
+                  "source_protocol": "connected",
+                  "source_protocol_codes": "C",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "Loopback0": {
+                        "outgoing_interface": "Loopback0"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.48/28": {
+                  "route": "198.51.100.48/28",
+                  "active": true,
+                  "route_preference": 110,
+                  "metric": 3,
+                  "source_protocol": "ospf",
+                  "source_protocol_codes": "O",
+                  "next_hop": {
+                    "next_hop_list": {
+                      "1": {
+                        "index": 1,
+                        "next_hop": "198.51.100.14",
+                        "outgoing_interface": "GigabitEthernet1/0/4",
+                        "updated": "2d00h"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.16/30": {
+                  "route": "198.51.100.16/30",
+                  "active": true,
+                  "route_preference": 110,
+                  "metric": 2,
+                  "source_protocol": "ospf",
+                  "source_protocol_codes": "O",
+                  "next_hop": {
+                    "next_hop_list": {
+                      "1": {
+                        "index": 1,
+                        "next_hop": "198.51.100.14",
+                        "outgoing_interface": "GigabitEthernet1/0/4",
+                        "updated": "6d05h"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.13/32": {
+                  "route": "198.51.100.13/32",
+                  "active": true,
+                  "source_protocol": "local",
+                  "source_protocol_codes": "L",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "GigabitEthernet1/0/4": {
+                        "outgoing_interface": "GigabitEthernet1/0/4"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.12/30": {
+                  "route": "198.51.100.12/30",
+                  "active": true,
+                  "source_protocol": "connected",
+                  "source_protocol_codes": "C",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "GigabitEthernet1/0/4": {
+                        "outgoing_interface": "GigabitEthernet1/0/4"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.10/32": {
+                  "route": "198.51.100.10/32",
+                  "active": true,
+                  "source_protocol": "local",
+                  "source_protocol_codes": "L",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "GigabitEthernet1/0/3": {
+                        "outgoing_interface": "GigabitEthernet1/0/3"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.8/30": {
+                  "route": "198.51.100.8/30",
+                  "active": true,
+                  "source_protocol": "connected",
+                  "source_protocol_codes": "C",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "GigabitEthernet1/0/3": {
+                        "outgoing_interface": "GigabitEthernet1/0/3"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.6/32": {
+                  "route": "198.51.100.6/32",
+                  "active": true,
+                  "source_protocol": "local",
+                  "source_protocol_codes": "L",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "GigabitEthernet1/0/2": {
+                        "outgoing_interface": "GigabitEthernet1/0/2"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.4/30": {
+                  "route": "198.51.100.4/30",
+                  "active": true,
+                  "source_protocol": "connected",
+                  "source_protocol_codes": "C",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "GigabitEthernet1/0/2": {
+                        "outgoing_interface": "GigabitEthernet1/0/2"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.2/32": {
+                  "route": "198.51.100.2/32",
+                  "active": true,
+                  "source_protocol": "local",
+                  "source_protocol_codes": "L",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "GigabitEthernet1/0/1": {
+                        "outgoing_interface": "GigabitEthernet1/0/1"
+                      }
+                    }
+                  }
+                },
+                "198.51.100.0/30": {
+                  "route": "198.51.100.0/30",
+                  "active": true,
+                  "source_protocol": "connected",
+                  "source_protocol_codes": "C",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "GigabitEthernet1/0/1": {
+                        "outgoing_interface": "GigabitEthernet1/0/1"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "ipv6": {
+              "routes": {
+                "FF00::/8": {
+                  "route": "FF00::/8",
+                  "active": true,
+                  "route_preference": 0,
+                  "metric": 0,
+                  "source_protocol": "local",
+                  "source_protocol_codes": "L",
+                  "next_hop": {
+                    "outgoing_interface": {
+                      "Null0": {
+                        "outgoing_interface": "Null0"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "static_routing": {},
+    "stp": {
+      "global": {
+        "etherchannel_misconfig_guard": true,
+        "bpduguard_timeout_recovery": 300,
+        "loop_guard": false,
+        "bpdu_guard": false,
+        "bpdu_filter": false
+      },
+      "mstp": {
+        "default": {
+          "name": "",
+          "revision": 0,
+          "domain": "default"
+        }
+      },
+      "rapid_pvst": {
+        "default": {
+          "hello_time": 2,
+          "vlans": {
+            "20": {
+              "root_cost": 4,
+              "hello_time": 2,
+              "max_age": 20,
+              "forwarding_delay": 15,
+              "hold_count": 6,
+              "vlan_id": 20,
+              "bridge_priority": 32768,
+              "bridge_address": "0c00.816a.2a00",
+              "topology_changes": 1,
+              "time_since_topology_change": "4d01h",
+              "hold_time": 1,
+              "root_port": 5,
+              "designated_root_priority": 32788,
+              "designated_root_address": "0c00.017d.1a00",
+              "configured_bridge_priority": 32768,
+              "sys_id_ext": 20,
+              "interfaces": {
+                "GigabitEthernet1/0/5": {
+                  "name": "GigabitEthernet1/0/5",
+                  "cost": 4,
+                  "port_priority": 128,
+                  "port_num": 5,
+                  "designated_root_priority": 32788,
+                  "designated_root_address": "0c00.017d.1a00",
+                  "designated_bridge_priority": 32788,
+                  "designated_bridge_address": "0c00.017d.1a00",
+                  "counters": {
+                    "bpdu_sent": 4,
+                    "bpdu_received": 175683
+                  },
+                  "forward_transitions": 1,
+                  "designated_cost": 0,
+                  "role": "root",
+                  "port_state": "forwarding",
+                  "designated_port_priority": 128,
+                  "designated_port_num": 5
+                }
+              }
+            },
+            "10": {
+              "root_cost": 4,
+              "hello_time": 2,
+              "max_age": 20,
+              "forwarding_delay": 15,
+              "hold_count": 6,
+              "vlan_id": 10,
+              "bridge_priority": 32768,
+              "bridge_address": "0c00.816a.2a00",
+              "topology_changes": 1,
+              "time_since_topology_change": "4d01h",
+              "hold_time": 1,
+              "root_port": 5,
+              "designated_root_priority": 32778,
+              "designated_root_address": "0c00.017d.1a00",
+              "configured_bridge_priority": 32768,
+              "sys_id_ext": 10,
+              "interfaces": {
+                "GigabitEthernet1/0/5": {
+                  "name": "GigabitEthernet1/0/5",
+                  "cost": 4,
+                  "port_priority": 128,
+                  "port_num": 5,
+                  "designated_root_priority": 32778,
+                  "designated_root_address": "0c00.017d.1a00",
+                  "designated_bridge_priority": 32778,
+                  "designated_bridge_address": "0c00.017d.1a00",
+                  "counters": {
+                    "bpdu_sent": 4,
+                    "bpdu_received": 175683
+                  },
+                  "forward_transitions": 1,
+                  "designated_cost": 0,
+                  "role": "root",
+                  "port_state": "forwarding",
+                  "designated_port_priority": 128,
+                  "designated_port_num": 5
+                }
+              }
+            },
+            "1": {
+              "hello_time": 2,
+              "max_age": 20,
+              "forwarding_delay": 15,
+              "hold_count": 6,
+              "vlan_id": 1,
+              "bridge_priority": 32768,
+              "bridge_address": "0c00.816a.2a00",
+              "topology_changes": 10,
+              "time_since_topology_change": "5d09h",
+              "hold_time": 1,
+              "designated_root_priority": 32769,
+              "designated_root_address": "0c00.816a.2a00",
+              "configured_bridge_priority": 32768,
+              "sys_id_ext": 1,
+              "interfaces": {
+                "GigabitEthernet1/0/8": {
+                  "name": "GigabitEthernet1/0/8",
+                  "cost": 4,
+                  "port_priority": 128,
+                  "port_num": 8,
+                  "designated_root_priority": 32769,
+                  "designated_root_address": "0c00.816a.2a00",
+                  "designated_bridge_priority": 32769,
+                  "designated_bridge_address": "0c00.816a.2a00",
+                  "counters": {
+                    "bpdu_sent": 268792,
+                    "bpdu_received": 0
+                  },
+                  "forward_transitions": 1,
+                  "designated_cost": 0,
+                  "role": "designated",
+                  "port_state": "forwarding",
+                  "designated_port_priority": 128,
+                  "designated_port_num": 8
+                },
+                "GigabitEthernet1/0/7": {
+                  "name": "GigabitEthernet1/0/7",
+                  "cost": 4,
+                  "port_priority": 128,
+                  "port_num": 7,
+                  "designated_root_priority": 32769,
+                  "designated_root_address": "0c00.816a.2a00",
+                  "designated_bridge_priority": 32769,
+                  "designated_bridge_address": "0c00.816a.2a00",
+                  "counters": {
+                    "bpdu_sent": 233943,
+                    "bpdu_received": 0
+                  },
+                  "forward_transitions": 1,
+                  "designated_cost": 0,
+                  "role": "designated",
+                  "port_state": "forwarding",
+                  "designated_port_priority": 128,
+                  "designated_port_num": 7
+                }
+              }
+            }
+          },
+          "max_age": 20,
+          "forwarding_delay": 15,
+          "hold_count": 6,
+          "pvst_id": "default"
+        }
+      }
+    },
+    "vlan": {
+      "vlans": {
+        "1005": {
+          "vlan_id": "1005",
+          "name": "trnet-default",
+          "state": "unsupport",
+          "shutdown": false
+        },
+        "1004": {
+          "vlan_id": "1004",
+          "name": "fddinet-default",
+          "state": "unsupport",
+          "shutdown": false
+        },
+        "1003": {
+          "vlan_id": "1003",
+          "name": "token-ring-default",
+          "state": "unsupport",
+          "shutdown": false
+        },
+        "1002": {
+          "vlan_id": "1002",
+          "name": "fddi-default",
+          "state": "unsupport",
+          "shutdown": false
+        },
+        "20": {
+          "vlan_id": "20",
+          "name": "TRANSIT-BLUE",
+          "state": "active",
+          "shutdown": false
+        },
+        "10": {
+          "vlan_id": "10",
+          "name": "TRANSIT-RED",
+          "state": "active",
+          "shutdown": false
+        },
+        "1": {
+          "vlan_id": "1",
+          "name": "default",
+          "state": "active",
+          "shutdown": false,
+          "interfaces": [
+            "GigabitEthernet1/0/7",
+            "GigabitEthernet1/0/8"
+          ]
+        }
+      }
+    },
+    "vrf": {
+      "vrfs": {
+        "RED": {
+          "route_distinguisher": "64496:10",
+          "address_family": {
+            "ipv4 unicast": {
+              "table_id": "0x2"
+            }
+          }
+        },
+        "BLUE": {
+          "route_distinguisher": "64496:20",
+          "address_family": {
+            "ipv4 unicast": {
+              "table_id": "0x3"
+            }
+          }
+        },
+        "Mgmt-vrf": {
+          "address_family": {
+            "ipv6 unicast": {
+              "table_id": "0x1E000001"
+            },
+            "ipv4 unicast": {
+              "table_id": "0x1"
+            }
+          }
+        }
+      }
+    }
+  },
+  "_metadata": {
+    "parser_version": "0.1.0",
+    "warnings": []
+  }
+}
