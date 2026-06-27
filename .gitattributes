@@ -1,0 +1,6 @@
+# NetCopilot runs in a Linux container, so keep LF endings on every checkout
+# (Windows included) — a CRLF shell script breaks bash inside the container
+# ("$'\r': command not found"). The Dockerfile also strips CR as a runtime
+# safety net, but this keeps working trees clean from the start.
+* text=auto eol=lf
+*.sh text eol=lf

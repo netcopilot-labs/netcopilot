@@ -54,6 +54,10 @@ COPY demo ./demo
 COPY fixtures ./fixtures
 COPY examples ./examples
 COPY scripts ./scripts
+# Normalize shell-script line endings: a Windows clone (git autocrlf) ships CRLF,
+# which breaks bash in the Linux container ("$'\r': command not found"). Strip CR
+# so the watcher runs regardless of how the repo was checked out.
+RUN find scripts -name '*.sh' -exec sed -i 's/\r$//' {} +
 
 # Built SPA → backend static dir (served at / by FastAPI).
 COPY --from=frontend-build /app/frontend/dist ./src/netcopilot/dashboard/backend/static
