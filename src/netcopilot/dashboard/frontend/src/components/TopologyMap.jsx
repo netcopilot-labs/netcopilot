@@ -22,8 +22,14 @@ const CYTOSCAPE_STYLE = [
       'height': 44,
       'background-color': '#FFFFFF',
       'border-width': 2,
-      'border-color': '#6B7280',
-      'color': '#6B7280',
+      // Default border + text colour come from the legend's per-role colour
+      // (data(roleColor), set in buildElements from the /api/legend source of
+      // truth). This means EVERY role renders with its legend colour — incl.
+      // services_switch (cyan), mgmt_switch, dmz_switch — instead of falling
+      // back to grey, so the map and the legend can't drift apart. Roles with an
+      // explicit selector below additionally get a light background tint.
+      'border-color': 'data(roleColor)',
+      'color': 'data(roleColor)',
       'text-wrap': 'wrap',
       'text-max-width': '74px',
     },
@@ -1939,14 +1945,21 @@ export default function TopologyMap({
         >
           <p className="font-bold text-gray-700 mb-2">Nodes</p>
           {[
-            ['Core Switch', '#6D28D9', 'solid'],
-            ['Border Router', '#1D4ED8', 'solid'],
-            ['Distribution', '#7C3AED', 'solid'],
-            ['Access Switch', '#6B7280', 'solid'],
-            ['Firewall', '#C2410C', 'solid'],
-            ['External', '#9CA3AF', 'dashed'],
+            // Role colours come from the legend source of truth (roleColors,
+            // from /api/legend) so the swatches can't drift from the map.
+            ['Border Router', roleColors.border_router || '#1D4ED8', 'solid'],
+            ['Core Switch', roleColors.core_switch || '#6D28D9', 'solid'],
+            ['Distribution', roleColors.distribution_switch || '#7C3AED', 'solid'],
+            ['Services Switch', roleColors.services_switch || '#0891B2', 'solid'],
+            ['Access Switch', roleColors.access_switch || '#6B7280', 'solid'],
+            ['Mgmt Switch', roleColors.mgmt_switch || '#6B7280', 'solid'],
+            ['DMZ Switch', roleColors.dmz_switch || '#DC2626', 'solid'],
+            ['Firewall', roleColors.firewall || '#C2410C', 'solid'],
+            ['External', roleColors.external || '#9CA3AF', 'dashed'],
             ['Unreachable', '#DC2626', 'dashed'],
-            ['Route Reflector (BGP)', '#4338CA', 'double'],
+            // Route reflector is marked by a double border on its role colour
+            // (core_switch), matching node[?is_route_reflector] on the map.
+            ['Route Reflector', roleColors.core_switch || '#6D28D9', 'double'],
           ].map(([label, color, shape]) => (
             <div key={label} className="flex items-center gap-2 mb-1">
               <span
@@ -1965,12 +1978,16 @@ export default function TopologyMap({
 
           <p className="font-bold text-gray-700 mt-3 mb-2">Edges</p>
           {[
-            ['High confidence', '#64748B', 'solid', 3],
-            ['Medium confidence', '#94A3B8', 'dashed', 2],
-            ['Low confidence', '#94A3B8', 'dotted', 1.5],
-            ['Down', '#EF4444', 'dashed', 2.5],
+            // Line COLOUR encodes link type / status (matches the edge selectors).
+            ['Managed link', '#94A3B8', 'solid', 2],
+            ['Link up', '#64748B', 'solid', 2.5],
+            ['OSPF adjacency', '#059669', 'solid', 2.5],
+            ['Fiber cable', '#1E3A5F', 'solid', 2.5],
+            ['Copper cable', '#0284C7', 'solid', 2.5],
+            ['Inband mgmt', '#3B82F6', 'dashed', 1.5],
+            ['OOB mgmt', '#6B7280', 'solid', 1.5],
             ['Stack interconnect', '#EA580C', 'solid', 4],
-            ['Mgmt inband', '#3B82F6', 'dashed', 1.5],
+            ['Link down', '#EF4444', 'dashed', 2.5],
           ].map(([label, color, style, width]) => (
             <div key={label} className="flex items-center gap-2 mb-1">
               <svg width="20" height="8" className="shrink-0">
@@ -1984,6 +2001,10 @@ export default function TopologyMap({
               <span className="text-gray-600">{label}</span>
             </div>
           ))}
+
+          <p className="text-gray-400 italic mt-1.5 mb-1" style={{ fontSize: 10 }}>
+            Line thickness/solid = higher discovery confidence; thin/dotted = lower.
+          </p>
 
           <p className="font-bold text-gray-700 mt-3 mb-2">Indicators</p>
           {[
