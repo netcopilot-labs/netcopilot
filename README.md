@@ -85,8 +85,7 @@ Telegram bot). Data persists in named volumes across `docker compose down`; add
     ```
   The collector reaches your devices from the container (pyATS → NETCONF →
   RESTCONF → SSH); sites are isolated in the graph by `site` + `run_id`. `os`
-  accepts `ios-xe`/`iosxe`/`ios-xr`/`iosxr`/`fortios` (any case). No hardware?
-  `demo/containerlab/` exercises collection end to end.
+  accepts `ios-xe`/`iosxe`/`ios-xr`/`iosxr`/`fortios` (any case).
 - **Your documents (RAG).** The vector store ships empty. Drop PDFs in
   `./knowledge_base/`, then ingest:
   ```bash
@@ -131,8 +130,6 @@ docker compose up -d dashboard       # picks up the new env
 The dropdown then shows only your own inventories from `inventory/`. To remove the
 demos from the image **permanently** instead, delete their source directories and
 rebuild: `rm -rf demo/campus demo/branch demo/l2-campus && docker compose up -d --build dashboard watcher`.
-(`demo/containerlab/` is a collection sandbox, not a dropdown demo — keep it for a
-no-hardware way to exercise live collection, or remove it too.)
 
 ## Developing (without Docker)
 

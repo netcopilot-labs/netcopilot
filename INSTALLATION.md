@@ -217,37 +217,68 @@ or just pick it from the model dropdown in the chat. To use a local model runnin
 on your own machine, point its address at `http://host.docker.internal:<port>/v1`
 (the special `host.docker.internal` name lets a container reach your computer).
 
-### B. Connect your own network
+### B. Connect your network(s)
 
-NetCopilot ships **no real network data** — you point it at yours.
+NetCopilot ships **no real network data** — you point it at yours. Every network
+you add is its own **site**, isolated in the graph; add as many as you like. The
+whole `inventory/` directory is gitignored, so your inventories and their
+credentials never leave your machine.
 
-1. Copy the example inventory and edit it with your devices:
-   ```bash
-   cp examples/inventory.yaml inventory/my-network.yaml
-   ```
-   Each device needs a `name`, a `mgmt_ip` (management address), and an `os`
-   (`ios-xe`, `ios-xr`, or `fortios`).
-2. In `.env`, add the SSH login your devices use:
-   ```
-   NETCOPILOT_SSH_USERNAME=your-username
-   NETCOPILOT_SSH_PASSWORD=your-password
-   ```
-3. Restart (`docker compose up -d`). Your file now appears in the **inventory
-   dropdown** — select **`my-network`** and click **▶ Run Now**. NetCopilot
-   connects to your devices (from inside the container), collects their
-   configuration, and builds the map + findings under a `my-network` site.
+**One network** — drop a single inventory file in `inventory/`:
 
-Drop as many inventory files in `inventory/` as you like — each appears in the
-dropdown and becomes its own "site". To list or remove loaded runs:
+```bash
+cp examples/inventory.yaml inventory/my-network.yaml
+```
+
+Edit it — each device needs a `name`, a `mgmt_ip` (management address), and an
+`os` (`ios-xe`, `ios-xr`, or `fortios`; the joined spellings `iosxe`/`iosxr` work
+too). Put the device login in `.env`:
+
+```
+NETCOPILOT_SSH_USERNAME=your-username
+NETCOPILOT_SSH_PASSWORD=your-password
+NETCOPILOT_ENABLE_PASSWORD=your-enable-secret      # only if your devices use one
+NETCOPILOT_FORTIGATE_API_TOKEN=your-fortigate-token # only if you have a FortiGate
+```
+
+**Multiple networks / tenants** — give each one a **self-contained folder** with
+its own credentials, so nothing is shared and adding a tenant is just dropping a
+folder:
+
+```
+inventory/
+  customer-a/
+    lab.yaml          # that tenant's devices (same shape as the file above)
+    credentials.env   # that tenant's secrets (below)
+  customer-b/
+    lab.yaml
+    credentials.env
+```
+
+Each `credentials.env` holds only that tenant's secrets:
+
+```
+NETCOPILOT_SSH_USERNAME=...
+NETCOPILOT_SSH_PASSWORD=...
+NETCOPILOT_ENABLE_PASSWORD=...
+NETCOPILOT_FORTIGATE_API_TOKEN=...    # only if that tenant has a FortiGate
+```
+
+When you collect a folder tenant, NetCopilot loads **that folder's**
+`credentials.env` for that run only — two tenants never share credentials.
+
+**Either way:** restart (`docker compose up -d`), pick the network in the
+**inventory dropdown**, and click **▶ Run Now**. NetCopilot connects from inside
+the container (pyATS → NETCONF → RESTCONF → SSH), collects the live
+configuration, and builds the map + findings under that site.
+
+**Managing sites** — list or delete loaded runs (or use the 🗑 on a run /
+inventory in the dashboard, which also removes its files):
 
 ```bash
 docker compose exec dashboard python -m netcopilot.cli neo4j runs
-docker compose exec dashboard python -m netcopilot.cli neo4j delete <run_id>
+docker compose exec dashboard python -m netcopilot.cli neo4j delete <run_id> --site <site>
 ```
-
-**No real hardware to test with?** The bundled `demo/containerlab/` virtual
-network can be deployed (with [containerlab](https://containerlab.dev)) to try
-real collection safely.
 
 ### C. Add your own documents (RAG)
 
@@ -290,6 +321,19 @@ SMTP_FROM_ADDRESS=you@example.com
 > For Gmail and many providers you need an **app password**, not your normal
 > login password. Check your mail provider's help pages.
 
+### F. Remove the bundled demo labs (production)
+
+NetCopilot ships synthetic demo labs so you can see it working immediately. On a
+production install you'll want them gone from the inventory dropdown — set one
+variable in `.env` (no rebuild, no file edits):
+
+```
+NETCOPILOT_HIDE_DEMOS=1
+```
+
+Restart (`docker compose up -d dashboard`); the dropdown then shows only your own
+inventories. Any demo run you already loaded can be removed with the 🗑 next to it.
+
 ---
 
 ## Troubleshooting
@@ -324,6 +368,21 @@ Desktop → Settings → Resources, give Docker at least 4 GB of memory.
 Open Docker Desktop and wait for it to finish starting, then use PowerShell (not
 the old Command Prompt). Make sure WSL 2 is enabled (the Docker installer offers
 this).
+
+**I changed `.env` but nothing happened.**
+`.env` is read when a service *starts*. After editing it, recreate the affected
+services so they pick up the new values:
+`docker compose up -d --force-recreate dashboard watcher`.
+
+**A value I set in `.env` isn't taking effect.**
+Two common causes: the line is still **commented** (starts with `#` — remove it),
+or your editor saved the file as **`.env.txt`** (Windows Notepad does this
+silently). The file must be named exactly `.env`.
+
+**My FortiGate (firewall) isn't collected.**
+A FortiGate needs its **REST API token** — `NETCOPILOT_FORTIGATE_API_TOKEN` in
+`.env`, or in that tenant's `credentials.env`. Without it the firewall is skipped
+and the rest of the run still completes.
 
 **I need to start completely fresh.**
 ```bash
