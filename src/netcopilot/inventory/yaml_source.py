@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-from netcopilot.inventory.base import InventorySource
+from netcopilot.inventory.base import InventorySource, normalize_os
 
 
 class YAMLInventory(InventorySource):
@@ -29,7 +29,13 @@ class YAMLInventory(InventorySource):
             raise ValueError(f"Inventory file not found: {self._path}")
 
         data = yaml.safe_load(self._path.read_text(encoding="utf-8")) or {}
-        self._devices: list[dict] = list(data.get("devices") or [])
+        devices: list[dict] = []
+        for raw in (data.get("devices") or []):
+            dev = dict(raw)
+            if "os" in dev:
+                dev["os"] = normalize_os(dev["os"])  # iosxr/IOS-XE/… → canonical
+            devices.append(dev)
+        self._devices = devices
 
     def get_devices(self) -> list[dict]:
         return list(self._devices)

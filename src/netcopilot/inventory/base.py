@@ -13,6 +13,28 @@ passed through verbatim for the collect layer to interpret.
 """
 from abc import ABC, abstractmethod
 
+# Canonical OS families the collect layer understands, plus the spellings real
+# inventories use. The original tooling writes joined ``iosxe``/``iosxr``; the
+# collect layer's canonical form is hyphenated ``ios-xe``/``ios-xr``. Normalizing
+# on load lets an inventory be copied verbatim regardless of spelling or case.
+_OS_ALIASES = {
+    "ios-xe": "ios-xe", "iosxe": "ios-xe",
+    "ios-xr": "ios-xr", "iosxr": "ios-xr",
+    "fortios": "fortios",
+}
+
+
+def normalize_os(value: object) -> str:
+    """Map an inventory ``os`` value to its canonical family.
+
+    Accepts the joined (``iosxe``) and hyphenated (``ios-xe``) spellings in any
+    case and returns the canonical ``ios-xe`` / ``ios-xr`` / ``fortios``. An
+    unrecognized value passes through lowercased so downstream validation rejects
+    it with a clear message instead of this helper masking a typo.
+    """
+    key = str(value).strip().lower()
+    return _OS_ALIASES.get(key, key)
+
 
 class InventorySource(ABC):
     """Adapter interface for a source of devices to collect from.
