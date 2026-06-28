@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from netcopilot.collect.base import CollectionStrategy
+from netcopilot.collect.base import CollectionStrategy, expand_env_ref
 from netcopilot.collect.chain import applicable_strategies, default_chain
 from netcopilot.collect.profiles import commands_for
 from netcopilot.collect.roles import validate_role, validate_site
@@ -59,15 +59,17 @@ def resolve_credentials(device: dict, base: dict[str, Any]) -> dict[str, Any]:
     """Layer per-device credential overrides on top of the run-level base.
 
     A device may declare ``username`` / ``password`` / ``enable_password``.
-    Values are passed through :func:`os.path.expandvars`, so the documented
-    ``${ENV_VAR}`` style in inventory files resolves from the environment
-    (keeping literal secrets out of the inventory).
+    Values are resolved via :func:`~netcopilot.collect.base.expand_env_ref`, so
+    the documented ``${ENV_VAR}`` style in inventory files resolves from the
+    environment (keeping literal secrets out of the inventory). A ``${ENV_VAR}``
+    that names an unset variable raises ``ValueError`` rather than silently
+    passing through as a bogus credential.
     """
     creds = dict(base)
     for key in ("username", "password", "enable_password"):
         value = device.get(key)
         if value:
-            creds[key] = os.path.expandvars(str(value))
+            creds[key] = expand_env_ref(str(value))
     return creds
 
 

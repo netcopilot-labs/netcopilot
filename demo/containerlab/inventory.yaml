@@ -36,4 +36,8 @@ devices:
   # ---- Edge firewall (FortiGate, eval mode) ----
   # FortiGate collection uses the REST API token in NETCOPILOT_FORTIGATE_API_TOKEN
   # (create an api-user on edge-fw-01); no SSH username/password needed here.
+  # For multiple firewalls, give each its own token without editing this rule:
+  #   add `api_token: ${FW1_TOKEN}` and define FW1_TOKEN in .env (secret stays
+  #   out of the inventory). The same ${ENV_VAR} form works for per-device SSH
+  #   username/password/enable_password on the devices above.
   - { name: edge-fw-01, mgmt_ip: 192.0.2.51, os: fortios, role: firewall, site: demo }

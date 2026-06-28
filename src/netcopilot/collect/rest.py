@@ -19,7 +19,7 @@ from typing import Any
 
 import httpx
 
-from netcopilot.collect.base import CollectionResult, CollectionStrategy
+from netcopilot.collect.base import CollectionResult, CollectionStrategy, expand_env_ref
 
 logger = logging.getLogger(__name__)
 
@@ -172,11 +172,28 @@ class RestAdapter(CollectionStrategy):
         inventory_name = device.get("name", device.get("mgmt_ip", "unknown"))
         mgmt_ip = device["mgmt_ip"]
 
-        api_token = os.getenv(API_TOKEN_ENV_VAR)
+        # Per-device token (``api_token: ${FW_X_TOKEN}`` in the inventory) lets one
+        # run target many FortiGates — each with its own token — while the secrets
+        # stay in .env. Falls back to the global env var for the single-FortiGate
+        # case, so existing single-token setups are unchanged.
+        device_token = device.get("api_token")
+        if device_token:
+            try:
+                api_token = expand_env_ref(str(device_token))
+            except ValueError as exc:
+                return CollectionResult(
+                    success=False, strategy_name=self.name, hostname=inventory_name,
+                    error=f"FortiGate api_token {exc}",
+                )
+        else:
+            api_token = os.getenv(API_TOKEN_ENV_VAR)
         if not api_token:
             return CollectionResult(
                 success=False, strategy_name=self.name, hostname=inventory_name,
-                error=f"API token not set — set the '{API_TOKEN_ENV_VAR}' environment variable",
+                error=(
+                    f"API token not set — set the device's 'api_token' (e.g. ${{FW_TOKEN}}) "
+                    f"or the '{API_TOKEN_ENV_VAR}' environment variable"
+                ),
             )
 
         base_url = f"https://{mgmt_ip}"

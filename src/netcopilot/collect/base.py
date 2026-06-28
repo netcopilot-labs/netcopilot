@@ -16,8 +16,26 @@ Two rules every strategy honours:
 from __future__ import annotations
 
 import abc
+import os
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
+
+
+def expand_env_ref(value: str) -> str:
+    """Resolve a ``${ENV_VAR}`` reference from the environment.
+
+    Inventories keep secrets out of the file by naming an environment variable
+    (e.g. ``password: ${TENANT_A_PW}`` or ``api_token: ${FW_EDGE01_TOKEN}``) —
+    the actual secret lives in ``.env``. A literal value is returned unchanged.
+
+    Raises ``ValueError`` if the reference names a variable that is not set, so a
+    forgotten env var surfaces as a clear error instead of a silent auth failure
+    (``collect_device`` records it per-device and never aborts the run).
+    """
+    expanded = os.path.expandvars(value)
+    if "${" in expanded:
+        raise ValueError(f"references an unset environment variable: {value!r}")
+    return expanded
 
 
 @dataclass
