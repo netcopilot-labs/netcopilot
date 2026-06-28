@@ -368,7 +368,7 @@ reply, see Troubleshooting.
 ### E. Send reports by email (your SMTP)
 
 Reports always download as PDF. To **email** them, set your mail server in `.env`
-(any provider works — this example uses Gmail):
+(any RFC-5321 provider — this example uses Gmail):
 
 ```
 SMTP_HOST=smtp.gmail.com
@@ -377,10 +377,20 @@ SMTP_USE_TLS=true
 SMTP_USER=you@example.com
 SMTP_PASSWORD=your-app-password
 SMTP_FROM_ADDRESS=you@example.com
+SMTP_FROM_NAME=NetCopilot
 ```
 
-> For Gmail and many providers you need an **app password**, not your normal
-> login password. Check your mail provider's help pages.
+Recreate to load it, then test from the **Report** tab — generate a report for a
+site and email it to yourself:
+```bash
+docker compose up -d --force-recreate dashboard
+```
+
+> For Gmail and many providers you need an **app password** (enable 2-step
+> verification, then create one) — your normal login password will fail auth.
+
+A report contains real device names and findings, so for a **production** site
+only email it to trusted recipients.
 
 ### F. Remove the bundled demo labs (production)
 
@@ -435,6 +445,11 @@ isn't loaded (line commented, `.env.txt`, or you didn't `--force-recreate`). If
 it's **running but silent**, `TELEGRAM_ALLOWED_USERS` likely has the wrong ID —
 empty it to test, then set the right one (from @userinfobot). `409 Conflict`
 means two pollers share one token (don't reuse a bot already running elsewhere).
+
+**Reports download as PDF but the email never arrives.**
+SMTP isn't authenticating. Check `SMTP_PASSWORD` is an **app password** (not your
+login), `SMTP_HOST`/`SMTP_PORT` match your provider, and you recreated the
+dashboard after editing `.env`. The PDF always generates; only emailing needs SMTP.
 
 **Neo4j won't start / "set NEO4J_PASSWORD".**
 You must set `NEO4J_PASSWORD` in `.env` (step 3). If you changed it after the
