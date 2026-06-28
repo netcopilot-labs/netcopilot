@@ -15,6 +15,7 @@ import asyncio
 import logging
 import os
 import sys
+from pathlib import Path
 
 
 def _progress_writer():
@@ -59,11 +60,55 @@ def _cmd_ask(args: argparse.Namespace) -> None:
     print(asyncio.run(answer(question, context=build_context())))
 
 
+def _load_env_file(path: Path) -> int:
+    """Load ``KEY=VALUE`` lines from a credentials.env into ``os.environ``.
+
+    Used for folder-style inventories (``inventory/<tenant>/credentials.env``):
+    a self-contained tenant carries its own SSH creds + FortiGate token. Values
+    here take precedence over the process env for this run only (each ``run`` is
+    a fresh subprocess), so two tenants never share credentials. Quotes are
+    stripped; comments and blank lines ignored.
+    """
+    loaded = 0
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if key:
+            os.environ[key] = value.strip().strip('"').strip("'")
+            loaded += 1
+    return loaded
+
+
+def _resolve_inventory_path(inventory: str) -> str:
+    """Resolve a --inventory argument to the lab.yaml to load.
+
+    A folder (``inventory/<tenant>/``) is a self-contained tenant: load its
+    ``credentials.env`` (if present) into the environment, then use its
+    ``lab.yaml``. A plain file is used as-is (credentials come from the global
+    environment / root .env).
+    """
+    p = Path(inventory)
+    if p.is_dir():
+        creds = p / "credentials.env"
+        if creds.is_file():
+            n = _load_env_file(creds)
+            logging.getLogger(__name__).info("Loaded %d credential(s) from %s", n, creds)
+        lab = p / "lab.yaml"
+        if not lab.is_file():
+            print(f"inventory folder has no lab.yaml: {p}", file=sys.stderr)
+            raise SystemExit(2)
+        return str(lab)
+    return inventory
+
+
 def _cmd_run(args: argparse.Namespace) -> None:
     from .inventory import YAMLInventory
     from .pipeline import PipelineError, run_pipeline
 
-    source = YAMLInventory(args.inventory)
+    source = YAMLInventory(_resolve_inventory_path(args.inventory))
     progress = _progress_writer()
     try:
         result = run_pipeline(

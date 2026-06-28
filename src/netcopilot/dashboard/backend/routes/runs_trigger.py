@@ -86,7 +86,10 @@ def _demo_inventories() -> list[dict]:
 
 def _list_inventories() -> list[dict]:
     """Inventories selectable for 'Run Now': the bundled demo labs (offline
-    replay) + any YAML files the operator dropped in the mounted inventory dir."""
+    replay) + the operator's own inventories in the mounted inventory dir —
+    either a flat ``<name>.yaml`` (credentials from the root .env) or a
+    self-contained folder ``<name>/`` holding ``lab.yaml`` + its own
+    ``credentials.env`` (multitenant — each tenant carries its own secrets)."""
     items = _demo_inventories()
     if _INVENTORY_DIR.is_dir():
         for f in sorted(_INVENTORY_DIR.glob("*.y*ml")):
@@ -94,6 +97,12 @@ def _list_inventories() -> list[dict]:
                 "id": f.stem, "label": f.stem, "kind": "real",
                 "site": f.stem, "path": str(f),
             })
+        for d in sorted(p for p in _INVENTORY_DIR.iterdir() if p.is_dir()):
+            if (d / "lab.yaml").is_file():
+                items.append({
+                    "id": d.name, "label": d.name, "kind": "real",
+                    "site": d.name, "path": str(d),
+                })
     return items
 
 
@@ -152,7 +161,11 @@ def delete_inventory(inv_id: str):
     if inv["kind"] != "real":
         raise HTTPException(status_code=400, detail="Demo labs cannot be deleted")
     try:
-        Path(inv["path"]).unlink()
+        target = Path(inv["path"])
+        if target.is_dir():
+            shutil.rmtree(target)      # folder tenant: remove lab.yaml + its credentials.env
+        else:
+            target.unlink()            # flat inventory file
     except OSError as e:
         raise HTTPException(status_code=500, detail=f"Could not delete inventory: {e}")
     return {"deleted": True, "id": inv_id}

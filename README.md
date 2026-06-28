@@ -70,12 +70,23 @@ Telegram bot). Data persists in named volumes across `docker compose down`; add
   cloud-only default by setting `default:` in `models.yaml` or in the dropdown.
   Reach a local LLM from the container via `http://host.docker.internal:<port>/v1`.
   Without a model, everything but chat still works.
-- **Your network.** Copy `examples/inventory.yaml` to `inventory/<name>.yaml`,
-  replace the devices, set `NETCOPILOT_INVENTORY` + SSH creds in `.env`, then press
-  **Run Now** in the dashboard. The collector reaches your devices from the
-  container (pyATS → NETCONF → RESTCONF → SSH). Multiple inventories = multiple
-  sites, isolated in the graph. No hardware? The bundled `demo/containerlab/`
-  topology lets you exercise collection end to end.
+- **Your network(s).** Two shapes, pick by scale — both show in the inventory
+  dropdown, press **Run Now** to collect:
+  - **One network** — drop a flat `inventory/<name>.yaml` (copy
+    `examples/inventory.yaml`, replace the devices); credentials come from the
+    root `.env`.
+  - **Multitenant** — give each tenant a **self-contained folder** with its own
+    secrets (add a tenant = drop a folder, nothing shared):
+    ```
+    inventory/<tenant>/
+      lab.yaml          # devices: name, mgmt_ip, os, role, site
+      credentials.env   # NETCOPILOT_SSH_USERNAME / _PASSWORD / _ENABLE_PASSWORD
+                        # + NETCOPILOT_FORTIGATE_API_TOKEN (gitignored)
+    ```
+  The collector reaches your devices from the container (pyATS → NETCONF →
+  RESTCONF → SSH); sites are isolated in the graph by `site` + `run_id`. `os`
+  accepts `ios-xe`/`iosxe`/`ios-xr`/`iosxr`/`fortios` (any case). No hardware?
+  `demo/containerlab/` exercises collection end to end.
 - **Your documents (RAG).** The vector store ships empty. Drop PDFs in
   `./knowledge_base/`, then ingest:
   ```bash
