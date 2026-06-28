@@ -1,0 +1,29 @@
+# Optional: reach a lab/network behind an SSH jump host via sshuttle, so the
+# in-container watcher can collect it (the Docker-Desktop equivalent of running
+# sshuttle on the host). Opt in explicitly:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d --build
+#
+# Configure in .env:
+#   SSHUTTLE_HOST=root@10.0.0.5        # user@jump-host
+#   SSHUTTLE_SUBNET=192.0.2.0/24       # lab subnet to route
+#   SSHUTTLE_EXCLUDE=10.0.0.5          # don't tunnel the jump host itself
+#   SSHUTTLE_PASSWORD=...              # jump-host password (or use a key instead)
+services:
+  tunnel:
+    build: ./tunnel
+    command: >
+      sshuttle -r ${SSHUTTLE_HOST:?set SSHUTTLE_HOST in .env} ${SSHUTTLE_SUBNET:?set SSHUTTLE_SUBNET} -x ${SSHUTTLE_EXCLUDE:?set SSHUTTLE_EXCLUDE}
+      --ssh-cmd "sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    environment:
+      SSHPASS: ${SSHUTTLE_PASSWORD:?set SSHUTTLE_PASSWORD in .env}
+    cap_add: ["NET_ADMIN"]
+    devices: ["/dev/net/tun"]
+    networks: ["netcopilot"]
+    restart: unless-stopped
+  # Watcher shares the tunnel's network namespace → inherits the routed subnet.
+  watcher:
+    networks: !reset null
+    network_mode: "service:tunnel"
+    depends_on: !reset
+      - tunnel
