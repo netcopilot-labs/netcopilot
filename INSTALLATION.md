@@ -205,17 +205,64 @@ Each of these is added by editing `.env` (or `models.yaml`) and restarting with
 
 ### A. Use your own AI model (for the chat)
 
-The dashboard, map, and findings work **without any AI**. The **chat** needs a
-model. Open **`models.yaml`** — it already lists several options:
+The dashboard, map, and findings work **without any AI** — only the **chat**
+needs a model. Models are defined in `models.yaml` (copy `models.example.yaml`);
+every entry appears in the chat's model dropdown.
 
-- **Local / private models** (Ollama, vLLM): your data never leaves your machine, no anonymization needed.
-- **Commercial models** (Claude, GPT, Gemini): NetCopilot **anonymizes** device names and addresses before anything is sent.
+**The golden rule: keys go in `.env`, never in `models.yaml`.** Each entry names
+the *environment variable* that holds its key via `api_key_env` — the **name**
+(e.g. `ANTHROPIC_API_KEY`), **not** the key itself. The key value lives only in
+`.env` (gitignored). Putting the key in `api_key_env` is the #1 mistake — the
+model then silently fails to authenticate and won't appear in the dropdown.
 
-To use a commercial model, put its key in `.env` (for example
-`ANTHROPIC_API_KEY=sk-...`) and either set it as the `default:` in `models.yaml`
-or just pick it from the model dropdown in the chat. To use a local model running
-on your own machine, point its address at `http://host.docker.internal:<port>/v1`
-(the special `host.docker.internal` name lets a container reach your computer).
+Three kinds of model:
+
+- **Self-hosted (local / on-prem)** — Ollama, vLLM, etc. Data never leaves your
+  network, so `anonymize: false`. Use `host.docker.internal` for a model on the
+  *same* machine as Docker, or the server's IP for a remote box:
+  ```yaml
+  - id: gemma-local
+    label: "Gemma 4 (local)"
+    type: openai
+    base_url: ${VLLM_BASE_URL}        # e.g. http://10.0.0.5:8000/v1 (set in .env)
+    model: gemma-4-31b-it
+    anonymize: false
+  ```
+- **Claude** (native API):
+  ```yaml
+  - id: claude
+    label: "Claude (anonymized)"
+    type: anthropic
+    model: claude-sonnet-4-6
+    api_key_env: ANTHROPIC_API_KEY    # the NAME, not the key
+    anonymize: true
+  ```
+- **Gemini / GPT / any OpenAI-compatible** — `type: openai` with the provider's
+  `base_url`:
+  ```yaml
+  - id: gemini
+    label: "Gemini (anonymized)"
+    type: openai
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai
+    model: gemini-2.5-flash
+    api_key_env: GEMINI_API_KEY       # the NAME, not the key
+    anonymize: true
+  ```
+
+Put the actual keys in `.env`, then recreate so both files reload:
+```
+ANTHROPIC_API_KEY=...
+GEMINI_API_KEY=...
+VLLM_BASE_URL=http://your-llm-host:8000/v1
+```
+```bash
+docker compose up -d --force-recreate dashboard
+```
+
+**Commercial models anonymize** device names/addresses before anything is sent;
+**self-hosted models keep everything on-prem**. The dropdown only lists models
+that are actually usable (key present, or `base_url` set) — so if one is missing,
+its key isn't loaded yet (see Troubleshooting).
 
 ### B. Connect your network(s)
 
@@ -354,6 +401,19 @@ That's normal until you do step **A** above. The rest of the dashboard still wor
 **The chat can't reach my local LLM.**
 From inside a container, your own machine is `host.docker.internal`, not
 `localhost`. Use `http://host.docker.internal:<port>/v1` in `models.yaml`.
+
+**A commercial model (Claude/Gemini/GPT) isn't in the dropdown.**
+Its key isn't reaching the app. Check three things: the key is set in `.env` (not
+commented out, and the file is named exactly `.env`, not `.env.txt`);
+`models.yaml` uses `api_key_env: THE_VAR_NAME` (the **name**, never the key
+itself); and you recreated the dashboard after editing
+(`docker compose up -d --force-recreate dashboard`).
+
+**A cloud model returns "429 Too Many Requests".**
+That's the provider rate-limiting your key, not NetCopilot — usually a free-tier
+quota (e.g. Gemini's `*-pro` models are tightly limited). Switch to a
+higher-limit model (e.g. a `*-flash` variant), wait a minute, or enable billing
+on the provider account.
 
 **Neo4j won't start / "set NEO4J_PASSWORD".**
 You must set `NEO4J_PASSWORD` in `.env` (step 3). If you changed it after the
