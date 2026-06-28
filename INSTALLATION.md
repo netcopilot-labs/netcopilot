@@ -342,14 +342,28 @@ guides, hardening docs). The document store starts empty.
 
 ### D. Use your own Telegram bot
 
-1. In Telegram, message **@BotFather**, create a bot, and copy the token it gives you.
-2. In `.env`, set:
+The bot answers the same questions as the dashboard chat, from your phone, using
+your default model.
+
+1. **Create a bot** — in Telegram message **@BotFather**, send `/newbot`, and copy
+   the token. Use a **dedicated** bot for this instance: a token allows only one
+   active poller, so don't reuse a bot already running elsewhere (you'll get
+   `409 Conflict`).
+2. **Find your user ID** — message **@userinfobot**; it replies with your numeric
+   ID (used to lock the bot to you).
+3. **In `.env`:**
    ```
    TELEGRAM_BOT_TOKEN=the-token-from-botfather
-   TELEGRAM_ALLOWED_USERS=your-telegram-user-id
+   TELEGRAM_ALLOWED_USERS=your-numeric-id      # comma-separated; empty = anyone (not recommended)
    ```
-   (Leave `TELEGRAM_ALLOWED_USERS` empty to allow everyone — not recommended.)
-3. Start the bot: `docker compose up -d telegram`, then message your bot `/start`.
+4. **Start it** (recreate so the new env loads), then message your bot `/start`:
+   ```bash
+   docker compose up -d --force-recreate telegram
+   ```
+
+Like the chat, the bot uses your **default model** — keep that on a local model
+for production questions so nothing leaves your network. If `/start` gets no
+reply, see Troubleshooting.
 
 ### E. Send reports by email (your SMTP)
 
@@ -414,6 +428,13 @@ That's the provider rate-limiting your key, not NetCopilot — usually a free-ti
 quota (e.g. Gemini's `*-pro` models are tightly limited). Switch to a
 higher-limit model (e.g. a `*-flash` variant), wait a minute, or enable billing
 on the provider account.
+
+**The Telegram bot doesn't respond.**
+Check `docker compose logs telegram`. If the container **exited**, the token
+isn't loaded (line commented, `.env.txt`, or you didn't `--force-recreate`). If
+it's **running but silent**, `TELEGRAM_ALLOWED_USERS` likely has the wrong ID —
+empty it to test, then set the right one (from @userinfobot). `409 Conflict`
+means two pollers share one token (don't reuse a bot already running elsewhere).
 
 **Neo4j won't start / "set NEO4J_PASSWORD".**
 You must set `NEO4J_PASSWORD` in `.env` (step 3). If you changed it after the
