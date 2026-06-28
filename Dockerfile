@@ -25,10 +25,14 @@ WORKDIR /app
 # System libraries (exact list proven by the source-repo Dockerfile):
 #   pango/cairo/gdk-pixbuf/ffi/shared-mime-info → WeasyPrint PDF reports
 #   ffmpeg                                       → faster-whisper voice (telegram)
+#   openssh-client                               → pyATS/Unicon spawns the system
+#     `ssh` client to reach devices; without it every collection silently falls
+#     back to NETCONF (the reduced CDP-only graph). Required for "Run Now".
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libpango-1.0-0 libpangocairo-1.0-0 libcairo2 \
         libgdk-pixbuf-xlib-2.0-0 libffi-dev shared-mime-info \
         ffmpeg \
+        openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 # CPU-only torch FIRST (saves ~800 MB vs CUDA wheels; the labs `rag` extra does
