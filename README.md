@@ -87,6 +87,42 @@ Telegram bot). Data persists in named volumes across `docker compose down`; add
 - **Your email (reports).** Set the `SMTP_*` block in `.env` (any SMTP server).
   Reports always generate as PDF; SMTP only adds emailing.
 
+## Removing the demo data (production deployments)
+
+NetCopilot ships with synthetic demo labs (`Demo — campus network`, etc.) so you
+can see it working before connecting anything. They contain **no real data**, but
+on a production install serving your own network you'll want a clean slate.
+
+**Demo runs you loaded** (anything you populated with ▶ Run Now) — delete each
+from the dashboard: click the **🗑** next to the run in the **Run** dropdown. That
+removes its graph data **and** its on-disk files. Headless equivalent (graph
+data; the `runs/<id>` folder can then be removed from the `runs` volume):
+
+```bash
+docker compose exec dashboard python -m netcopilot.cli neo4j runs                       # list loaded runs
+docker compose exec dashboard python -m netcopilot.cli neo4j delete <run_id> --site <site>
+```
+
+The dashboard starts **empty**, so if you never ran a demo there's nothing here to
+delete.
+
+**Demo inventories** (the `Demo — …` entries in the inventory dropdown) are bundled
+into the image. To hide them on a production install, set one variable in `.env`
+— no rebuild, no file edits:
+
+```dotenv
+NETCOPILOT_HIDE_DEMOS=1
+```
+```bash
+docker compose up -d dashboard       # picks up the new env
+```
+
+The dropdown then shows only your own inventories from `inventory/`. To remove the
+demos from the image **permanently** instead, delete their source directories and
+rebuild: `rm -rf demo/campus demo/branch demo/l2-campus && docker compose up -d --build dashboard watcher`.
+(`demo/containerlab/` is a collection sandbox, not a dropdown demo — keep it for a
+no-hardware way to exercise live collection, or remove it too.)
+
 ## Developing (without Docker)
 
 ```bash

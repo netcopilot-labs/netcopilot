@@ -54,9 +54,17 @@ _INVENTORY_DIR = Path(os.environ.get("NETCOPILOT_INVENTORY_DIR", "/app/inventory
 _DEMO_DIR = Path(os.environ.get("NETCOPILOT_DEMO_DIR", "/app/demo"))
 
 
+def _demos_hidden() -> bool:
+    """Production installs hide the bundled demo labs via NETCOPILOT_HIDE_DEMOS."""
+    return os.environ.get("NETCOPILOT_HIDE_DEMOS", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _demo_inventories() -> list[dict]:
     """Each demo/<name>/ with committed facts is a replayable demo lab (its own
-    site). Run Now on it rebuilds + loads offline — no devices needed."""
+    site). Run Now on it rebuilds + loads offline — no devices needed. Hidden
+    entirely when NETCOPILOT_HIDE_DEMOS is set (production deployments)."""
+    if _demos_hidden():
+        return []
     demos = []
     if _DEMO_DIR.is_dir():
         for sub in sorted(p for p in _DEMO_DIR.iterdir() if p.is_dir()):
