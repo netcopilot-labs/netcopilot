@@ -9,16 +9,16 @@ agents.
 flowchart LR
   NET["Your Network<br/>multi-vendor"]:::net
   PIPE["Collect → Parse → Model → Rules"]:::pipe
-  GRAPH[("Graph — source of truth<br/>topology + findings")]:::graph
+  GDB[("Graph — source of truth<br/>topology + findings")]:::hub
   RAG[("RAG<br/>vendor docs")]:::store
-  MCP["MCP Server<br/>the single doorway · tools"]:::mcp
+  MCP["MCP Server<br/>the single doorway (tools)"]:::mcp
   ORCH["Orchestrator<br/>calls an LLM"]:::cons
-  CHAT["Dashboard · Telegram"]:::cons
+  CHAT["Dashboard / Telegram"]:::cons
   USER["User"]:::user
-  CLIENTS["LLMs · agents · other tools<br/>any MCP client"]:::cons
+  CLIENTS["LLMs / agents / other tools<br/>any MCP client"]:::cons
 
-  NET -->|collect · read-only| PIPE --> GRAPH
-  MCP --> GRAPH
+  NET -->|read-only collect| PIPE --> GDB
+  MCP --> GDB
   MCP --> RAG
   ORCH --> MCP
   CLIENTS --> MCP
@@ -26,7 +26,7 @@ flowchart LR
 
   classDef net   fill:#1f2937,stroke:#64748b,color:#e5e7eb
   classDef pipe  fill:#0f3b3a,stroke:#2dd4bf,color:#e6fffb
-  classDef graph fill:#063b36,stroke:#22d3ee,color:#ccfbf1,stroke-width:2px
+  classDef hub   fill:#063b36,stroke:#22d3ee,color:#ccfbf1,stroke-width:2px
   classDef store fill:#0f3b3a,stroke:#2dd4bf,color:#e6fffb
   classDef mcp   fill:#1e1b4b,stroke:#a78bfa,color:#ede9fe,stroke-width:2px
   classDef cons  fill:#172554,stroke:#60a5fa,color:#dbeafe
