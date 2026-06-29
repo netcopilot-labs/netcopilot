@@ -357,6 +357,15 @@ restarts.
   ```
 - `--reset` wipes the whole store and rebuilds it from the folder.
 
+Your PDFs and the vector store stay on your machine (`knowledge_base/` and the
+ChromaDB volume are local / gitignored). Vendor PDFs are usually public, but if
+you ingest **confidential** documents and then query a **cloud** model, the
+retrieved passages are sent to that provider — keep confidential docs on a local
+model.
+
+To confirm it worked, ask something only answerable from a PDF you ingested; the
+answer should draw on that document.
+
 ### D. Use your own Telegram bot
 
 The bot answers the same questions as the dashboard chat, from your phone, using
@@ -467,6 +476,13 @@ means two pollers share one token (don't reuse a bot already running elsewhere).
 SMTP isn't authenticating. Check `SMTP_PASSWORD` is an **app password** (not your
 login), `SMTP_HOST`/`SMTP_PORT` match your provider, and you recreated the
 dashboard after editing `.env`. The PDF always generates; only emailing needs SMTP.
+
+**RAG ingest finds no PDFs, or the chat ignores my documents.**
+The PDFs must be in the mounted `knowledge_base/` folder (the same path you pass
+to `--docs-dir /app/knowledge_base`). The ingest run prints a chunk count — if
+it's 0, the folder is empty or the files aren't readable PDFs. The chat only
+pulls documents for doc-related questions, so ask something specific to a guide's
+content.
 
 **Neo4j won't start / "set NEO4J_PASSWORD".**
 You must set `NEO4J_PASSWORD` in `.env` (step 3). If you changed it after the
