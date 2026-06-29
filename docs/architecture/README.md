@@ -9,7 +9,7 @@ as a graph, and exposes it over **MCP** so any consumer — a human in the
 dashboard, an LLM, a chat bot, or another agent — can ask grounded, traceable
 questions about it.
 
-Two ideas shape everything below:
+Three ideas shape everything below:
 
 - **Evidence over inference.** Every node, link, and finding is derived from
   collected device output, not guessed. The model is reproducible: the same
@@ -17,6 +17,12 @@ Two ideas shape everything below:
 - **One model, many consumers.** The pipeline produces a single graph; the
   dashboard, the chat, RAG, and Telegram are all just *readers* of it over
   one MCP surface.
+- **Multitenant by design.** One deployment manages many networks at once. Each
+  is a self-contained tenant — its **own inventory** and its **own credentials**
+  (`inventory/<tenant>/lab.yaml` + `credentials.env`) — and every node in the
+  graph is tagged with its `site` (the tenant) and `run_id`. Tenants are isolated
+  **end to end**: separate credentials in, separate data out, a query for one
+  never sees another.
 
 ---
 
@@ -57,8 +63,11 @@ flowchart LR
 Everything downstream reads **one graph**, and it's a *literal* graph, not a pile
 of tables: **devices are nodes, the cables and routing sessions between them are
 relationships, and findings attach to whatever they're about.** Each collection
-is a `Run`, and every node carries a `site` + `run_id`, so multiple networks and
-repeated runs coexist without ever colliding — you keep history and can compare.
+is a `Run`, and **every node carries a `site` + `run_id`** — this is what makes
+NetCopilot **multitenant**: the `site` *is* the tenant, so many separate networks
+live in the same graph fully isolated, and re-runs of a site keep a history you
+can compare. Consumers scope every query to a site, so one tenant's data never
+appears in another's answers.
 
 ```mermaid
 flowchart LR
@@ -158,6 +167,8 @@ flowchart LR
 - **Bring your own.** Model, inventory, RAG documents, Telegram bot, and SMTP are
   all yours, configured via `.env` + `models.yaml` — no code changes.
 - **MCP-native.** One model, one tool surface; every consumer is a reader.
+- **Multitenant.** Many networks in one deployment, each a self-contained tenant
+  with its own credentials, isolated end to end by `site` + `run_id`.
 
 ---
 

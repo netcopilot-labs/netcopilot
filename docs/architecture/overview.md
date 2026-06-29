@@ -48,7 +48,7 @@ flowchart LR
    LLM, or any external **LLM, agent, or tool** as its own MCP client.
 
 **Principles:** read-only on the network · deterministic & verifiable ·
-multi-vendor · MCP-native · bring-your-own model.
+**multitenant** · multi-vendor · MCP-native · bring-your-own model.
 
 > **Extensible by design.** MCP is the extension point — any new context source
 > or consumer plugs into the same doorway, with no change to the core.
