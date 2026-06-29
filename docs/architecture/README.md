@@ -1,9 +1,13 @@
 # Architecture
 
-NetCopilot is **Network Context Intelligence**: it builds a *deterministic, verifiable
-model* of a multi-vendor network from read-only collection, stores it as a graph,
-and exposes it over **MCP** so any consumer — a human in the dashboard, an LLM, a
-chat bot, or another agent — can ask grounded, traceable questions about it.
+> **New here?** Start with the one-glance **[system overview](overview.md)**.
+> This page is the detailed, per-layer view.
+
+NetCopilot is **Network Context Intelligence**: it builds a *deterministic,
+verifiable* model of a multi-vendor network from read-only collection, stores it
+as a graph, and exposes it over **MCP** so any consumer — a human in the
+dashboard, an LLM, a chat bot, or another agent — can ask grounded, traceable
+questions about it.
 
 Two ideas shape everything below:
 
@@ -48,28 +52,35 @@ flowchart LR
 
 ---
 
-## 2. The graph — one model, isolated per run
+## 2. The graph — the source of truth
 
-Everything downstream reads Neo4j. Each collection is a `Run`; multiple sites and
-re-runs coexist, isolated by `site` + `run_id`, so history and multiple tenants
-never collide.
+Everything downstream reads **one graph**, and it's a *literal* graph, not a pile
+of tables: **devices are nodes, the cables and routing sessions between them are
+relationships, and findings attach to whatever they're about.** Each collection
+is a `Run`, and every node carries a `site` + `run_id`, so multiple networks and
+repeated runs coexist without ever colliding — you keep history and can compare.
 
 ```mermaid
-flowchart TD
-  RUN(["Run<br/>site + run_id"]) --> DEV["Device"]
-  DEV --> IFACE["Interface"]
-  DEV --> VLAN["VLAN"]
-  DEV --> FW["FirewallPolicy"]
-  DEV --> ROUTE["Route / VRF"]
-  IFACE -- "PHYSICAL_LINK" --> IFACE
-  DEV -- "ROUTING_ADJACENCY (OSPF/BGP)" --> DEV
-  FND["Finding<br/>severity + evidence"] -. "about" .-> DEV
-  FND -. "about" .-> IFACE
+flowchart LR
+  A["Device A"] -->|PHYSICAL_LINK| B["Device B"]
+  A -.->|"OSPF / BGP adjacency"| B
+  A --> DET["its interfaces, VLANs,<br/>routes, firewall policies"]
+  FND(["Finding<br/>severity + evidence"]) -.->|about| A
 ```
 
-The graph is the **contract**: tools query it with Cypher, never the devices.
-Because the model is deterministic and evidence-backed, an answer can always be
-traced back to the device output that produced it.
+**What's in it:**
+
+- **Nodes** — `Run`, `Device`, `Interface`, `VLAN`, `Route` / `VRF`,
+  `FirewallPolicy`, `Finding`, plus the shared services (subnets, OSPF areas,
+  BGP ASNs) that tie devices together.
+- **Relationships** — `PHYSICAL_LINK` (interface ↔ interface), `ROUTING_ADJACENCY`
+  (device ↔ device, OSPF / BGP), the containment edges (a device *has* its
+  interfaces, VLANs, routes…), and `about` (a finding points at the node it
+  concerns).
+
+The graph is the **contract**: tools query it with Cypher — never the live
+devices. And because the model is deterministic and evidence-backed, every answer
+traces back to the exact device output that produced it.
 
 ---
 
@@ -147,6 +158,34 @@ flowchart LR
 - **Bring your own.** Model, inventory, RAG documents, Telegram bot, and SMTP are
   all yours, configured via `.env` + `models.yaml` — no code changes.
 - **MCP-native.** One model, one tool surface; every consumer is a reader.
+
+---
+
+## Where it's going
+
+The open-source core above is the foundation: a deterministic, read-only model
+served over MCP. The architecture is deliberately built so that **new context
+sources, triggers, and consumers plug into the same seam (MCP + the graph)** —
+not bolted on. The directions on the roadmap:
+
+- **NetBox, both ways.** Read NetBox as the *intended* source of truth and
+  reconcile it against the *actual* discovered state — or go the other way and
+  **populate NetBox from what NetCopilot discovers**. Intended vs. actual, in one
+  model.
+- **Telemetry-driven runs.** Ingest streaming telemetry, and let **telemetry
+  events trigger a fresh run** — so the model refreshes when the network changes,
+  not only on a schedule.
+- **Context enrichment.** Connect to the systems that already hold operational
+  context — observability and assurance platforms (e.g. Splunk, ThousandEyes,
+  Catalyst Center) — to **correlate logs and events** against the topology and
+  enrich every answer.
+- **Context for any agent.** Be the grounded, verifiable network-context source
+  that **any external AI agent** can call — the source of truth in an agentic
+  workflow.
+
+The through-line: NetCopilot stays the **deterministic source of truth**; each of
+these is just another reader or feeder of that same model. (These are
+directional — the open-source core is what ships today.)
 
 ---
 
