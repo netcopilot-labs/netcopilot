@@ -330,15 +330,32 @@ docker compose exec dashboard python -m netcopilot.cli neo4j delete <run_id> --s
 ### C. Add your own documents (RAG)
 
 NetCopilot can answer questions grounded in your vendor PDFs (configuration
-guides, hardening docs). The document store starts empty.
+guides, hardening docs). The document store starts empty and persists across
+restarts.
 
-1. Put your PDF files in a folder named `knowledge_base` inside the project.
-2. Load them into NetCopilot:
+1. Put your PDF files in the `knowledge_base/` folder in the project.
+2. Load them in:
    ```bash
    docker compose exec dashboard python -m netcopilot.rag.ingest --docs-dir /app/knowledge_base
    ```
-3. Ask document questions in the chat. You can add more PDFs and re-run the
-   command any time.
+3. Ask document questions in the chat — the agent retrieves the relevant
+   passages and answers from them.
+
+**Managing documents over time:**
+
+- **Add / update** — drop new PDFs in `knowledge_base/` and re-run the ingest.
+  Re-ingesting a PDF **replaces** its old chunks (no duplicates), so editing a
+  document and re-running simply updates it.
+- **Remove one** — delete a document's chunks by filename:
+  ```bash
+  docker compose exec dashboard python -m netcopilot.rag.ingest --remove old-guide.pdf
+  ```
+- **Prune** — after deleting PDFs from the folder, drop everything no longer
+  present in one pass:
+  ```bash
+  docker compose exec dashboard python -m netcopilot.rag.ingest --prune --docs-dir /app/knowledge_base
+  ```
+- `--reset` wipes the whole store and rebuilds it from the folder.
 
 ### D. Use your own Telegram bot
 

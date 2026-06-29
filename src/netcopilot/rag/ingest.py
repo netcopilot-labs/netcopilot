@@ -38,11 +38,17 @@ def discover_pdfs(docs_dir: Path, only: str | None = None) -> list[Path]:
 
 
 def ingest_pdf(pdf_path: Path) -> tuple[int, int]:
-    """Parse + embed + store one PDF. Returns (chunks_added, elapsed_ms)."""
+    """Parse + embed + store one PDF. Returns (chunks_added, elapsed_ms).
+
+    Re-ingesting a PDF replaces its prior chunks (delete-by-source, then add), so
+    repeated runs stay idempotent — no duplicates, and an edited/shortened PDF
+    drops its stale chunks instead of leaving orphans.
+    """
     t0 = time.time()
     chunks = chunker.chunk_pdf(pdf_path)
     if not chunks:
         return 0, int((time.time() - t0) * 1000)
+    store.delete_by_source(pdf_path.name)
     added = store.add_chunks(chunks)
     elapsed_ms = int((time.time() - t0) * 1000)
     return added, elapsed_ms
@@ -77,12 +83,39 @@ def main() -> int:
         action="store_true",
         help="Enable DEBUG logging",
     )
+    parser.add_argument(
+        "--remove",
+        metavar="FILE",
+        default=None,
+        help="Delete one document's chunks by filename (e.g. old-guide.pdf), then exit",
+    )
+    parser.add_argument(
+        "--prune",
+        action="store_true",
+        help="Delete chunks for any PDF no longer present in --docs-dir, then exit",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
+
+    # Document lifecycle: remove one doc, or prune docs no longer in the folder.
+    # Both touch only the store (no PDF parsing), then exit.
+    if args.remove:
+        n = store.delete_by_source(args.remove)
+        print(f"Removed {n} chunk(s) for {args.remove!r}. Collection size: {store.collection_count()}")
+        return 0
+
+    if args.prune:
+        in_folder = {p.name for p in discover_pdfs(args.docs_dir)}
+        stale = sorted(store.list_sources() - in_folder)
+        removed = sum(store.delete_by_source(s) for s in stale)
+        print(f"Pruned {len(stale)} document(s), {removed} chunk(s). Collection size: {store.collection_count()}")
+        for s in stale:
+            print(f"  - {s}")
+        return 0
 
     pdfs = discover_pdfs(args.docs_dir, args.only)
     if not pdfs:

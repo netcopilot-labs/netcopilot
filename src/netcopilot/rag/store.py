@@ -189,6 +189,29 @@ def add_chunks(chunks: list[Any], batch_size: int = 128) -> int:
     return added
 
 
+def delete_by_source(source_file: str) -> int:
+    """Delete all chunks belonging to one document (by its ``source_file``).
+
+    Returns the number of chunks removed. ChromaDB's ``delete()`` reports no
+    count, so we diff the collection size around it.
+    """
+    collection = _get_collection()
+    before = collection.count()
+    collection.delete(where={"source_file": source_file})
+    return before - collection.count()
+
+
+def list_sources() -> set[str]:
+    """Return the set of ``source_file`` filenames currently in the store."""
+    collection = _get_collection()
+    got = collection.get(include=["metadatas"])
+    return {
+        str(m["source_file"])
+        for m in (got.get("metadatas") or [])
+        if m and m.get("source_file")
+    }
+
+
 def search(
     query: str,
     *,
