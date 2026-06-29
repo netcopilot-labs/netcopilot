@@ -11,7 +11,7 @@ Two ideas shape everything below:
   collected device output, not guessed. The model is reproducible: the same
   inputs always produce the same graph.
 - **One model, many consumers.** The pipeline produces a single graph; the
-  dashboard, the chat agent, RAG, and Telegram are all just *readers* of it over
+  dashboard, the chat, RAG, and Telegram are all just *readers* of it over
   one MCP surface.
 
 ---
@@ -73,7 +73,7 @@ traced back to the device output that produced it.
 
 ---
 
-## 3. Consumers & the agent — MCP at the center
+## 3. Consumers & the orchestrator — MCP at the center
 
 The model is exposed as **MCP tools** (get topology, trace a path, list findings,
 look up vendor docs, …). The dashboard and Telegram are MCP clients; an LLM turns
@@ -83,7 +83,7 @@ the results.
 ```mermaid
 flowchart TD
   USER["User<br/>(dashboard chat / Telegram)"] --> AGENT
-  AGENT["Agent loop"] --> MCP["MCP Server<br/>(tools)"]
+  AGENT["Orchestrator"] --> MCP["MCP Server<br/>(tools)"]
   MCP --> NEO[("Neo4j")]
   MCP --> RAG[("RAG<br/>vendor PDFs / ChromaDB")]
   AGENT --> REG["Model registry<br/>(models.yaml)"]
@@ -98,7 +98,7 @@ flowchart TD
 - **Privacy boundary.** Local models keep everything on-prem. For a cloud model,
   device names and addresses are run through the **anonymizer** before the request
   leaves the host.
-- **RAG.** Vendor PDFs are embedded into ChromaDB; the agent retrieves relevant
+- **RAG.** Vendor PDFs are embedded into ChromaDB; the orchestrator retrieves relevant
   passages to ground answers, alongside the graph.
 
 ---
@@ -131,7 +131,7 @@ flowchart LR
 | **neo4j** | The graph store. |
 | **dashboard** | FastAPI backend + React SPA: topology, findings, reports, chat. Triggers runs via a flag file the watcher polls. |
 | **mcp** | The MCP server over HTTP, for any external MCP client. |
-| **telegram** | Optional bot; same agent, from your phone. |
+| **telegram** | Optional bot; same chat, from your phone. |
 | **watcher** | Executes collect → parse → model → rules → load when a run is requested. |
 
 ---
