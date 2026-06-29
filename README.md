@@ -18,7 +18,7 @@ but it never pushes changes to devices.
 so any reasoning agent can call it for grounded context. An agent consuming
 NetCopilot as its ground-truth layer is the key proof of the pattern.
 
-## Architecture (spine)
+## Architecture
 
 ```
 Inventory (YAML)
@@ -30,6 +30,15 @@ Inventory (YAML)
             → MCP Server (the base)
               → LLM (configurable: Claude API / Ollama)
 ```
+
+This README is the quick entry point; the detail lives in the architecture docs:
+
+- **[System overview](docs/architecture/overview.md)** — the whole platform in one diagram.
+- **[Detailed architecture](docs/architecture/README.md)** — the pipeline, the graph + multitenancy, the orchestrator, deployment, and the roadmap.
+- **[The Link Builder](docs/architecture/link-builder.md)** — how raw device output becomes an evidence-backed topology.
+
+> 🧪 **The lab of ideas** — deep-dives into each layer, experiments, and where
+> NetCopilot is heading live at **[netcopilot.io](https://netcopilot.io)**.
 
 ## Bring your own network
 
