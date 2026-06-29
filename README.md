@@ -10,6 +10,10 @@
   <img src="docs/img/architecture.png" alt="NetCopilot — read-only multi-vendor collection into a deterministic graph model, served over MCP to humans, LLMs, and agents" width="900">
 </p>
 
+<p align="center">
+  <a href="https://youtu.be/5V_NQJ8VEhY"><b>▶ Watch the demo</b></a>
+</p>
+
 **What it is.** NetCopilot is open-source **Network Context Intelligence**: a
 deterministic, verifiable model of a multi-vendor network, exposed so any
 consumer — a human, an LLM, or another agent — can query it for grounded,
