@@ -1,16 +1,16 @@
-NetCopilot is the expert network operations assistant you can actually talk to.
+NetCopilot is open-source Network Context Intelligence — a deterministic, verifiable model of your multi-vendor network that humans, LLMs, and agents can all query for grounded answers.
 
-Network teams today have eight tools open at once — monitoring, ticketing, vendor docs, compliance dashboards, runbooks, telemetry, configuration management, and a chat for senior engineers. Every incident is a manual triage across all of them. The bottleneck is no longer data — it's the human attention required to correlate it.
+It collects from your network read-only, builds one canonical graph model of what's actually there — devices, links, VLANs, routing, firewall policy — and exposes it so you can ask questions in plain English and get one answer, with an evidence trace showing exactly where each fact came from.
 
-NetCopilot sits above your existing tools and answers questions in plain English. Instead of clicking through five dashboards to understand why a service is degraded, you ask one question and get one answer — with the evidence trace showing exactly where each fact came from.
+The core idea — context, never actuation. NetCopilot never changes your network. It produces deterministic truth and context; you, or your agent, decide and act on it. Deterministic systems produce the truth; the AI explains it — never the other way around.
 
 What makes it different:
 
-Every answer is grounded in deterministic checks against your actual network — never invented, never guessed.
-When the answer comes from vendor documentation, the source PDF and page number are cited.
-When the system doesn't have an answer, it says so. It does not fabricate.
-It works on your infrastructure, with your data, under your control. Nothing leaves your network unless you choose.
-It is built to sit above the network management systems you already run and correlate their data with its own independent analysis — cross-platform intelligence, designed in from the start.
-It speaks Model Context Protocol, so any AI agent or automation platform you already use can plug in directly.
+Every answer is grounded in evidence collected from your actual devices — never invented, never guessed. Each fact traces back to the exact output that produced it.
+When an answer comes from vendor documentation, the source PDF and page are cited.
+When it doesn't have an answer, it says so. It does not fabricate.
+It runs on your infrastructure, with your data, under your control. Nothing leaves your network unless you choose it to.
+It is multi-vendor — Cisco IOS-XE / IOS-XR and Fortinet today — and built to be extended.
+It speaks Model Context Protocol, so any LLM, agent, or automation platform can consume the same model directly.
 
-NetCopilot is not another monitoring tool. It is the brain that makes the tools you already have work as one.
+NetCopilot is not a monitoring tool, and it does not act on the network. It is the deterministic source of truth the rest of your tooling — and your AI — can build on. Open-source, Apache-2.0.

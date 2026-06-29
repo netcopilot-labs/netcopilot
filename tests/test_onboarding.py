@@ -19,7 +19,7 @@ EXCLUDED = {
 def test_about_returns_verbatim_text():
     out = asyncio.run(onboarding.about_netcopilot(context={}))
     assert out == load_about()
-    assert "NetCopilot is the expert network operations assistant" in out
+    assert "NetCopilot is open-source Network Context Intelligence" in out
     # OSS build does not claim Catalyst Center / NetBox integration.
     low = out.lower()
     assert "catalyst center" not in low and "netbox" not in low

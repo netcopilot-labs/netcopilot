@@ -94,7 +94,7 @@ export default function AgentChatPanel() {
           flexShrink: 0,
         }} />
         <span style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', flexShrink: 0 }}>
-          Context Agent
+          NetCopilot Assistant
         </span>
         <div style={{ flex: 1 }} />
         {/* C1A1: Help button — re-summons the 3 onboarding options as a

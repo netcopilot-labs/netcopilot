@@ -188,8 +188,9 @@ _CATEGORY_RENDER: dict[str, dict] = {
 }
 
 _OPENING_LINE = (
-    "NetCopilot is a network operations assistant. Here's what I can help "
-    "you with — organized by what you're trying to do:"
+    "NetCopilot answers questions about your network from one deterministic, "
+    "evidence-backed model. Here's what I can help with — organized by what "
+    "you're trying to do:"
 )
 
 

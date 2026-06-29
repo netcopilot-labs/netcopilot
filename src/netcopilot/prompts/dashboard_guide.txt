@@ -1,7 +1,7 @@
 The NetCopilot dashboard has three areas:
 
 • LEFT — Information panel
-  Network Summary by default (devices, links, alerts, unreachable hosts).
+  Network Summary by default (devices, links, findings, unreachable hosts).
   When you click an element on the map: device, link, etc., this panel switches to a detailed view
   with tabs. When you click the Audit tab in the top bar,
   the panel becomes a full findings browser with severity filters,

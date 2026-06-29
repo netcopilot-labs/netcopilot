@@ -64,7 +64,7 @@ def _require_auth(credentials: HTTPBasicCredentials | None = Depends(_security))
 
 app = FastAPI(
     title="NetCopilot Dashboard",
-    description="Web dashboard for the NetCopilot network context agent",
+    description="Web dashboard for NetCopilot — Network Context Intelligence",
     version="0.1.0",
 )
 
