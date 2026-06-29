@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://youtu.be/5V_NQJ8VEhY"><b>▶ Watch the demo</b></a>
+  <a href="https://youtu.be/5V_NQJ8VEhY" target="_blank" rel="noopener noreferrer"><b>▶ Watch the demo</b></a>
 </p>
 
 **What it is.** NetCopilot is open-source **Network Context Intelligence**: a
