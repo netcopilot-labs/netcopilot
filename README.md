@@ -1,8 +1,8 @@
-# NetCopilot — Network Context Agent
+# NetCopilot — Network Context Intelligence
 
-> **Status:** v1 in progress. Public API and quickstart are being prepared.
+> Source-of-truth for humans, LLMs, and agents.
 
-**What it is.** NetCopilot is an open-source **Network Context Agent**: a
+**What it is.** NetCopilot is open-source **Network Context Intelligence**: a
 deterministic, verifiable model of a multi-vendor network, exposed so any
 consumer — a human, an LLM, or another agent — can query it for grounded,
 traceable answers.

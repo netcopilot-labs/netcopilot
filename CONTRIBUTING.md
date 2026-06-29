@@ -1,6 +1,6 @@
 # Contributing to NetCopilot
 
-Thanks for your interest. NetCopilot is an open-source **Network Context Agent**
+Thanks for your interest. NetCopilot is open-source **Network Context Intelligence**
 released under Apache 2.0.
 
 ## Ground rules

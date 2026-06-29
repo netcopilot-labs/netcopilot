@@ -1,7 +1,7 @@
 [project]
 name = "netcopilot"
 version = "1.0.0"
-description = "Network Context Agent — a deterministic, verifiable model of a multi-vendor network, exposed over MCP."
+description = "Network Context Intelligence — a deterministic, verifiable model of a multi-vendor network, exposed over MCP."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }

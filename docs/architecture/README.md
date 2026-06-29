@@ -1,6 +1,6 @@
 # Architecture
 
-NetCopilot is a **Network Context Agent**: it builds a *deterministic, verifiable
+NetCopilot is **Network Context Intelligence**: it builds a *deterministic, verifiable
 model* of a multi-vendor network from read-only collection, stores it as a graph,
 and exposes it over **MCP** so any consumer — a human in the dashboard, an LLM, a
 chat bot, or another agent — can ask grounded, traceable questions about it.
