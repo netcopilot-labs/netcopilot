@@ -52,7 +52,7 @@ flowchart LR
 | **Inventory** | Devices to collect (`name`, `mgmt_ip`, `os`, `role`, `site`). One YAML for a single network, or a self-contained folder per tenant (`lab.yaml` + `credentials.env`). |
 | **Collect** | Per device, tries `pyATS → NETCONF → RESTCONF → REST → SSH` until one works. Cisco over the SSH/NETCONF stack; FortiGate over its REST API. Strictly read-only — NetCopilot never changes a device. |
 | **Parse** | Normalizes raw output into canonical JSON facts, so the layers above don't care which protocol or vendor produced them. |
-| **Model** | The link-builder turns per-device facts into a typed, **evidence-backed** topology (see [link-builder.md](link-builder.md)); the model-builder assembles devices, interfaces, VLANs, routing, and shared services. |
+| **Model** | The link-builder turns per-device facts into a typed, **evidence-backed** topology; the model-builder assembles devices, interfaces, VLANs, routing, and shared services. |
 | **Rules** | A 3-phase engine (per-device → catalog → cross-device) evaluates the model and emits **Findings** with severities and evidence. |
 | **Load** | The model + findings are written to Neo4j as one run, isolated by `site` + `run_id`. |
 
@@ -200,8 +200,7 @@ directional — the open-source core is what ships today.)
 
 ---
 
-## Per-layer documents
+## Deep dives
 
-- [The Link Builder](link-builder.md) — how per-device facts become a typed,
-  evidence-backed topology (discovery methods, MAC fingerprinting, deduplication,
-  classification).
+Per-layer deep-dives — the Link Builder, the graph model, MCP, and more — are
+published as a series at **[netcopilot.io](https://netcopilot.io)**.
