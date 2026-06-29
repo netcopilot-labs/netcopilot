@@ -2,6 +2,14 @@
 
 > Source-of-truth for humans, LLMs, and agents.
 
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.0.0-informational.svg)](https://github.com/netcopilot-labs/netcopilot/releases)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+<p align="center">
+  <img src="docs/img/architecture.png" alt="NetCopilot — read-only multi-vendor collection into a deterministic graph model, served over MCP to humans, LLMs, and agents" width="900">
+</p>
+
 **What it is.** NetCopilot is open-source **Network Context Intelligence**: a
 deterministic, verifiable model of a multi-vendor network, exposed so any
 consumer — a human, an LLM, or another agent — can query it for grounded,
