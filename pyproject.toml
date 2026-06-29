@@ -1,11 +1,11 @@
 [project]
 name = "netcopilot"
-version = "0.0.0"
+version = "1.0.0"
 description = "Network Context Agent — a deterministic, verifiable model of a multi-vendor network, exposed over MCP."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
-authors = [{ name = "Carlos Aspe" }]
+authors = [{ name = "Carlos Garcia", email = "cg@netcopilot.io" }]
 # Runtime dependencies grow as modules are extracted (F1-3+: neo4j, fastmcp, ...).
 dependencies = [
     "anthropic>=0.86",  # Claude provider
