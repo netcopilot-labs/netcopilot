@@ -11,11 +11,8 @@
 </p>
 
 <p align="center">
-  <a href="https://youtu.be/5V_NQJ8VEhY">
-    <img src="https://img.youtube.com/vi/5V_NQJ8VEhY/maxresdefault.jpg" alt="Watch the NetCopilot demo" width="720">
-  </a>
+  <a href="https://youtu.be/5V_NQJ8VEhY" target="_blank" rel="noopener noreferrer"><b>▶ Watch the demo</b></a>
 </p>
-<p align="center"><b>▶ Watch the demo</b></p>
 
 **What it is.** NetCopilot is open-source **Network Context Intelligence**: a
 deterministic, verifiable model of a multi-vendor network, exposed so any
