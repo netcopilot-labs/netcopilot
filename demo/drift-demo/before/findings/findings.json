@@ -1,0 +1,35 @@
+{
+  "metadata": {
+    "total_findings": 2
+  },
+  "findings": [
+    {
+      "finding_id": "INTF_ERRORS::core-sw-01:Gi0/9",
+      "rule_id": "INTF_ERRORS",
+      "severity": "low",
+      "title": "Interface Errors",
+      "message": "Interface Errors on core-sw-01:Gi0/9",
+      "evidence": {
+        "element_type": "interface",
+        "element_id": "core-sw-01:Gi0/9",
+        "key_facts": {}
+      },
+      "recommendation": "Review and remediate.",
+      "detected_at": "2026-07-01T00:00:00+00:00"
+    },
+    {
+      "finding_id": "VLAN_MISMATCH::acc-sw-02",
+      "rule_id": "VLAN_MISMATCH",
+      "severity": "low",
+      "title": "VLAN Mismatch",
+      "message": "VLAN Mismatch on acc-sw-02",
+      "evidence": {
+        "element_type": "device",
+        "element_id": "acc-sw-02",
+        "key_facts": {}
+      },
+      "recommendation": "Review and remediate.",
+      "detected_at": "2026-07-01T00:00:00+00:00"
+    }
+  ]
+}
