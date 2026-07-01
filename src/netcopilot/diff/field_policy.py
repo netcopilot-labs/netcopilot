@@ -102,6 +102,7 @@ INFO_FIELDS: frozenset[str] = frozenset(
         # --- session uptime / flap ---
         "uptime",
         "up_time",
+        "up_down",  # BGP Up/Down duration (e.g. "2d21h") — advances every run
         "session_uptime",
         "connection_uptime",
         "last_flap",
@@ -256,6 +257,25 @@ def _equal(a: Any, b: Any) -> bool:
     return canonicalize(a) == canonicalize(b)
 
 
+def field_bucket(field: str) -> str:
+    """Classify a field name into ``"volatile"`` / ``"info"`` / ``"drift"``.
+
+    Adjacency fields are **bilateral** — the same signal appears as ``<name>_a``
+    and ``<name>_b`` (``msg_sent_a``/``msg_sent_b``, ``cost_a``/``cost_b``, …).
+    So a field matches a bucket if either its exact name OR its ``_a``/``_b``-
+    stripped base is in the set. Volatile wins over info wins over drift. The
+    base check only ever *reclassifies* a field whose base is explicitly in a
+    curated set, so drift fields like ``router_id_a`` (base ``router_id``, in no
+    set) correctly stay drift.
+    """
+    base = field[:-2] if field.endswith(("_a", "_b")) else field
+    if field in VOLATILE_FIELDS or base in VOLATILE_FIELDS:
+        return "volatile"
+    if field in INFO_FIELDS or base in INFO_FIELDS:
+        return "info"
+    return "drift"
+
+
 def classify_field_changes(
     old: dict[str, Any], new: dict[str, Any]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -273,15 +293,13 @@ def classify_field_changes(
     drift: list[dict[str, Any]] = []
     info: list[dict[str, Any]] = []
     for field in sorted(set(old) | set(new)):
-        if field in VOLATILE_FIELDS:
+        bucket = field_bucket(field)
+        if bucket == "volatile":
             continue
         before = old.get(field)
         after = new.get(field)
         if _equal(before, after):
             continue
         entry = {"field": field, "before": before, "after": after}
-        if field in INFO_FIELDS:
-            info.append(entry)
-        else:
-            drift.append(entry)
+        (info if bucket == "info" else drift).append(entry)
     return drift, info

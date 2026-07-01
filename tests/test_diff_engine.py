@@ -211,6 +211,45 @@ def test_drift_and_info_on_same_entity_is_changed_showing_drift_fields():
     assert [f["field"] for f in entry["changed_fields"]] == ["oper_status"]
 
 
+def test_bilateral_counter_suffix_is_volatile():
+    # Adjacency fields are bilateral (_a/_b). BGP message counters
+    # (msg_sent_a/_b, msg_rcvd_a/_b) are pure counters → no change, even though
+    # only the suffixed forms appear in the data.
+    adj = lambda **o: {"protocol": "bgp", "device_a": "203.0.113.2", "device_b": "bdr-rtr-01",
+                       "vrf": "default", "process_id": "", "area": "", **o}
+    before = _run("A", devices=[_device("bdr-rtr-01")],
+                  adjacencies=[adj(msg_sent_a=10, msg_rcvd_b=4153, state="established")])
+    after = _run("B", devices=[_device("bdr-rtr-01")],
+                 adjacencies=[adj(msg_sent_a=99, msg_rcvd_b=9999, state="established")])
+    assert compute_diff(before, after).changes == []
+
+
+def test_bgp_up_down_duration_is_info_not_drift():
+    # up_down ("2d21h") is the BGP session Up/Down duration — a session-uptime
+    # signal that advances every collection → info, not drift. Bilateral suffix.
+    adj = lambda **o: {"protocol": "bgp", "device_a": "203.0.113.2", "device_b": "bdr-rtr-01",
+                       "vrf": "default", "process_id": "", "area": "", "state": "established", **o}
+    before = _run("A", devices=[_device("bdr-rtr-01")], adjacencies=[adj(up_down_b="2d21h")])
+    after = _run("B", devices=[_device("bdr-rtr-01")], adjacencies=[adj(up_down_b="3d05h")])
+    res = compute_diff(before, after)
+    key = fp.STABLE_KEYS["adjacencies"](adj())
+    entry = _entry(res.changes, key)
+    assert entry["tier"] == "info"
+    assert [f["field"] for f in entry["changed_fields"]] == ["up_down_b"]
+
+
+def test_field_bucket_suffix_stripping():
+    # exact + _a/_b base both resolve; drift fields with an _a/_b tail whose base
+    # is in no set stay drift (e.g. router_id_a, hold_time_b, cost_a).
+    assert fp.field_bucket("msg_sent") == "volatile"
+    assert fp.field_bucket("msg_sent_a") == "volatile"
+    assert fp.field_bucket("up_down_b") == "info"
+    assert fp.field_bucket("prefixes_received") == "info"
+    assert fp.field_bucket("router_id_a") == "drift"
+    assert fp.field_bucket("hold_time_b") == "drift"
+    assert fp.field_bucket("oper_status") == "drift"
+
+
 def test_volatile_detected_at_on_finding_is_not_a_change():
     f_before = _finding("LINK_DOWN", "core-sw-01")
     f_after = _finding("LINK_DOWN", "core-sw-01")

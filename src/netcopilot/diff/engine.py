@@ -264,3 +264,37 @@ def compute_diff(run_a: RunData, run_b: RunData) -> DiffResult:
 def diff_run_ids(run_a: str, run_b: str, runs_dir: str | Path = "runs") -> DiffResult:
     """Convenience: load both runs from disk and diff them."""
     return compute_diff(load_run(run_a, runs_dir), load_run(run_b, runs_dir))
+
+
+def previous_run(run_id: str, runs_dir: str | Path = "runs") -> str | None:
+    """Return the newest same-site run on disk that precedes ``run_id``.
+
+    Run folders are timestamp-named (``YYYY-MM-DD_HH-MM-SS``), which sorts
+    chronologically as plain strings, so "previous" = the greatest folder name
+    that is lexicographically less than ``run_id`` and shares its site. Returns
+    ``None`` when there is no earlier same-site run (e.g. the first run of a
+    site, or a non-timestamp run_id with no predecessor). Used by the CLI/backend
+    to default the comparison run.
+    """
+    base = Path(runs_dir)
+    target_model = base / str(run_id) / "model" / "network_model.json"
+    if not target_model.is_file():
+        raise FileNotFoundError(f"run '{run_id}': model not found at {target_model}")
+    target_site = _run_site(json.loads(target_model.read_text(encoding="utf-8")))
+
+    candidates: list[str] = []
+    for d in base.iterdir():
+        if not d.is_dir() or d.name >= str(run_id):
+            continue
+        model_path = d / "model" / "network_model.json"
+        if not model_path.is_file():
+            continue
+        try:
+            site = _run_site(json.loads(model_path.read_text(encoding="utf-8")))
+        except (ValueError, json.JSONDecodeError):
+            continue
+        if target_site is not None and site != target_site:
+            continue
+        candidates.append(d.name)
+
+    return max(candidates) if candidates else None

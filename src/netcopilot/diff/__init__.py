@@ -18,6 +18,7 @@ from netcopilot.diff.engine import (
     compute_diff,
     diff_run_ids,
     load_run,
+    previous_run,
 )
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "compute_diff",
     "diff_run_ids",
     "load_run",
+    "previous_run",
 ]
