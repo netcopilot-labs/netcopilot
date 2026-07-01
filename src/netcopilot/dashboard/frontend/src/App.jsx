@@ -4,6 +4,7 @@ import DropdownPicker from './components/DropdownPicker.jsx'
 import TopologyMap from './components/TopologyMap.jsx'
 import DeviceDetail from './components/DeviceDetail.jsx'
 import FindingsPage from './components/FindingsPage.jsx'
+import DriftPanel from './components/DriftPanel.jsx'
 import { extractDevices } from './components/FindingsPanel.jsx'
 import ReportPanel from './components/ReportPanel.jsx'
 import AgentChatPanel from './components/AgentChatPanel.jsx'
@@ -28,6 +29,16 @@ const TOPOLOGY_MODES = new Set(['summary', 'device', 'link'])
 // when auditing findings or reading a report, the Physical map is the
 // representative reference; protocol overlays only matter on Topology.
 const FORCE_PHYSICAL_MODES = new Set(['findings', 'report'])
+
+// S01-5 — short label for a run in the "Compare to" drift dropdown.
+function formatRunShort(run) {
+  const date = run.timestamp
+    ? new Date(run.timestamp).toLocaleDateString('en-GB', {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+      })
+    : run.run_id
+  return `${date} — ${run.total_findings || 0} findings`
+}
 
 // Error boundary to catch React crashes and display them instead of blank page
 class ErrorBoundary extends Component {
@@ -223,6 +234,18 @@ function AppContent() {
   )
   // S19A-8: Selected link (mutual exclusion with selectedDevice)
   const [selectedLink, setSelectedLink] = useState(null)
+
+  // S01-5: run-to-run drift ("Diff" mode within the Audit tab). diffMode toggles
+  // the left panel from FindingsPage to DriftPanel; diffAgainst = the comparison
+  // ("before") run (null = previous same-site run, auto); diffFocus scopes the
+  // list + focuses the topology on a clicked element.
+  const [diffMode, setDiffMode] = useState(false)
+  const [diffAgainst, setDiffAgainst] = useState(null)
+  const [diffData, setDiffData] = useState(null)
+  const [diffLoading, setDiffLoading] = useState(false)
+  const [diffError, setDiffError] = useState(null)
+  const [diffFocus, setDiffFocus] = useState(null)
+  const [allRuns, setAllRuns] = useState([])
 
   // S19B-3: VLAN data and selection for L2/L3 view
   const [selectedVlan, setSelectedVlan] = useState(null)
@@ -608,6 +631,68 @@ function AppContent() {
     }
   }, [leftPanelMode, selectedView])
 
+  // S01-5 — leaving the Audit tab exits diff mode and drops any focus, so the
+  // drift view never lingers under Topology/Report.
+  useEffect(() => {
+    if (leftPanelMode !== 'findings') {
+      setDiffMode(false)
+      setDiffFocus(null)
+    }
+  }, [leftPanelMode])
+
+  // S01-5 — fetch the run list for the "Compare to" dropdown when diff mode opens.
+  useEffect(() => {
+    if (!diffMode) return
+    fetch('/api/runs')
+      .then((r) => (r.ok ? r.json() : { runs: [] }))
+      .then((d) => setAllRuns(d.runs || []))
+      .catch(() => setAllRuns([]))
+  }, [diffMode])
+
+  // S01-5 — fetch the diff for the current run vs its comparison run whenever
+  // diff mode is on and the run / comparison changes.
+  useEffect(() => {
+    if (!diffMode || !selectedRun) return
+    let cancelled = false
+    setDiffLoading(true)
+    setDiffError(null)
+    setDiffFocus(null)
+    const qs = diffAgainst ? `?against=${encodeURIComponent(diffAgainst)}` : ''
+    fetch(`/api/diff/${encodeURIComponent(selectedRun)}${qs}`)
+      .then((r) =>
+        r.ok ? r.json() : r.json().then((e) => Promise.reject(new Error(e.detail || `HTTP ${r.status}`)))
+      )
+      .then((d) => {
+        if (!cancelled) setDiffData(d)
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setDiffError(e.message)
+          setDiffData(null)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDiffLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [diffMode, selectedRun, diffAgainst])
+
+  // S01-5 — click a drift row: toggle the list filter to that element, and focus
+  // the topology node for device-scoped changes (without switching the panel).
+  const handleDriftElementClick = useCallback((change) => {
+    setDiffFocus((prev) => (prev && prev.key === change.key ? null : {
+      key: change.key,
+      element_type: change.element_type,
+      element_id: change.element_id,
+    }))
+    if (change.element_type === 'device' && change.element_id) {
+      setSelectedDevice(change.element_id)
+      setSelectedLink(null)
+    }
+  }, [])
+
   // 2026-05-18 — Audit-tab chip counts. Mirrors FindingsPage's internal
   // derivation (kept in sync there too) so the Level-2 chip badges match the
   // filtered list. Applied filters: hideLabExpected + deviceFilter.
@@ -631,6 +716,13 @@ function AppContent() {
       labExpectedAvailable: (findingsData?.summary?.lab_expected_count || 0) > 0,
     }
   }, [findingsData, hideLabExpected, findingsDeviceFilter])
+
+  // S01-5 — "Compare to" dropdown options: same-site runs other than the current
+  // one (newest first). The current run's site is looked up from the run list.
+  const currentRunSite = allRuns.find((r) => r.run_id === selectedRun)?.site
+  const compareRuns = allRuns
+    .filter((r) => r.run_id !== selectedRun && (!currentRunSite || r.site === currentRunSite))
+    .sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''))
 
   return (
     <AgentProvider selectedRun={selectedRun}>
@@ -801,9 +893,21 @@ function AppContent() {
       {/* ── Level 2 (Audit tab): severity chips + device filter + lab-expected toggle ── */}
       {isFindingsTab && (
         <div
-          className="shrink-0 flex items-center px-4 gap-1 flex-wrap"
+          className="shrink-0 flex items-center justify-between px-4 gap-2"
           style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', minHeight: 40 }}
         >
+          <div className="flex items-center gap-1 flex-wrap">
+          {/* S01-5: in diff mode the severity chips don't apply — show tier counts instead */}
+          {diffMode && diffData && (
+            <span className="text-xs text-gray-600">
+              Drift:{' '}
+              <b style={{ color: '#DC2626' }}>−{diffData.summary.removed}</b>{' '}
+              <b style={{ color: '#059669' }}>+{diffData.summary.added}</b>{' '}
+              <b style={{ color: '#D97706' }}>~{diffData.summary.changed}</b>{' '}
+              <span className="text-gray-400">i {diffData.summary.info}</span>
+            </span>
+          )}
+          {!diffMode && (<>
           {/* All */}
           <button
             onClick={() => setFindingsSeverityFilter('all')}
@@ -899,6 +1003,35 @@ function AppContent() {
               </button>
             </>
           )}
+          </>)}
+          </div>
+
+          {/* S01-5: right-aligned Diff toggle + "Compare to" run dropdown */}
+          <div className="flex items-center gap-2 shrink-0">
+            {diffMode && (
+              <>
+                <span className="text-xs text-gray-500">Compare to:</span>
+                <select
+                  value={diffAgainst || ''}
+                  onChange={(e) => setDiffAgainst(e.target.value || null)}
+                  className="text-xs px-2 py-1 rounded border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                >
+                  <option value="">◀ Previous run (auto)</option>
+                  {compareRuns.map((r) => (
+                    <option key={r.run_id} value={r.run_id}>{formatRunShort(r)}</option>
+                  ))}
+                </select>
+              </>
+            )}
+            <button
+              onClick={() => setDiffMode((v) => !v)}
+              className="px-2.5 py-1 rounded text-xs font-medium transition-colors"
+              style={diffMode ? { background: '#1D9E75', color: '#FFFFFF' } : { background: '#F1F5F9', color: '#475569' }}
+              title={diffMode ? 'Exit diff mode' : 'Compare this run to another (drift)'}
+            >
+              {diffMode ? '✓ Diff' : '⇄ Diff'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -1011,7 +1144,16 @@ function AppContent() {
               border: '1px solid #E5E7EB',
             }}
           >
-            {leftPanelMode === 'findings' ? (
+            {leftPanelMode === 'findings' && diffMode ? (
+              <DriftPanel
+                diffData={diffData}
+                loading={diffLoading}
+                error={diffError}
+                focus={diffFocus}
+                onElementClick={handleDriftElementClick}
+                onClearFocus={() => setDiffFocus(null)}
+              />
+            ) : leftPanelMode === 'findings' ? (
               <FindingsPage
                 findingsData={findingsData}
                 topologyData={topologyData}
