@@ -53,6 +53,7 @@ _TOOL_CATEGORIES: dict[str, str] = {
     "explain_finding":           _CAT_TROUBLESHOOT,
     "analyze_findings":          _CAT_TROUBLESHOOT,
     "get_systemic_patterns":     _CAT_TROUBLESHOOT,
+    "diff_runs":                 _CAT_TROUBLESHOOT,
     # 🛣 TRACE TRAFFIC AND IMPACT
     "trace_path":                _CAT_TRACE,
     "blast_radius":              _CAT_TRACE,
@@ -109,10 +110,12 @@ _CATEGORY_RENDER: dict[str, dict] = {
             "Why a finding matters and how to fix it",
             "Priority ranking and per-device remediation steps",
             "Systemic issues spanning multiple devices",
+            "What changed between two runs (drift)",
         ],
         "examples": [
             "What are the most critical findings right now?",
             "How do I fix the BGP authentication issue on border-rtr-01?",
+            "What changed since the last run?",
         ],
     },
     _CAT_TRACE: {

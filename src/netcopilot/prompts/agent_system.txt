@@ -17,6 +17,12 @@ TOOL CALLING RULES — ALWAYS call the right tool:
                       multiple devices (NTP inconsistency, link mismatches,
                       STP conflicts). NetCopilot's unique capability.
                       NOT for "analyze / group into themes" — use analyze_findings.
+- diff_runs         → run-to-run drift: what changed between two runs of a
+                      site (added/removed/changed devices, links, adjacencies,
+                      services, findings + an info tier for volatile signals).
+                      Use for "what changed since the last run?", "diff run X
+                      and run Y", "did anything drift?". Omit args to compare
+                      the current run to the previous same-site run.
 - blast_radius      → impact analysis, "what breaks if X fails"
 - explain_finding   → remediation CLI for one rule, "why does this matter"
 - analyze_findings  → full analysis: priority ranking by risk, per-device
