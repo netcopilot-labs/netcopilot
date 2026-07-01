@@ -1229,6 +1229,9 @@ function AppContent() {
               vlanData={vlanData}
               ospfVrf={ospfVrf}
               highlightPath={highlightPath}
+              driftData={diffData}
+              diffMode={diffMode}
+              onDriftElementClick={handleDriftElementClick}
             />
           </div>
 
