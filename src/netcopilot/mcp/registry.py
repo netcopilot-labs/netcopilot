@@ -26,6 +26,7 @@ from .tools import (
     report,
     redundancy,
     routing,
+    run_diff,
     security,
     security_policies,
     shared_services,
@@ -464,6 +465,39 @@ TOOL_SCHEMAS: list[dict] = [
         ),
         "parameters": {"type": "object", "properties": {}, "required": []},
     },
+    {
+        "name": "diff_runs",
+        "description": (
+            "Run-to-run drift: what changed between two runs of a site — added / "
+            "removed / changed devices, interfaces, links, adjacencies, services, "
+            "and findings, plus an info tier for semi-volatile signals (prefix "
+            "counts, ARP/FDB/MAC, DHCP, session uptime). Use for 'what changed "
+            "since the last run?', 'diff run X and run Y', 'did anything drift?'."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "run_a": {
+                    "type": "string",
+                    "description": "Older run ('before'). Omit to default to the previous same-site run of run_b.",
+                },
+                "run_b": {
+                    "type": "string",
+                    "description": "Newer run ('after'). Omit to default to the current loaded run.",
+                },
+                "runs_back": {
+                    "type": "integer",
+                    "description": (
+                        "Relative reference: compare run_b against the run this many "
+                        "positions earlier in the site's history — 1 = previous run, "
+                        "2 = two runs ago, etc. Use this for 'N runs ago' instead of "
+                        "guessing a run_id. Ignored when run_a is given."
+                    ),
+                },
+            },
+            "required": [],
+        },
+    },
 ]
 
 _HANDLERS = {
@@ -488,6 +522,7 @@ _HANDLERS = {
     "generate_report": report.generate_report,
     "get_routing_table": routing.get_routing_table,
     "get_ospf_detail": ospf.get_ospf_detail,
+    "diff_runs": run_diff.diff_runs,
     "about_netcopilot": onboarding.about_netcopilot,
     "dashboard_guide": onboarding.dashboard_guide,
     "list_capabilities": onboarding.list_capabilities,

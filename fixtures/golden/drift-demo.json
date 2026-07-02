@@ -1,0 +1,307 @@
+{
+  "changes": [
+    {
+      "before": {
+        "cluster_declared_size": null,
+        "cluster_members": [],
+        "device_id": "acc-sw-02",
+        "hostname": "acc-sw-02",
+        "is_route_reflector": false,
+        "management_ip": "192.0.2.12",
+        "os_family": "iosxe",
+        "os_raw": "ios-xe",
+        "platform": "System",
+        "real_hostname": "acc-sw-02",
+        "redundancy_group": null,
+        "role": "access_switch",
+        "rr_cluster_id": null,
+        "serial": "SYNTH000000",
+        "site": "demo-drift",
+        "stack_ports": [],
+        "version": "17.18.02",
+        "vlans": []
+      },
+      "element_id": "acc-sw-02",
+      "element_type": "device",
+      "entity_type": "devices",
+      "key": "acc-sw-02",
+      "tier": "removed"
+    },
+    {
+      "changed_fields": [
+        {
+          "after": 15,
+          "before": 12,
+          "field": "dhcp_leases"
+        }
+      ],
+      "element_id": "core-sw-01",
+      "element_type": "device",
+      "entity_type": "devices",
+      "key": "core-sw-01",
+      "tier": "info"
+    },
+    {
+      "changed_fields": [
+        {
+          "after": "down",
+          "before": "up",
+          "field": "oper_status"
+        }
+      ],
+      "element_id": "acc-sw-01",
+      "element_type": "device",
+      "entity_type": "interfaces",
+      "key": "acc-sw-01:Gi0/1",
+      "tier": "changed"
+    },
+    {
+      "after": {
+        "admin_status": "up",
+        "description": "",
+        "device_id": "acc-sw-01",
+        "duplex": "auto",
+        "interface_id": "acc-sw-01:Gi0/2",
+        "ip_address": null,
+        "media_type": "copper",
+        "mtu": 1500,
+        "name": "Gi0/2",
+        "oper_status": "up",
+        "prefix_length": null,
+        "qos": null,
+        "sfp_pid": null,
+        "speed": "auto speed",
+        "type": "physical",
+        "vrf": "default"
+      },
+      "element_id": "acc-sw-01",
+      "element_type": "device",
+      "entity_type": "interfaces",
+      "key": "acc-sw-01:Gi0/2",
+      "tier": "added"
+    },
+    {
+      "before": {
+        "admin_status": "up",
+        "description": "",
+        "device_id": "acc-sw-02",
+        "duplex": "auto",
+        "interface_id": "acc-sw-02:Gi0/1",
+        "ip_address": null,
+        "media_type": "copper",
+        "mtu": 1500,
+        "name": "Gi0/1",
+        "oper_status": "up",
+        "prefix_length": null,
+        "qos": null,
+        "sfp_pid": null,
+        "speed": "auto speed",
+        "type": "physical",
+        "vrf": "default"
+      },
+      "element_id": "acc-sw-02",
+      "element_type": "device",
+      "entity_type": "interfaces",
+      "key": "acc-sw-02:Gi0/1",
+      "tier": "removed"
+    },
+    {
+      "changed_fields": [
+        {
+          "after": 105,
+          "before": 100,
+          "field": "prefixes_received"
+        }
+      ],
+      "element_id": "core-sw-01",
+      "element_type": "device",
+      "entity_type": "interfaces",
+      "key": "core-sw-01:Gi0/1",
+      "tier": "info"
+    },
+    {
+      "changed_fields": [
+        {
+          "after": 42,
+          "before": 40,
+          "field": "arp_count"
+        }
+      ],
+      "element_id": "core-sw-01",
+      "element_type": "device",
+      "entity_type": "interfaces",
+      "key": "core-sw-01:Gi0/5",
+      "tier": "info"
+    },
+    {
+      "before": {
+        "confidence": "high",
+        "direction": "bidirectional",
+        "discovery_method": "cdp",
+        "discovery_priority": 1,
+        "discovery_protocol": "CDP",
+        "evidence": [
+          "cdp:core-sw-01(Gi0/2)->acc-sw-02"
+        ],
+        "l2": null,
+        "l3": null,
+        "link_id": "core-sw-01:Gi0/2--acc-sw-02:Gi0/1",
+        "link_type": "physical_cable",
+        "local_device_id": "core-sw-01",
+        "local_interface_id": "core-sw-01:Gi0/2",
+        "peer_collected": true,
+        "remote_device_id": "acc-sw-02",
+        "remote_interface_id": "acc-sw-02:Gi0/1",
+        "status": "up"
+      },
+      "element_id": "core-sw-01:Gi0/2--acc-sw-02:Gi0/1",
+      "element_type": "link",
+      "entity_type": "links",
+      "key": "core-sw-01:Gi0/2--acc-sw-02:Gi0/1",
+      "tier": "removed"
+    },
+    {
+      "after": {
+        "confidence": "high",
+        "direction": "bidirectional",
+        "discovery_method": "cdp",
+        "discovery_priority": 1,
+        "discovery_protocol": "CDP",
+        "evidence": [
+          "cdp:core-sw-01(Gi0/3)->acc-sw-01"
+        ],
+        "l2": null,
+        "l3": null,
+        "link_id": "core-sw-01:Gi0/3--acc-sw-01:Gi0/2",
+        "link_type": "physical_cable",
+        "local_device_id": "core-sw-01",
+        "local_interface_id": "core-sw-01:Gi0/3",
+        "peer_collected": true,
+        "remote_device_id": "acc-sw-01",
+        "remote_interface_id": "acc-sw-01:Gi0/2",
+        "status": "up"
+      },
+      "element_id": "core-sw-01:Gi0/3--acc-sw-01:Gi0/2",
+      "element_type": "link",
+      "entity_type": "links",
+      "key": "core-sw-01:Gi0/3--acc-sw-01:Gi0/2",
+      "tier": "added"
+    },
+    {
+      "changed_fields": [
+        {
+          "after": "3d05h",
+          "before": "2d21h",
+          "field": "up_down_b"
+        }
+      ],
+      "element_id": null,
+      "element_type": null,
+      "entity_type": "adjacencies",
+      "key": "bgp|203.0.113.2~core-sw-01|default||",
+      "tier": "info"
+    },
+    {
+      "changed_fields": [
+        {
+          "after": "USERS-A",
+          "before": "USERS",
+          "field": "name"
+        }
+      ],
+      "element_id": null,
+      "element_type": null,
+      "entity_type": "shared_services",
+      "key": "vlan:10::",
+      "tier": "changed"
+    },
+    {
+      "changed_fields": [
+        {
+          "after": [
+            "acc-sw-01"
+          ],
+          "before": [
+            "acc-sw-01",
+            "acc-sw-02"
+          ],
+          "field": "member_devices"
+        }
+      ],
+      "element_id": null,
+      "element_type": null,
+      "entity_type": "l2_domains",
+      "key": "vlan10-dom0",
+      "tier": "changed"
+    },
+    {
+      "after": {
+        "adv_router": "198.51.100.1",
+        "area_id": "0.0.0.0",
+        "lsa_id": "198.51.100.50",
+        "lsa_type": 1,
+        "metric": null,
+        "num_links": 2,
+        "prefix": "198.51.100.50",
+        "process_id": "1",
+        "vrf": "default"
+      },
+      "element_id": null,
+      "element_type": null,
+      "entity_type": "ospf_lsdb",
+      "key": "0.0.0.0|1|198.51.100.50|198.51.100.1|1|default",
+      "tier": "added"
+    },
+    {
+      "after": {
+        "detected_at": "2026-07-01T00:00:00+00:00",
+        "evidence": {
+          "element_id": "acc-sw-01",
+          "element_type": "device",
+          "key_facts": {}
+        },
+        "finding_id": "ACL_PERMIT_ANY::acc-sw-01",
+        "message": "ACL Permit Any on acc-sw-01",
+        "recommendation": "Review and remediate.",
+        "rule_id": "ACL_PERMIT_ANY",
+        "severity": "high",
+        "title": "ACL Permit Any"
+      },
+      "element_id": "acc-sw-01",
+      "element_type": "device",
+      "entity_type": "findings",
+      "key": "ACL_PERMIT_ANY::acc-sw-01",
+      "tier": "added"
+    },
+    {
+      "before": {
+        "detected_at": "2026-07-01T00:00:00+00:00",
+        "evidence": {
+          "element_id": "acc-sw-02",
+          "element_type": "device",
+          "key_facts": {}
+        },
+        "finding_id": "VLAN_MISMATCH::acc-sw-02",
+        "message": "VLAN Mismatch on acc-sw-02",
+        "recommendation": "Review and remediate.",
+        "rule_id": "VLAN_MISMATCH",
+        "severity": "low",
+        "title": "VLAN Mismatch"
+      },
+      "element_id": "acc-sw-02",
+      "element_type": "device",
+      "entity_type": "findings",
+      "key": "VLAN_MISMATCH::acc-sw-02",
+      "tier": "removed"
+    }
+  ],
+  "run_a": "before",
+  "run_b": "after",
+  "site": "demo-drift",
+  "summary": {
+    "added": 4,
+    "changed": 3,
+    "info": 4,
+    "removed": 4
+  }
+}

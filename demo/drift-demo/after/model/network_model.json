@@ -1,0 +1,254 @@
+{
+  "model_metadata": {
+    "run_id": "2026-07-01_10-00-00",
+    "model_version": "0.3.0",
+    "generated_at": "2026-07-01T00:00:00+00:00",
+    "collection_timestamp": "2026-07-01T00:00:00Z"
+  },
+  "devices": [
+    {
+      "device_id": "core-sw-01",
+      "hostname": "core-sw-01",
+      "real_hostname": "core-sw-01",
+      "management_ip": "192.0.2.1",
+      "platform": "System",
+      "version": "17.18.02",
+      "serial": "SYNTH000000",
+      "os_family": "iosxe",
+      "os_raw": "ios-xe",
+      "role": "core_switch",
+      "site": "demo-drift",
+      "cluster_members": [],
+      "redundancy_group": null,
+      "cluster_declared_size": null,
+      "stack_ports": [],
+      "vlans": [
+        {
+          "vlan_id": 10,
+          "name": "USERS",
+          "state": "active"
+        },
+        {
+          "vlan_id": 20,
+          "name": "VOICE",
+          "state": "active"
+        }
+      ],
+      "is_route_reflector": false,
+      "rr_cluster_id": null,
+      "dhcp_leases": 15
+    },
+    {
+      "device_id": "acc-sw-01",
+      "hostname": "acc-sw-01",
+      "real_hostname": "acc-sw-01",
+      "management_ip": "192.0.2.11",
+      "platform": "System",
+      "version": "17.18.02",
+      "serial": "SYNTH000000",
+      "os_family": "iosxe",
+      "os_raw": "ios-xe",
+      "role": "access_switch",
+      "site": "demo-drift",
+      "cluster_members": [],
+      "redundancy_group": null,
+      "cluster_declared_size": null,
+      "stack_ports": [],
+      "vlans": [],
+      "is_route_reflector": false,
+      "rr_cluster_id": null
+    }
+  ],
+  "interfaces": [
+    {
+      "interface_id": "core-sw-01:Gi0/1",
+      "device_id": "core-sw-01",
+      "name": "Gi0/1",
+      "type": "physical",
+      "ip_address": null,
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "auto speed",
+      "duplex": "auto",
+      "mtu": 1500,
+      "description": "",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "default",
+      "prefixes_received": 105
+    },
+    {
+      "interface_id": "core-sw-01:Gi0/5",
+      "device_id": "core-sw-01",
+      "name": "Gi0/5",
+      "type": "physical",
+      "ip_address": null,
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "auto speed",
+      "duplex": "auto",
+      "mtu": 1500,
+      "description": "",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "default",
+      "arp_count": 42
+    },
+    {
+      "interface_id": "acc-sw-01:Gi0/1",
+      "device_id": "acc-sw-01",
+      "name": "Gi0/1",
+      "type": "physical",
+      "ip_address": null,
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "down",
+      "speed": "auto speed",
+      "duplex": "auto",
+      "mtu": 1500,
+      "description": "",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "default"
+    },
+    {
+      "interface_id": "acc-sw-01:Gi0/2",
+      "device_id": "acc-sw-01",
+      "name": "Gi0/2",
+      "type": "physical",
+      "ip_address": null,
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "auto speed",
+      "duplex": "auto",
+      "mtu": 1500,
+      "description": "",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "default"
+    }
+  ],
+  "links": [
+    {
+      "link_id": "core-sw-01:Gi0/1--acc-sw-01:Gi0/1",
+      "local_device_id": "core-sw-01",
+      "local_interface_id": "core-sw-01:Gi0/1",
+      "remote_device_id": "acc-sw-01",
+      "remote_interface_id": "acc-sw-01:Gi0/1",
+      "status": "up",
+      "direction": "bidirectional",
+      "discovery_method": "cdp",
+      "confidence": "high",
+      "evidence": [
+        "cdp:core-sw-01(Gi0/1)->acc-sw-01"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "CDP",
+      "discovery_priority": 1,
+      "l2": null,
+      "l3": null,
+      "link_type": "physical_cable"
+    },
+    {
+      "link_id": "core-sw-01:Gi0/3--acc-sw-01:Gi0/2",
+      "local_device_id": "core-sw-01",
+      "local_interface_id": "core-sw-01:Gi0/3",
+      "remote_device_id": "acc-sw-01",
+      "remote_interface_id": "acc-sw-01:Gi0/2",
+      "status": "up",
+      "direction": "bidirectional",
+      "discovery_method": "cdp",
+      "confidence": "high",
+      "evidence": [
+        "cdp:core-sw-01(Gi0/3)->acc-sw-01"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "CDP",
+      "discovery_priority": 1,
+      "l2": null,
+      "l3": null,
+      "link_type": "physical_cable"
+    }
+  ],
+  "adjacencies": [
+    {
+      "protocol": "bgp",
+      "device_a": "core-sw-01",
+      "device_b": "203.0.113.2",
+      "state": "established",
+      "process_id": "",
+      "area": "",
+      "vrf": "default",
+      "remote_as_b": 64500,
+      "up_down_b": "3d05h",
+      "msg_sent_b": 200,
+      "msg_rcvd_b": 200
+    }
+  ],
+  "shared_services": [
+    {
+      "service_type": "vlan",
+      "identifier": "10",
+      "name": "USERS-A",
+      "members": [
+        "core-sw-01",
+        "acc-sw-01"
+      ],
+      "vlan_id": 10
+    },
+    {
+      "service_type": "vlan",
+      "identifier": "20",
+      "name": "VOICE",
+      "members": [
+        "core-sw-01"
+      ],
+      "vlan_id": 20
+    }
+  ],
+  "l2_domains": [
+    {
+      "id": "vlan10-dom0",
+      "vlan_id": 10,
+      "name": "USERS",
+      "member_devices": [
+        "acc-sw-01"
+      ],
+      "access_ports": [],
+      "trunk_links": [],
+      "svis": []
+    }
+  ],
+  "ospf_lsdb": [
+    {
+      "lsa_type": 1,
+      "lsa_id": "198.51.100.10",
+      "adv_router": "198.51.100.1",
+      "prefix": "198.51.100.10",
+      "metric": null,
+      "num_links": 2,
+      "area_id": "0.0.0.0",
+      "vrf": "default",
+      "process_id": "1"
+    },
+    {
+      "lsa_type": 1,
+      "lsa_id": "198.51.100.50",
+      "adv_router": "198.51.100.1",
+      "prefix": "198.51.100.50",
+      "metric": null,
+      "num_links": 2,
+      "area_id": "0.0.0.0",
+      "vrf": "default",
+      "process_id": "1"
+    }
+  ],
+  "topology_warnings": []
+}

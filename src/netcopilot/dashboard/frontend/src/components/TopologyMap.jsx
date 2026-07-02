@@ -635,6 +635,51 @@ const CYTOSCAPE_STYLE = [
       'text-margin-y': -6,
     },
   },
+
+  // ── S01-6: run-to-run drift ──────────────────────────────────────────────
+  // Reserved NON-RED channel (violet), distinct from down=red+dotted and
+  // selection=red overlay. Uses `underlay-*` (renders behind the element) so it
+  // coexists with the overlay-based selection/critical highlights. Uniform for
+  // every affected node/link (not per-tier); removed elements are ghosts.
+  {
+    selector: 'node[?drift]',
+    style: {
+      'underlay-color': '#8B5CF6',
+      'underlay-padding': 8,
+      'underlay-opacity': 0.3,
+    },
+  },
+  {
+    selector: 'edge[?drift]',
+    style: {
+      'underlay-color': '#8B5CF6',
+      'underlay-padding': 5,
+      'underlay-opacity': 0.35,
+    },
+  },
+  // Ghosts = elements present in the earlier run but not the current one
+  // (removed). Dashed + faded, still carrying the violet halo.
+  {
+    selector: 'node[?ghost]',
+    style: {
+      'opacity': 0.45,
+      'background-opacity': 0.25,
+      'border-color': '#8B5CF6',
+      'border-width': 2,
+      'border-style': 'dashed',
+    },
+  },
+  {
+    selector: 'edge[?ghost]',
+    style: {
+      'line-color': '#8B5CF6',
+      'line-style': 'dashed',
+      'width': 2,
+      'opacity': 0.5,
+      'target-arrow-color': '#8B5CF6',
+      'source-arrow-color': '#8B5CF6',
+    },
+  },
 ]
 
 // Abbreviate a full interface name for display on edge labels.
@@ -1106,6 +1151,84 @@ function buildElements(topologyData, findingsData, expandedNodes, selectedView, 
 }
 
 // =============================================================================
+// S01-6: run-to-run drift markings
+// =============================================================================
+// Mutates existing nodes'/edges' `data.drift` for affected elements and returns
+// ghost elements (removed devices/links absent from the current run's topology)
+// to append. Removal is keyed on `entity_type` (only a removed *device* or
+// *link* entity leaves the graph) so a removed interface still halos its
+// still-present device rather than trying to ghost it. Info tier gets no halo.
+function applyDriftMarkings(nodes, edges, driftData, roleColors) {
+  if (!driftData || !Array.isArray(driftData.changes)) return []
+
+  const haloDevices = new Set()
+  const haloLinks = new Set()
+  const removedDevices = []
+  const removedLinks = []
+
+  for (const c of driftData.changes) {
+    if (c.tier === 'info') continue
+    if (c.tier === 'removed' && c.entity_type === 'devices') {
+      removedDevices.push({ id: c.element_id, before: c.before || {} })
+      continue
+    }
+    if (c.tier === 'removed' && c.entity_type === 'links') {
+      const b = c.before || {}
+      removedLinks.push({ link_id: c.element_id, source: b.local_device_id, target: b.remote_device_id })
+      continue
+    }
+    if (c.element_type === 'device' && c.element_id) haloDevices.add(c.element_id)
+    else if (c.element_type === 'link' && c.element_id) haloLinks.add(c.element_id)
+  }
+
+  const nodeIds = new Set(nodes.map((n) => n.data.id))
+  for (const n of nodes) if (haloDevices.has(n.data.id)) n.data.drift = true
+  for (const e of edges) if (e.data.link_id && haloLinks.has(e.data.link_id)) e.data.drift = true
+
+  const ghosts = []
+  const ghostNodeIds = new Set()
+  for (const rd of removedDevices) {
+    if (!rd.id || nodeIds.has(rd.id) || ghostNodeIds.has(rd.id)) continue
+    ghostNodeIds.add(rd.id)
+    const b = rd.before
+    ghosts.push({
+      group: 'nodes',
+      data: {
+        id: rd.id,
+        label: b.hostname || rd.id,
+        role: b.role || 'external',
+        roleColor: (roleColors && roleColors[b.role]) || '#6B7280',
+        drift: true,
+        ghost: true,
+        collected: true,
+        isCompound: false,
+        findings_count: 0,
+        has_critical: false,
+      },
+    })
+  }
+
+  const allNodeIds = new Set([...nodeIds, ...ghostNodeIds])
+  for (const lk of removedLinks) {
+    if (!lk.source || !lk.target) continue
+    if (!allNodeIds.has(lk.source) || !allNodeIds.has(lk.target)) continue
+    ghosts.push({
+      group: 'edges',
+      data: {
+        id: `ghost:${lk.link_id}`,
+        source: lk.source,
+        target: lk.target,
+        link_id: lk.link_id,
+        drift: true,
+        ghost: true,
+      },
+    })
+  }
+
+  return ghosts
+}
+
+// =============================================================================
 // TopologyMap Component
 // =============================================================================
 export default function TopologyMap({
@@ -1127,10 +1250,18 @@ export default function TopologyMap({
   vlanData,
   ospfVrf,
   highlightPath,
+  driftData,
+  diffMode,
+  onDriftElementClick,
 }) {
   const { roleColors, sevColors, severityOrder, roleTiers, defaultRole } = useLegend()
   const containerRef = useRef(null)
   const cyRef = useRef(null)
+  // S01-6: refs so the cy tap handlers read current diff state without rebinding.
+  const diffModeRef = useRef(diffMode)
+  const onDriftClickRef = useRef(onDriftElementClick)
+  useEffect(() => { diffModeRef.current = diffMode }, [diffMode])
+  useEffect(() => { onDriftClickRef.current = onDriftElementClick }, [onDriftElementClick])
   const [tooltip, setTooltip] = useState(null)
   const [expandedNodes, setExpandedNodes] = useState(() => new Set())
   const compoundNodeIdsRef = useRef(new Set())
@@ -1176,6 +1307,13 @@ export default function TopologyMap({
     }
     const { nodes, edges, compoundNodeIds } = buildElements(topologyData, findingsData, effectiveExpanded, selectedView, ospfVrf, roleColors)
     compoundNodeIdsRef.current = compoundNodeIds
+    // S01-6: mark drift-affected elements + inject ghosts (only in diff mode).
+    // Ghosts go into `nodes`/`edges` before positioning so the tier layout
+    // places ghost nodes by their (pre-removal) role.
+    if (diffMode && driftData) {
+      const ghosts = applyDriftMarkings(nodes, edges, driftData, roleColors)
+      for (const g of ghosts) (g.group === 'nodes' ? nodes : edges).push(g)
+    }
     const elements = [...nodes, ...edges]
 
     // Step 1: Compute tier-based positions for all non-child nodes
@@ -1295,6 +1433,15 @@ export default function TopologyMap({
       cy.nodes().unselect()
       node.select()
 
+      // S01-6: in diff mode a node tap scopes the drift list to that device
+      // (via the parent) instead of opening the device panel (which would leave
+      // diff mode). The hostname is the parent of a member child id (sw:1).
+      if (diffModeRef.current && onDriftClickRef.current) {
+        const host = deviceId.split(':')[0]
+        onDriftClickRef.current({ entity_type: 'devices', element_type: 'device', element_id: host, key: host })
+        return
+      }
+
       // Update React state for right panel
       onDeviceSelect(deviceId)
     })
@@ -1405,6 +1552,14 @@ export default function TopologyMap({
       tgtNode.removeClass('dimmed').addClass('edge-endpoint')
       cy.nodes().unselect()
 
+      // S01-6: in diff mode an edge tap scopes the drift list to that link.
+      if (diffModeRef.current && onDriftClickRef.current) {
+        if (d.link_id) {
+          onDriftClickRef.current({ entity_type: 'links', element_type: 'link', element_id: d.link_id, key: d.link_id })
+        }
+        return
+      }
+
       // Notify App of link selection
       if (onLinkSelect) onLinkSelect(d)
     })
@@ -1446,7 +1601,7 @@ export default function TopologyMap({
       cy.destroy()
       cyRef.current = null
     }
-  }, [topologyData, findingsData, onDeviceSelect, onLinkSelect, expandedNodes, selectedView, ospfVrf])
+  }, [topologyData, findingsData, onDeviceSelect, onLinkSelect, expandedNodes, selectedView, ospfVrf, diffMode, driftData])
 
   // Sync selected device from external source (e.g., findings panel click)
   useEffect(() => {

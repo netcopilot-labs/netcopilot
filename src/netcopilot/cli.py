@@ -158,6 +158,64 @@ def _cmd_diagram(args: argparse.Namespace) -> None:
         print(f"  warning:  {w}")
 
 
+def _short(value: object, width: int = 60) -> str:
+    """Compact one-line repr of a field value for the diff printout."""
+    text = repr(value)
+    return text if len(text) <= width else text[: width - 1] + "…"
+
+
+def _print_diff(result) -> None:
+    """Human-readable tiered printout of a DiffResult."""
+    from collections import defaultdict
+
+    d = result.to_dict()
+    s = d["summary"]
+    print(f"diff {d['run_a']} → {d['run_b']}  (site: {d['site']})")
+    print(f"  added: {s['added']}   removed: {s['removed']}   changed: {s['changed']}   info: {s['info']}")
+
+    by_tier: dict[str, list] = defaultdict(list)
+    for c in d["changes"]:
+        by_tier[c["tier"]].append(c)
+
+    for tier in ("removed", "added", "changed", "info"):
+        items = by_tier.get(tier, [])
+        if not items:
+            continue
+        print(f"\n{tier.upper()} ({len(items)})")
+        for c in items:
+            print(f"  [{c['entity_type']}] {c['key']}")
+            for f in c.get("changed_fields", []):
+                print(f"      {f['field']}: {_short(f['before'])} → {_short(f['after'])}")
+
+
+def _cmd_diff(args: argparse.Namespace) -> None:
+    from .diff.engine import compute_diff, load_run, previous_run
+
+    runs_dir = args.runs_dir
+    before, after = args.run_a, args.run_b
+    try:
+        if after is None:
+            # One run given → treat it as the "after" and default the "before"
+            # to the previous same-site run.
+            after = before
+            before = previous_run(after, runs_dir)
+            if before is None:
+                print(
+                    f"no previous same-site run found for '{after}' — "
+                    f"specify two: netcopilot diff <before> <after>",
+                    file=sys.stderr,
+                )
+                raise SystemExit(2)
+        result = compute_diff(load_run(before, runs_dir), load_run(after, runs_dir))
+    except FileNotFoundError as exc:
+        print(f"diff failed: {exc}", file=sys.stderr)
+        raise SystemExit(1)
+    except ValueError as exc:  # cross-site, duplicate key, malformed run
+        print(f"diff failed: {exc}", file=sys.stderr)
+        raise SystemExit(1)
+    _print_diff(result)
+
+
 def _cmd_neo4j(args: argparse.Namespace) -> None:
     from .graph.client import get_driver
     from .graph.loader import delete_run, list_runs
@@ -197,6 +255,13 @@ def main() -> None:
     run_p.add_argument("--dry-run", action="store_true", help="print the collection plan, collect nothing")
     run_p.add_argument("--sequential", action="store_true", help="collect devices one at a time")
     run_p.set_defaults(func=_cmd_run)
+
+    diff_p = sub.add_parser("diff", help="diff two runs of a site (drift): added/removed/changed + info")
+    diff_p.add_argument("run_a", help="the 'before' run (or, if run_b omitted, the run to compare)")
+    diff_p.add_argument("run_b", nargs="?", default=None,
+                        help="the 'after' run; if omitted, defaults to the previous same-site run of run_a")
+    diff_p.add_argument("--runs-dir", default="runs", help="base directory for run folders")
+    diff_p.set_defaults(func=_cmd_diff)
 
     diagram_p = sub.add_parser("diagram", help="render a Graphviz topology diagram (SVG/PNG) for a run")
     diagram_p.add_argument("run_id", help="run identifier (directory under the runs dir)")
