@@ -3,7 +3,7 @@
 > Source-of-truth for humans, LLMs, and agents.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-informational.svg)](https://github.com/netcopilot-labs/netcopilot/releases)
+[![Version](https://img.shields.io/badge/version-1.1.0-informational.svg)](https://github.com/netcopilot-labs/netcopilot/releases)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 <p align="center">
