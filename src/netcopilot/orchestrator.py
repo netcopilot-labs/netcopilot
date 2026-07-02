@@ -167,6 +167,15 @@ def _truncate(text: str, max_chars: int) -> str:
     return text[:max_chars] + f"\n\n[Truncated at {max_chars} chars. Use filters to narrow.]"
 
 
+#: Onboarding tools return a ready-to-display answer (product blurb / dashboard
+#: tour / capability menu) — the tool output *is* the answer. The system prompt
+#: asks the model to quote it verbatim, which small local models (e.g. Gemma)
+#: don't do reliably (they drop the block and emit ~nothing). So when one of
+#: these is called, emit its result directly as the answer and finalize, instead
+#: of a second LLM turn. Mirrors the source repo's VERBATIM_TOOLS handling.
+_VERBATIM_ONBOARDING_TOOLS = {"about_netcopilot", "dashboard_guide", "list_capabilities"}
+
+
 async def run_tool_loop(
     history: list[dict],
     context: dict,
@@ -202,6 +211,7 @@ async def run_tool_loop(
             history.append(
                 {"role": "assistant", "content": result.text, "tool_calls": result.tool_calls}
             )
+            verbatim_answer = None
             for tc in result.tool_calls:
                 # Deanonymize args before dispatch so tools see real identifiers.
                 if anonymizer:
@@ -233,6 +243,26 @@ async def run_tool_loop(
                     yield {"type": "highlight", "data": inline_highlight}
                 if highlight:
                     yield {"type": "highlight", "data": highlight}
+
+                if tc.name in _VERBATIM_ONBOARDING_TOOLS and verbatim_answer is None:
+                    verbatim_answer = tool_result
+
+            if verbatim_answer is not None:
+                # The onboarding tool output is itself the answer — emit it directly
+                # rather than relying on the model to re-quote it (see the constant).
+                yield {"type": "content", "data": sanitize_math(verbatim_answer)}
+                usage = {
+                    "model": getattr(provider, "model", provider.name),
+                    "input_tokens": total_in,
+                    "output_tokens": total_out,
+                    "total_tokens": total_in + total_out,
+                    "api_calls": api_calls,
+                }
+                if anonymizer:
+                    usage["anonymization"] = anonymizer.get_summary()
+                yield {"type": "usage", "data": usage}
+                yield {"type": "done", "data": None}
+                return
             continue
 
         # No tool calls — final answer.

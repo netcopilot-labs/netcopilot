@@ -102,6 +102,28 @@ def test_anonymizer_deanonymizes_args_and_content(monkeypatch):
     assert "anonymization" in next(e for e in events if e["type"] == "usage")["data"]
 
 
+def test_verbatim_onboarding_tool_emits_result_directly(monkeypatch):
+    # list_capabilities returns a ready-to-display menu; the loop must emit it as
+    # the answer WITHOUT a second LLM turn (small local models drop it otherwise).
+    async def fake_dispatch(name, args, context):
+        return "CAPABILITY MENU\n- explore\n- audit"
+
+    monkeypatch.setattr(orchestrator, "dispatch", fake_dispatch)
+    # Only ONE scripted turn: a second provider call would IndexError on the empty
+    # script, so this also proves the short-circuit skips the redundant LLM turn.
+    provider = StubProvider([
+        LLMResult(text=None, tool_calls=[ToolCall("1", "list_capabilities", {})],
+                  usage={"input_tokens": 100, "output_tokens": 5}),
+    ])
+    events = _collect([{"role": "user", "content": "what can you do?"}], provider)
+
+    assert [e["type"] for e in events] == [
+        "tool_status", "tool_call", "tool_result", "content", "usage", "done",
+    ]
+    assert next(e for e in events if e["type"] == "content")["data"] == "CAPABILITY MENU\n- explore\n- audit"
+    assert next(e for e in events if e["type"] == "usage")["data"]["api_calls"] == 1
+
+
 def test_provider_error_yields_error_event(monkeypatch):
     class Boom:
         name = "boom"
