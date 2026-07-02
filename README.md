@@ -30,6 +30,23 @@ but it never pushes changes to devices.
 so any reasoning agent can call it for grounded context. An agent consuming
 NetCopilot as its ground-truth layer is the key proof of the pattern.
 
+## What can NetCopilot do?
+
+NetCopilot answers questions about your network from one deterministic,
+evidence-backed model — organized by what you're trying to do. *(Or just ask it:
+"what can you do?")*
+
+- 🔍 **Explore** — devices, links, topology, per-device detail; VLANs / subnets / OSPF areas / BGP ASNs / IP lookups.
+- 🔥 **Troubleshoot** — active findings & compliance violations, why they matter and how to fix them, priority ranking, systemic multi-device issues, and **what changed between two runs (drift)**.
+- 🛣 **Trace** — hop-by-hop path tracing, blast radius ("what breaks if X fails"), SPOF / HA status, routing tables, OSPF detail.
+- 🛡 **Security** — AAA / SSH / SNMP / NTP / logging posture, firewall rules & ACLs, QoS shaping.
+- 📚 **Vendor docs** — Cisco IOS-XE / IOS-XR / FortiOS CLI reference + conceptual networking knowledge (works with no network loaded).
+- 📊 **Reports** — shift-handover report, investigation case-file; email or PDF.
+- 📖 **About** — what NetCopilot is, how the dashboard works.
+
+All exposed over **MCP** — a human, an LLM, or another agent can call any of it.
+The in-app menu (`list_capabilities`) is always the current source of truth.
+
 ## Architecture
 
 ```
