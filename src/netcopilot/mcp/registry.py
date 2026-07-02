@@ -485,6 +485,15 @@ TOOL_SCHEMAS: list[dict] = [
                     "type": "string",
                     "description": "Newer run ('after'). Omit to default to the current loaded run.",
                 },
+                "runs_back": {
+                    "type": "integer",
+                    "description": (
+                        "Relative reference: compare run_b against the run this many "
+                        "positions earlier in the site's history — 1 = previous run, "
+                        "2 = two runs ago, etc. Use this for 'N runs ago' instead of "
+                        "guessing a run_id. Ignored when run_a is given."
+                    ),
+                },
             },
             "required": [],
         },

@@ -21,8 +21,20 @@ TOOL CALLING RULES — ALWAYS call the right tool:
                       site (added/removed/changed devices, links, adjacencies,
                       services, findings + an info tier for volatile signals).
                       Use for "what changed since the last run?", "diff run X
-                      and run Y", "did anything drift?". Omit args to compare
-                      the current run to the previous same-site run.
+                      and run Y", "did anything drift?". Run ids are timestamps
+                      (YYYY-MM-DD_HH-MM-SS). Omit args ONLY for "previous/last
+                      run" or when no run is named — that compares the current
+                      run to the previous same-site run.
+                      RELATIVE REFERENCE: for "N runs ago" (e.g. "2 runs ago"),
+                      pass runs_back=N — the tool resolves it deterministically
+                      to that one run. Do NOT default to the previous run and do
+                      NOT offer a menu; runs_back has a single correct answer.
+                      CLARIFY ONLY WHEN AMBIGUOUS: if the reference is genuinely
+                      ambiguous (a partial/ambiguous date, "the other run") and
+                      you cannot map it to an exact run_id or an N-runs-ago, call
+                      diff_runs once to get the available-runs list, then ASK the
+                      user which run they meant (offer id + date). Never present
+                      a diff of a different run than the one the user asked for.
 - blast_radius      → impact analysis, "what breaks if X fails"
 - explain_finding   → remediation CLI for one rule, "why does this matter"
 - analyze_findings  → full analysis: priority ranking by risk, per-device

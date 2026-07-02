@@ -298,3 +298,29 @@ def previous_run(run_id: str, runs_dir: str | Path = "runs") -> str | None:
         candidates.append(d.name)
 
     return max(candidates) if candidates else None
+
+
+def available_runs(runs_dir: str | Path = "runs", site: str | None = None) -> list[str]:
+    """Sorted (chronological) run_ids present on disk, optionally one site only.
+
+    A run counts as present when it carries ``model/network_model.json``. When
+    ``site`` is given, only runs whose derived site matches are returned. Used to
+    give the agent a discovery path: on an unresolvable run reference, diff_runs
+    lists these so the model can retry with a real id. Deterministic (sorted).
+    """
+    base = Path(runs_dir)
+    if not base.is_dir():
+        return []
+    out: list[str] = []
+    for d in sorted(base.iterdir(), key=lambda p: p.name):
+        model_path = d / "model" / "network_model.json"
+        if not d.is_dir() or not model_path.is_file():
+            continue
+        if site is not None:
+            try:
+                if _run_site(json.loads(model_path.read_text(encoding="utf-8"))) != site:
+                    continue
+            except (ValueError, json.JSONDecodeError):
+                continue
+        out.append(d.name)
+    return out
