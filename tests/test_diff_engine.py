@@ -149,6 +149,7 @@ def test_interface_oper_status_is_drift_not_info():
 
 
 def test_vlan_membership_change_is_drift():
+    # An added VLAN element shows as a granular vlans[<id>] path, not the whole blob.
     before = _run("A", devices=[_device("core-sw-01", vlans=[{"vlan_id": 10, "name": "USERS"}])])
     after = _run(
         "B",
@@ -157,7 +158,36 @@ def test_vlan_membership_change_is_drift():
     res = compute_diff(before, after)
     entry = _entry(res.changes, "core-sw-01")
     assert entry["tier"] == "changed"
-    assert [f["field"] for f in entry["changed_fields"]] == ["vlans"]
+    assert [f["field"] for f in entry["changed_fields"]] == ["vlans[20]"]
+
+
+def test_granular_vlan_rename_shows_leaf_path():
+    # A VLAN rename (the headline drift case) shows the exact leaf, not a blob.
+    before = _run("A", devices=[_device("acc-sw-03", vlans=[
+        {"vlan_id": 10, "name": "TRANSIT-RED"}, {"vlan_id": 30, "name": "RED-USERS-CAMPUS"}])])
+    after = _run("B", devices=[_device("acc-sw-03", vlans=[
+        {"vlan_id": 10, "name": "TRANSIT-RED"}, {"vlan_id": 30, "name": "RED-USERS-DRIFT"}])])
+    res = compute_diff(before, after)
+    entry = _entry(res.changes, "acc-sw-03")
+    assert entry["tier"] == "changed"
+    assert entry["changed_fields"] == [
+        {"field": "vlans[30].name", "before": "RED-USERS-CAMPUS", "after": "RED-USERS-DRIFT"}
+    ]
+
+
+def test_granular_nested_dict_finding_keyfacts():
+    # A finding whose evidence.key_facts changes reports the granular leaf path.
+    f_before = _finding("BGP_STALE", "core-sw-01/bgp", peer_count=5)
+    f_after = _finding("BGP_STALE", "core-sw-01/bgp", peer_count=4)
+    res = compute_diff(
+        _run("A", devices=[_device("core-sw-01")], findings=[f_before]),
+        _run("B", devices=[_device("core-sw-01")], findings=[f_after]),
+    )
+    entry = _entry(res.changes, "BGP_STALE::core-sw-01/bgp")
+    assert entry["tier"] == "changed"
+    assert entry["changed_fields"] == [
+        {"field": "evidence.key_facts.peer_count", "before": 5, "after": 4}
+    ]
 
 
 # ---------------------------------------------------------------------------

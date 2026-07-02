@@ -276,16 +276,76 @@ def field_bucket(field: str) -> str:
     return "drift"
 
 
+# ---------------------------------------------------------------------------
+# Granular field paths — so a changed list-of-dicts or nested dict reports the
+# *element/leaf* that changed (``vlans[30].name: X -> Y``) instead of the whole
+# opaque blob. Without this, a VLAN rename shows as ``vlans: [ ...huge list... ]``
+# and the operator can't see what actually changed.
+# ---------------------------------------------------------------------------
+#: Field name -> the per-element key for list-of-dict fields we diff by element.
+#: Explicit (not auto-detected) so a new keyed list is a deliberate addition.
+_LIST_ELEMENT_KEYS: dict[str, str] = {
+    "vlans": "vlan_id",
+}
+
+
+def _leaf_field(path: str) -> str:
+    """Last segment of a granular path, for bucket classification.
+
+    ``vlans[30].name`` -> ``name``; ``evidence.key_facts.count`` -> ``count``;
+    ``msg_sent_b`` -> ``msg_sent_b``; ``vlans[40]`` -> ``vlans``.
+    """
+    last = path.rsplit(".", 1)[-1]
+    return last.split("[", 1)[0]
+
+
+def _granular_diffs(path: str, before: Any, after: Any, out: list[dict[str, Any]]) -> None:
+    """Collect readable ``{field, before, after}`` diffs under ``path``.
+
+    Recurses into dicts (by key) and into keyed lists of dicts (by element key,
+    per :data:`_LIST_ELEMENT_KEYS`); everything else (scalars, string lists,
+    non-keyed lists) is emitted as a single leaf entry. Volatile keys are
+    dropped during dict recursion. Deterministic: keys sorted, element keys
+    sorted by string form.
+    """
+    if _equal(before, after):
+        return
+
+    if isinstance(before, dict) and isinstance(after, dict):
+        for k in sorted(set(before) | set(after)):
+            if k in VOLATILE_FIELDS:
+                continue
+            _granular_diffs(f"{path}.{k}", before.get(k), after.get(k), out)
+        return
+
+    key_field = _LIST_ELEMENT_KEYS.get(_leaf_field(path))
+    if (
+        key_field
+        and isinstance(before, list)
+        and isinstance(after, list)
+        and all(isinstance(x, dict) and key_field in x for x in before)
+        and all(isinstance(x, dict) and key_field in x for x in after)
+    ):
+        b_idx = {x[key_field]: x for x in before}
+        a_idx = {x[key_field]: x for x in after}
+        for k in sorted(set(b_idx) | set(a_idx), key=lambda v: str(v)):
+            _granular_diffs(f"{path}[{k}]", b_idx.get(k), a_idx.get(k), out)
+        return
+
+    out.append({"field": path, "before": before, "after": after})
+
+
 def classify_field_changes(
     old: dict[str, Any], new: dict[str, Any]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Compare two versions of the same entity, field by field.
 
     Returns ``(drift_fields, info_fields)`` — two lists of
-    ``{"field", "before", "after"}`` dicts, each sorted by field name for
-    determinism. Volatile fields are ignored entirely (they appear in neither
-    list). A field present on only one side counts as a change (before/after
-    is ``None`` on the missing side).
+    ``{"field", "before", "after"}`` dicts. Changed list-of-dict fields and
+    nested dicts are expanded to granular paths (``vlans[30].name``) so each
+    entry is readable; each is bucketed by its **leaf** field name. Volatile
+    fields are ignored entirely. A field present on only one side counts as a
+    change (``None`` on the missing side).
 
     The caller decides the entity's tier: any ``drift_fields`` → *changed*;
     else any ``info_fields`` → *info*; else no change.
@@ -293,13 +353,17 @@ def classify_field_changes(
     drift: list[dict[str, Any]] = []
     info: list[dict[str, Any]] = []
     for field in sorted(set(old) | set(new)):
-        bucket = field_bucket(field)
-        if bucket == "volatile":
+        if field_bucket(field) == "volatile":
             continue
         before = old.get(field)
         after = new.get(field)
         if _equal(before, after):
             continue
-        entry = {"field": field, "before": before, "after": after}
-        (info if bucket == "info" else drift).append(entry)
+        entries: list[dict[str, Any]] = []
+        _granular_diffs(field, before, after, entries)
+        for entry in entries:
+            bucket = field_bucket(_leaf_field(entry["field"]))
+            if bucket == "volatile":
+                continue
+            (info if bucket == "info" else drift).append(entry)
     return drift, info
