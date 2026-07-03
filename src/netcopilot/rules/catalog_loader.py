@@ -11,19 +11,19 @@ Architecture:
     RULE_CATALOG.yaml ──► load_catalog() ──► CatalogResult
            │                    │                   │
            ▼                    ▼                   ▼
-    425 rules total     validate + filter    rules_by_source() index
-                        (eval block? valid?  {"genie_ospf": [RuleDef, ...],
-                         not cross-device?)   "genie_bgp":  [RuleDef, ...]}
+      all rules         validate + filter    rules_by_source() index
+                        (status active?      {"genie_ospf": [RuleDef, ...],
+                         eval block? valid?   "genie_bgp":  [RuleDef, ...]}
+                         not cross-device?)
 
-    Filtering pipeline (live counts vary as the catalog evolves):
-        425 rules → has eval block? → not cross-device? → valid eval? → loaded
-                     ↓ no              ↓ yes               ↓ no
-                   skipped           skipped             warned + skipped
+    Filtering pipeline (counts live in CatalogResult.stats — never hardcode
+    them here; they change as the catalog evolves):
+        all rules → status active? → has eval block? → not cross-device?
+                  → not a Python-rule duplicate? → valid eval? → loaded
 
-    94 rules carry an `eval` block and 37 are flagged
-    `cross_device: true`. The remainder are
-    Phase-1 Python rules (BaseRule subclasses under src/rules/rules/) or
-    catalog-only documentation entries.
+    Rules that don't load are one of: status-deferred / manual_review,
+    Phase-1 Python rules (BaseRule subclasses, YAML entry is documentation),
+    cross-device rules (Phase 3), or catalog-only documentation entries.
 
 Design Principles:
     - Defensive loading: invalid rules are skipped with a warning, never crash
@@ -36,8 +36,8 @@ Design Principles:
 Example Usage:
     >>> from netcopilot.rules.catalog_loader import load_catalog
     >>> result = load_catalog("rule-catalog.yaml")
-    >>> print(result.stats["total"])  # rule-count varies as catalog evolves
-    425
+    >>> result.stats["total"] > 0    # exact counts live in stats, not docs
+    True
     >>> by_source = result.rules_by_source()
     >>> sorted(by_source.keys())[:3]
     ['genie_acl', 'genie_arp', 'genie_bgp']

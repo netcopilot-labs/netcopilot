@@ -104,7 +104,8 @@ def run_rules(
     Args:
         run_id: The run identifier (e.g., "2026-01-15_12-00-00")
         runs_base: Base directory for runs (default: "runs")
-        catalog_path: Path to rule-catalog.yaml (default: docs/domain/rules/)
+        catalog_path: Path to rule-catalog.yaml (default: the copy shipped
+            as package data next to this module — see DEFAULT_CATALOG_PATH)
 
     Returns:
         Dictionary with structure:

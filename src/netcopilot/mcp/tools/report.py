@@ -146,8 +146,8 @@ async def generate_report(
     }
 
     # The orchestrator looks for `__highlight__:<json>` markers in the tool
-    # result and emits them as `highlight` SSE events. (See
-    # agent/orchestrator.py and agent/shared.py for the existing pattern.)
+    # result and emits them as `highlight` SSE events (see
+    # netcopilot/orchestrator.py, _strip_inline_highlight).
     # We append the marker to the end of the result string.
     return summary + f"\n\n__highlight__:{json.dumps(highlight_payload)}"
 
