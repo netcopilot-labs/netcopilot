@@ -24,7 +24,8 @@ network. It supplies deterministic truth and context; the consumer (human,
 agent, or LLM) is the one that decides and acts. *Deterministic systems
 produce truth; AI explains it — never the other way around.* It produces
 findings, context, and answers, and stays silent when it has no evidence —
-but it never pushes changes to devices.
+but it never pushes changes to devices. This axiom and the operating
+principles behind it are codified in [CONSTITUTION.md](CONSTITUTION.md).
 
 **Consumed by humans, LLMs, and other agents.** The model is exposed over MCP
 so any reasoning agent can call it for grounded context. An agent consuming
