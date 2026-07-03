@@ -73,6 +73,11 @@ logger = logging.getLogger(__name__)
 # Valid operators for eval conditions (5 only — no DSL creep)
 VALID_OPERATORS = {"equals", "not_equals", "greater_than", "less_than", "is_null"}
 
+# Valid values for the per-rule `status` field. Absent ⇒ "active".
+# "deferred"      — check exists but is intentionally not evaluated yet
+# "manual_review" — not automatable from collected data; operator territory
+VALID_STATUSES = {"active", "deferred", "manual_review"}
+
 # Required fields inside an eval block
 EVAL_REQUIRED_FIELDS = {"source", "element_id", "evidence"}
 
@@ -297,6 +302,7 @@ def load_catalog(
     # Step 3: Filter and validate each rule
     # -------------------------------------------------------------------------
     loaded: list[RuleDef] = []
+    skipped_status = 0
     skipped_no_eval = 0
     skipped_cross_device = 0
     skipped_invalid = 0
@@ -304,6 +310,23 @@ def load_catalog(
 
     for raw in raw_rules:
         rule_id = raw.get("rule_id", "<unknown>")
+
+        # -----------------------------------------------------------------
+        # Filter: status must be active (absent ⇒ active). Runs first so a
+        # deferred rule keeps its eval block intact without being evaluated.
+        # -----------------------------------------------------------------
+        status = raw.get("status", "active")
+        if status not in VALID_STATUSES:
+            skipped_invalid += 1
+            logger.error(
+                f"Rule '{rule_id}' has unknown status '{status}' "
+                f"(valid: {sorted(VALID_STATUSES)}) — skipped."
+            )
+            continue
+        if status != "active":
+            skipped_status += 1
+            logger.debug(f"Skipping rule '{rule_id}' with status '{status}'.")
+            continue
 
         # -----------------------------------------------------------------
         # Filter: must have an eval block
@@ -349,6 +372,7 @@ def load_catalog(
     stats = {
         "total": total,
         "loaded": len(loaded),
+        "skipped_status": skipped_status,
         "skipped_no_eval": skipped_no_eval,
         "skipped_cross_device": skipped_cross_device,
         "skipped_invalid": skipped_invalid,
@@ -357,7 +381,8 @@ def load_catalog(
 
     logger.info(
         f"Catalog loaded: {len(loaded)}/{total} rules "
-        f"(no_eval={skipped_no_eval}, cross_device={skipped_cross_device}, "
+        f"(status={skipped_status}, no_eval={skipped_no_eval}, "
+        f"cross_device={skipped_cross_device}, "
         f"invalid={skipped_invalid}, duplicate={skipped_duplicate})"
     )
 

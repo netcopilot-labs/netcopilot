@@ -91,7 +91,81 @@ def test_ospf_no_auth_excludes_loopback_keeps_transit(tmp_path):
 
 
 def test_ospf_nsr_rule_is_deferred_not_loaded():
-    # OSPF_NSR_DISABLED is disabled (eval -> eval_deferred) pending a
+    # OSPF_NSR_DISABLED carries `status: deferred` pending a
     # supervisor-redundancy signal; it must not load as an active surface rule.
     result = load_catalog(str(CATALOG))
     assert not any(r.rule_id == "OSPF_NSR_DISABLED" for r in result.rules)
+
+
+# --- first-class `status` field (s02) ----------------------------------------
+
+from netcopilot.rules.catalog_loader import VALID_STATUSES
+
+_MINI_RULE_HEAD = """- rule_id: TEST_STATUS_RULE
+  severity: warning
+  category: test
+  protocol: test
+  tier: surface
+  description: synthetic status-field test rule
+"""
+_MINI_RULE_EVAL = """  eval:
+    source: genie_test
+    condition:
+      field: state
+      operator: equals
+      value: bad
+    element_id: '{hostname}/test/status'
+    evidence: synthetic evidence
+"""
+
+
+def _load_mini(tmp_path, status_line=""):
+    cat = tmp_path / "mini-catalog.yaml"
+    cat.write_text(_MINI_RULE_HEAD + status_line + _MINI_RULE_EVAL)
+    return load_catalog(str(cat), existing_rule_ids=set())
+
+
+def test_status_absent_defaults_to_active(tmp_path):
+    result = _load_mini(tmp_path)
+    assert [r.rule_id for r in result.rules] == ["TEST_STATUS_RULE"]
+    assert result.stats["skipped_status"] == 0
+
+
+def test_status_deferred_skipped(tmp_path):
+    result = _load_mini(tmp_path, "  status: deferred\n")
+    assert result.rules == []
+    assert result.stats["skipped_status"] == 1
+
+
+def test_status_manual_review_skipped(tmp_path):
+    result = _load_mini(tmp_path, "  status: manual_review\n")
+    assert result.rules == []
+    assert result.stats["skipped_status"] == 1
+
+
+def test_status_unknown_fails_loud(tmp_path, caplog):
+    # An unknown status is a defect, not a silent skip: counted as invalid
+    # and logged at ERROR so CI and operators see it.
+    with caplog.at_level("ERROR"):
+        result = _load_mini(tmp_path, "  status: experimental\n")
+    assert result.rules == []
+    assert result.stats["skipped_invalid"] == 1
+    assert result.stats["skipped_status"] == 0
+    assert any("unknown status 'experimental'" in m for m in caplog.messages)
+
+
+def test_shipped_catalog_statuses_valid():
+    # CI-loud guard: a typo'd status in the shipped catalog fails here.
+    raw = yaml.safe_load(CATALOG.read_text())
+    bad = {r["rule_id"]: r["status"]
+           for r in raw if r.get("status") and r["status"] not in VALID_STATUSES}
+    assert not bad, f"invalid status values in shipped catalog: {bad}"
+
+
+def test_no_legacy_deferral_fields_in_shipped_catalog():
+    # The eval_deferred / deferred_to renaming conventions were replaced by
+    # the first-class status field (s02) and must not reappear.
+    raw = yaml.safe_load(CATALOG.read_text())
+    legacy = [r["rule_id"] for r in raw
+              if "eval_deferred" in r or "deferred_to" in r]
+    assert not legacy, f"legacy deferral fields on: {legacy}"

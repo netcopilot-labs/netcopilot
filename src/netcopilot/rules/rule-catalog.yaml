@@ -790,11 +790,12 @@
   # DEFERRED 2026-06-26: NSR is only meaningful on dual-RP/supervisor platforms
   # (see notes above). NetCopilot collects no supervisor-redundancy signal, so
   # this fired a false positive on every single-RP / virtual device. Disabled by
-  # renaming `eval` -> `eval_deferred` (catalog_loader only loads rules with an
-  # `eval` block). Keep as a future tool — re-enable once a redundancy signal
+  # `status: deferred` (the catalog loader skips non-active rules).
+  # Keep as a future tool — re-enable once a redundancy signal
   # (e.g. device.platform_detail.supervisor_redundancy, or stack/cluster
   # membership) exists to gate it to dual-RP platforms.
-  eval_deferred:
+  status: deferred  # false-positives on single-RP platforms — see comment above
+  eval:
     source: genie_ospf
     iterate: vrf.*.address_family.ipv4.instance.*
     condition:
@@ -1068,7 +1069,7 @@
       !   no max-metric router-lsa'
 - rule_id: OSPF_MAX_PREFIX_NEAR_LIMIT
   severity: warning
-  deferred_to: sprint_15
+  status: deferred  # cross-device check not yet implemented (previously deferred to sprint 15)
   category: genie_infrastructure
   protocol: ospf
   tier: deep
@@ -1130,7 +1131,7 @@
     '
 - rule_id: OSPF_AUTO_COST_BANDWIDTH_MISMATCH
   severity: warning
-  deferred_to: sprint_15
+  status: deferred  # cross-device check not yet implemented (previously deferred to sprint 15)
   category: genie_infrastructure
   protocol: ospf
   tier: surface
@@ -1189,7 +1190,7 @@
     '
 - rule_id: OSPF_SPF_TIMER_MISMATCH
   severity: informational
-  deferred_to: sprint_15
+  status: deferred  # cross-device check not yet implemented (previously deferred to sprint 15)
   category: genie_infrastructure
   protocol: ospf
   tier: deep
@@ -1252,7 +1253,7 @@
     '
 - rule_id: OSPF_HELLO_INTERVAL_MISMATCH
   severity: critical
-  deferred_to: sprint_15
+  # documentation mirror — implemented as a Phase-3 Python rule in cross_device/ospf_rules.py (stale deferral marker removed)
   category: genie_infrastructure
   protocol: ospf
   tier: surface
@@ -1325,7 +1326,7 @@
          hello-interval 10
 - rule_id: OSPF_DEAD_INTERVAL_MISMATCH
   severity: critical
-  deferred_to: sprint_15
+  # documentation mirror — implemented as a Phase-3 Python rule in cross_device/ospf_rules.py (stale deferral marker removed)
   category: genie_infrastructure
   protocol: ospf
   tier: surface
@@ -1711,7 +1712,7 @@
       !   show ip ospf sham-links'
 - rule_id: OSPF_LSA_TIMER_MISMATCH
   severity: informational
-  deferred_to: sprint_15
+  status: deferred  # cross-device check not yet implemented (previously deferred to sprint 15)
   category: genie_infrastructure
   protocol: ospf
   tier: deep
@@ -1768,7 +1769,7 @@
     '
 - rule_id: OSPF_INTERFACE_AUTH_MISMATCH
   severity: critical
-  deferred_to: sprint_15
+  status: deferred  # cross-device check not yet implemented (previously deferred to sprint 15)
   category: genie_infrastructure
   protocol: ospf
   tier: surface
@@ -1821,7 +1822,7 @@
     '
 - rule_id: OSPF_INTERFACE_COST_MISMATCH
   severity: warning
-  deferred_to: sprint_15
+  status: deferred  # cross-device check not yet implemented (previously deferred to sprint 15)
   category: genie_infrastructure
   protocol: ospf
   tier: surface
@@ -2878,7 +2879,7 @@
       ! Ensure both peers use the same BGP version and ASN format.'
 - rule_id: BGP_CLUSTER_ID_DUPLICATE
   severity: critical
-  deferred_to: sprint_15
+  # documentation mirror — implemented as a Phase-3 Python rule in cross_device/bgp_rules.py (stale deferral marker removed)
   category: genie_infrastructure
   protocol: bgp
   tier: surface
@@ -3266,7 +3267,7 @@
       !   show controllers {interface}'
 - rule_id: INTF_MTU_MISMATCH
   severity: critical
-  deferred_to: sprint_15
+  # documentation mirror — implemented as a Phase-3 Python rule in cross_device/interface_rules.py (stale deferral marker removed)
   category: interface_health
   protocol: interface
   tier: surface
@@ -3330,7 +3331,7 @@
        mtu {expected_mtu}
 - rule_id: INTF_DUPLEX_MISMATCH
   severity: critical
-  deferred_to: sprint_15
+  # documentation mirror — implemented as a Phase-3 Python rule in cross_device/interface_rules.py (stale deferral marker removed)
   category: interface_health
   protocol: interface
   tier: surface
@@ -3396,7 +3397,7 @@
        negotiation auto
 - rule_id: INTF_SPEED_MISMATCH
   severity: warning
-  deferred_to: sprint_15
+  # documentation mirror — implemented as a Phase-3 Python rule in cross_device/interface_rules.py (stale deferral marker removed)
   category: interface_health
   protocol: interface
   tier: surface
@@ -6423,11 +6424,12 @@
     # Where the device uses SNMPv2c community ''TestCommunity'' — will produce a finding (expected).
 
     '
-  # Surface eval disabled (eval_deferred): single-source check fired on any
+  # Surface eval disabled (status: deferred): single-source check fired on any
   # SNMP-enabled box, false-positiving on SNMPv3-only configs. Superseded by the
   # Python rule CisFgSnmpV3OnlyRule (cis_fg_snmp.py), which cross-checks the
   # v1/v2c community list and only fires when an insecure community exists.
-  eval_deferred:
+  status: deferred  # superseded by CisFgSnmpV3OnlyRule — see comment above
+  eval:
     source: fortigate_snmp_sysinfo
     condition:
       field: results.status
@@ -7634,6 +7636,7 @@
     fortios: "! App control list '{list}' has incomplete logging.\nconfig application list\n edit {list}\n  set other-application-log\
       \ enable\n  set unknown-application-log enable\n next\nend"
 - rule_id: CIS_FG_5_1_1
+  status: manual_review  # auto=False — not automatable from collected data (no Python rule, no eval)
   severity: warning
   category: cis_benchmark
   protocol: fortigate
