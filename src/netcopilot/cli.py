@@ -216,6 +216,49 @@ def _cmd_diff(args: argparse.Namespace) -> None:
     _print_diff(result)
 
 
+def _cmd_validate(args: argparse.Namespace) -> None:
+    """Judge a change between two runs; exit code mirrors the verdict.
+
+    Exit 0 = pass, 1 = warn, 2 = fail (also 2 on unusable inputs) — usable as
+    a pipeline gate: `netcopilot validate --after <run> --scope <dev> || stop`.
+    """
+    from .diff.engine import compute_diff, load_run, previous_run
+    from .diff.verdict import evaluate_change
+
+    runs_dir = args.runs_dir
+    try:
+        after = load_run(args.after, runs_dir)
+        before_id = args.before or previous_run(args.after, runs_dir)
+        if before_id is None:
+            print(
+                f"validate failed: no previous same-site run found for "
+                f"'{args.after}' — specify --before",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+        before = load_run(before_id, runs_dir)
+        diff = compute_diff(before, after)
+    except FileNotFoundError as exc:
+        print(f"validate failed: {exc}", file=sys.stderr)
+        raise SystemExit(2)
+    except ValueError as exc:  # cross-site, duplicate key, malformed run
+        print(f"validate failed: {exc}", file=sys.stderr)
+        raise SystemExit(2)
+
+    scope = frozenset(s.strip() for s in args.scope.split(",") if s.strip()) if args.scope else None
+    verdict = evaluate_change(diff, before, after, scope)
+
+    print(f"validate {before.run_id} → {after.run_id}  (site: {after.site})")
+    print(f"  scope: {', '.join(sorted(scope)) if scope else '(none — threshold-only verdict)'}")
+    print(f"  verdict: {verdict.result.upper()}")
+    for r in verdict.reasons:
+        print(f"    • {r['detail']}")
+    c = verdict.counts
+    print(f"  drift: {c['drift_total']}  new findings: {sum(c['new_findings'].values())}  "
+          f"resolved: {c['resolved_findings']}  info: {c['info']}")
+    raise SystemExit({"pass": 0, "warn": 1, "fail": 2}[verdict.result])
+
+
 def _cmd_neo4j(args: argparse.Namespace) -> None:
     from .graph.client import get_driver
     from .graph.loader import delete_run, list_runs
@@ -262,6 +305,19 @@ def main() -> None:
                         help="the 'after' run; if omitted, defaults to the previous same-site run of run_a")
     diff_p.add_argument("--runs-dir", default="runs", help="base directory for run folders")
     diff_p.set_defaults(func=_cmd_diff)
+
+    val_p = sub.add_parser(
+        "validate",
+        help="judge a change between two runs: pass/warn/fail verdict (exit 0/1/2 — pipeline gate)",
+    )
+    val_p.add_argument("--after", required=True, help="the post-change run")
+    val_p.add_argument("--before", default=None,
+                       help="the pre-change run (default: previous same-site run of --after)")
+    val_p.add_argument("--scope", default=None,
+                       help="comma-separated devices that were SUPPOSED to change; "
+                            "drift outside this scope fails the verdict")
+    val_p.add_argument("--runs-dir", default="runs", help="base directory for run folders")
+    val_p.set_defaults(func=_cmd_validate)
 
     diagram_p = sub.add_parser("diagram", help="render a Graphviz topology diagram (SVG/PNG) for a run")
     diagram_p.add_argument("run_id", help="run identifier (directory under the runs dir)")
