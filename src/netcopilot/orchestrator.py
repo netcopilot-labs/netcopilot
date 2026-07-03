@@ -34,7 +34,7 @@ import re
 from collections.abc import AsyncGenerator
 
 from .llm import LLMProvider, get_provider
-from .mcp.registry import MAX_RESULT_CHARS, TOOL_SCHEMAS, dispatch
+from .mcp.registry import MAX_RESULT_CHARS, TOOL_SCHEMAS, ToolResult, dispatch
 from .prompts import load_system_prompt
 
 log = logging.getLogger(__name__)
@@ -226,26 +226,26 @@ async def run_tool_loop(
                 yield {"type": "tool_call", "data": {"name": tc.name, "arguments": args}}
 
                 try:
-                    tool_result = await dispatch(tc.name, args, context)
+                    result = await dispatch(tc.name, args, context)
                 except Exception as exc:
-                    tool_result = f"Tool error: {exc}"
+                    result = ToolResult("error", f"Tool error: {exc}")
 
-                tool_result, inline_highlight = _strip_inline_highlight(tool_result)
-                tool_result = _truncate(tool_result, max_result_chars)
-                highlight = extract_highlight(tc.name, args, tool_result)
+                tool_text, inline_highlight = _strip_inline_highlight(result.text)
+                tool_text = _truncate(tool_text, max_result_chars)
+                highlight = extract_highlight(tc.name, args, tool_text)
 
                 # The model sees the anonymized result; the local client sees real data.
-                stored = anonymizer.anonymize(tool_result) if anonymizer else tool_result
+                stored = anonymizer.anonymize(tool_text) if anonymizer else tool_text
                 history.append({"role": "tool", "tool_call_id": tc.id, "content": stored})
 
-                yield {"type": "tool_result", "data": {"name": tc.name, "content": tool_result}}
+                yield {"type": "tool_result", "data": {"name": tc.name, "content": tool_text}}
                 if inline_highlight:
                     yield {"type": "highlight", "data": inline_highlight}
                 if highlight:
                     yield {"type": "highlight", "data": highlight}
 
                 if tc.name in _VERBATIM_ONBOARDING_TOOLS and verbatim_answer is None:
-                    verbatim_answer = tool_result
+                    verbatim_answer = tool_text
 
             if verbatim_answer is not None:
                 # The onboarding tool output is itself the answer — emit it directly

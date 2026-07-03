@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+from dataclasses import dataclass, replace
 
 from .tools import (
     analysis,
@@ -38,6 +39,27 @@ from .tools import (
 log = logging.getLogger(__name__)
 
 MAX_RESULT_CHARS = int(os.environ.get("MCP_MAX_RESULT_CHARS", "32000"))
+
+# Valid values for ToolResult.status. ``ok`` carries data; the rest are the
+# named failure modes tools already expressed as prose — now machine-readable.
+VALID_RESULT_STATUSES = {"ok", "no_data", "not_found", "ambiguous", "error"}
+
+
+@dataclass(frozen=True)
+class ToolResult:
+    """Typed tool-result envelope — the machine-readable tool contract.
+
+    ``text`` is what the model sees, verbatim (byte-identical to the pre-envelope
+    strings). ``status`` distinguishes data from failure without parsing prose.
+    ``verdict``/``highlight``/``verbatim`` carry semantics tools already compute,
+    previously flattened into text or smuggled through string conventions.
+    """
+
+    status: str  # one of VALID_RESULT_STATUSES
+    text: str
+    verdict: dict | None = None
+    highlight: dict | None = None
+    verbatim: bool = False
 
 TOOL_SCHEMAS: list[dict] = [
     {
@@ -529,15 +551,26 @@ _HANDLERS = {
 }
 
 
-async def dispatch(tool_name: str, arguments: dict, context: dict) -> str:
+async def dispatch(tool_name: str, arguments: dict, context: dict) -> ToolResult:
     """Route a tool call to its handler. Never raises; caps result length."""
     if tool_name not in _HANDLERS:
-        return f"Unknown tool '{tool_name}'. Available: {', '.join(sorted(_HANDLERS))}"
+        return ToolResult(
+            "error",
+            f"Unknown tool '{tool_name}'. Available: {', '.join(sorted(_HANDLERS))}",
+        )
     try:
         result = await _HANDLERS[tool_name](**arguments, context=context)
     except Exception as exc:
         log.exception("Tool '%s' failed with args %s", tool_name, arguments)
-        return f"Tool '{tool_name}' failed: {exc}"
-    if len(result) > MAX_RESULT_CHARS:
-        result = result[:MAX_RESULT_CHARS] + f"\n\n[Result truncated at {MAX_RESULT_CHARS} chars.]"
+        return ToolResult("error", f"Tool '{tool_name}' failed: {exc}")
+    if isinstance(result, str):
+        # Transitional coercion (removed once all handlers return ToolResult):
+        # a bare-string handler return is data with default semantics.
+        result = ToolResult("ok", result)
+    if len(result.text) > MAX_RESULT_CHARS:
+        result = replace(
+            result,
+            text=result.text[:MAX_RESULT_CHARS]
+            + f"\n\n[Result truncated at {MAX_RESULT_CHARS} chars.]",
+        )
     return result

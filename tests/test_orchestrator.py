@@ -4,6 +4,7 @@ import asyncio
 
 from netcopilot import orchestrator
 from netcopilot.llm import LLMProvider, LLMResult, ToolCall
+from netcopilot.mcp.registry import ToolResult
 
 
 class StubProvider(LLMProvider):
@@ -22,7 +23,7 @@ class StubProvider(LLMProvider):
 
 def test_loop_dispatches_tool_then_returns_final(monkeypatch):
     async def fake_dispatch(name, args, context):
-        return f"TOOL[{name}]:ok"
+        return ToolResult("ok", f"TOOL[{name}]:ok")
 
     monkeypatch.setattr(orchestrator, "dispatch", fake_dispatch)
 
@@ -52,7 +53,7 @@ def test_loop_returns_final_immediately_when_no_tool_calls(monkeypatch):
 
 def test_loop_hits_turn_limit(monkeypatch):
     async def fake_dispatch(name, args, context):
-        return "tool"
+        return ToolResult("ok", "tool")
 
     monkeypatch.setattr(orchestrator, "dispatch", fake_dispatch)
     # Always asks for a tool, never finalizes.

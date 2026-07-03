@@ -62,5 +62,5 @@ def test_no_excluded_tools_in_categories():
 
 def test_dispatch_routes_onboarding_tools():
     for name in ["about_netcopilot", "dashboard_guide", "list_capabilities"]:
-        out = asyncio.run(registry.dispatch(name, {}, {"run_id": "x"}))
+        out = asyncio.run(registry.dispatch(name, {}, {"run_id": "x"})).text
         assert out and "tool" not in out[:20].lower()  # not an error string

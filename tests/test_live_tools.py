@@ -39,7 +39,7 @@ def _seeded():
 
 
 def _dispatch(name: str, args: dict) -> str:
-    return asyncio.run(registry.dispatch(name, args, CTX))
+    return asyncio.run(registry.dispatch(name, args, CTX)).text
 
 
 def test_query_topology_live():

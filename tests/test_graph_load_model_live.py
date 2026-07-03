@@ -233,7 +233,7 @@ def test_generate_report_tool_live(tmp_path):
     load_model(client.get_driver(), tmp_path / "run", site=SITE, run_id=RUN_ID)
     ctx = {"run_id": RUN_ID, "site": SITE, "data_dir": str(tmp_path / "run")}
 
-    out = asyncio.run(registry.dispatch("generate_report", {"scope": "general"}, ctx))
+    out = asyncio.run(registry.dispatch("generate_report", {"scope": "general"}, ctx)).text
     assert out and "report" in out.lower()
 
 
@@ -320,10 +320,10 @@ def test_explain_and_analyze_tools_live(tmp_path):
     ctx = {"run_id": RUN_ID, "site": SITE}
 
     rid = result["findings"][0]["rule_id"]
-    explain = asyncio.run(registry.dispatch("explain_finding", {"rule_id": rid}, ctx))
+    explain = asyncio.run(registry.dispatch("explain_finding", {"rule_id": rid}, ctx)).text
     assert f"Rule: {rid}" in explain
 
-    analyze = asyncio.run(registry.dispatch("analyze_findings", {"rule_id": rid}, ctx))
+    analyze = asyncio.run(registry.dispatch("analyze_findings", {"rule_id": rid}, ctx)).text
     assert "SUMMARY" in analyze and rid in analyze
 
 
@@ -341,7 +341,7 @@ def test_systemic_patterns_tool_live(tmp_path):
     load_model(client.get_driver(), tmp_path / "run", site=SITE, run_id=RUN_ID)
     ctx = {"run_id": RUN_ID, "site": SITE}
 
-    out = asyncio.run(registry.dispatch("get_systemic_patterns", {}, ctx))
+    out = asyncio.run(registry.dispatch("get_systemic_patterns", {}, ctx)).text
     assert "correlation insights" in out.lower()
 
 
@@ -357,7 +357,7 @@ def test_redundancy_tool_live(tmp_path):
     load_model(client.get_driver(), tmp_path / "run", site=SITE, run_id=RUN_ID)
     ctx = {"run_id": RUN_ID, "site": SITE}
 
-    out = asyncio.run(registry.dispatch("get_redundancy_assessment", {}, ctx))
+    out = asyncio.run(registry.dispatch("get_redundancy_assessment", {}, ctx)).text
     assert "Redundancy assessment — Network overview" in out
     assert "Summary:" in out
 
@@ -383,10 +383,10 @@ def test_trace_path_tool_live(tmp_path):
     load_model(client.get_driver(), run, site=SITE, run_id=RUN_ID)
     ctx = {"run_id": RUN_ID, "site": SITE, "data_dir": str(run)}
 
-    trace = asyncio.run(registry.dispatch("trace_path", {"source_device": "core-rtr-01"}, ctx))
+    trace = asyncio.run(registry.dispatch("trace_path", {"source_device": "core-rtr-01"}, ctx)).text
     assert "Path: core-rtr-01" in trace
 
-    miss = asyncio.run(registry.dispatch("trace_path", {"source_device": "nope-99"}, ctx))
+    miss = asyncio.run(registry.dispatch("trace_path", {"source_device": "nope-99"}, ctx)).text
     assert "not found" in miss
 
 
@@ -413,13 +413,13 @@ def test_security_tools_live(tmp_path):
     load_model(client.get_driver(), run, site=SITE, run_id=RUN_ID)
     ctx = {"run_id": RUN_ID, "site": SITE, "data_dir": str(run)}
 
-    posture = asyncio.run(registry.dispatch("get_security_posture", {"device": "core-rtr-01"}, ctx))
+    posture = asyncio.run(registry.dispatch("get_security_posture", {"device": "core-rtr-01"}, ctx)).text
     assert "Security posture — core-rtr-01" in posture
 
-    policies = asyncio.run(registry.dispatch("get_security_policies", {"device": "core-rtr-01"}, ctx))
+    policies = asyncio.run(registry.dispatch("get_security_policies", {"device": "core-rtr-01"}, ctx)).text
     assert "Security policies — core-rtr-01" in policies
 
-    overview = asyncio.run(registry.dispatch("get_security_posture", {}, ctx))
+    overview = asyncio.run(registry.dispatch("get_security_posture", {}, ctx)).text
     assert "Network overview" in overview
 
 
@@ -441,11 +441,11 @@ def test_firewall_and_qos_tools_live(tmp_path):
     load_model(client.get_driver(), tmp_path / "run", site=SITE, run_id=RUN_ID)
     ctx = {"run_id": RUN_ID, "site": SITE}
 
-    fw = asyncio.run(registry.dispatch("get_firewall_policies", {"device": "core-rtr-01"}, ctx))
+    fw = asyncio.run(registry.dispatch("get_firewall_policies", {"device": "core-rtr-01"}, ctx)).text
     assert "Firewall policies on core-rtr-01" in fw
 
     # No QoS facts in this run → graceful no-data, but the Cypher must execute.
-    qos = asyncio.run(registry.dispatch("get_traffic_shapers", {}, ctx))
+    qos = asyncio.run(registry.dispatch("get_traffic_shapers", {}, ctx)).text
     assert "No QoS policies" in qos
 
 
@@ -461,13 +461,13 @@ def test_neighborhood_and_site_summary_tools_live(tmp_path):
     load_model(client.get_driver(), tmp_path / "run", site=SITE, run_id=RUN_ID)
     ctx = {"run_id": RUN_ID, "site": SITE}
 
-    nbr = asyncio.run(registry.dispatch("get_network_neighborhood", {"device": "core-rtr-01"}, ctx))
+    nbr = asyncio.run(registry.dispatch("get_network_neighborhood", {"device": "core-rtr-01"}, ctx)).text
     assert "Network neighborhood — core-rtr-01" in nbr and "Direct neighbors" in nbr
 
-    summary = asyncio.run(registry.dispatch("get_site_summary", {}, ctx))
+    summary = asyncio.run(registry.dispatch("get_site_summary", {}, ctx)).text
     assert "core-rtr-01" in summary
 
-    miss = asyncio.run(registry.dispatch("get_network_neighborhood", {"device": "nope-99"}, ctx))
+    miss = asyncio.run(registry.dispatch("get_network_neighborhood", {"device": "nope-99"}, ctx)).text
     assert "not found" in miss
 
 
@@ -483,13 +483,13 @@ def test_device_and_shared_services_tools_live(tmp_path):
     load_model(client.get_driver(), tmp_path / "run", site=SITE, run_id=RUN_ID)
     ctx = {"run_id": RUN_ID, "site": SITE, "data_dir": str(tmp_path / "run")}
 
-    detail = asyncio.run(registry.dispatch("get_device_detail", {"device": "core-rtr-01"}, ctx))
+    detail = asyncio.run(registry.dispatch("get_device_detail", {"device": "core-rtr-01"}, ctx)).text
     assert "Device: core-rtr-01" in detail and "Interfaces" in detail
 
-    svc = asyncio.run(registry.dispatch("get_shared_services", {}, ctx))
+    svc = asyncio.run(registry.dispatch("get_shared_services", {}, ctx)).text
     assert "Shared services overview" in svc
 
-    miss = asyncio.run(registry.dispatch("get_device_detail", {"device": "nope-99"}, ctx))
+    miss = asyncio.run(registry.dispatch("get_device_detail", {"device": "nope-99"}, ctx)).text
     assert "not found" in miss
 
 
@@ -512,16 +512,16 @@ def test_routing_and_ospf_tools_live(tmp_path):
     load_model(client.get_driver(), tmp_path / "run", site=SITE, run_id=RUN_ID)
     ctx = {"run_id": RUN_ID, "site": SITE, "data_dir": str(tmp_path / "run")}
 
-    routing = asyncio.run(registry.dispatch("get_routing_table", {"device": "core-rtr-01"}, ctx))
+    routing = asyncio.run(registry.dispatch("get_routing_table", {"device": "core-rtr-01"}, ctx)).text
     assert "192.0.2.0/24" in routing and "core-rtr-01" in routing
 
     # OSPF overview: the Cypher executes against SharedService (no ospf_area in this
     # MODEL → graceful "No OSPF areas found", but the header always renders).
-    ospf_out = asyncio.run(registry.dispatch("get_ospf_detail", {}, ctx))
+    ospf_out = asyncio.run(registry.dispatch("get_ospf_detail", {}, ctx)).text
     assert "OSPF Areas Overview" in ospf_out
 
     # Unknown device resolves to a clean message, not an error.
-    miss = asyncio.run(registry.dispatch("get_routing_table", {"device": "nope-99"}, ctx))
+    miss = asyncio.run(registry.dispatch("get_routing_table", {"device": "nope-99"}, ctx)).text
     assert "not found" in miss
 
 

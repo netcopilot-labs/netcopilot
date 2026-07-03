@@ -8,6 +8,7 @@ import asyncio
 from netcopilot import orchestrator
 from netcopilot.anonymizer import SessionAnonymizer
 from netcopilot.llm import LLMResult, ToolCall
+from netcopilot.mcp.registry import ToolResult
 
 
 class StubProvider:
@@ -31,7 +32,7 @@ def _collect(history, provider, **kw):
 
 def test_stream_emits_full_event_sequence(monkeypatch):
     async def fake_dispatch(name, args, context):
-        return "5 devices"
+        return ToolResult("ok", "5 devices")
 
     monkeypatch.setattr(orchestrator, "dispatch", fake_dispatch)
     provider = StubProvider([
@@ -51,7 +52,7 @@ def test_stream_emits_full_event_sequence(monkeypatch):
 
 def test_usage_accumulates_across_turns(monkeypatch):
     async def fake_dispatch(name, args, context):
-        return "ok"
+        return ToolResult("ok", "ok")
 
     monkeypatch.setattr(orchestrator, "dispatch", fake_dispatch)
     provider = StubProvider([
@@ -79,7 +80,7 @@ def test_anonymizer_deanonymizes_args_and_content(monkeypatch):
 
     async def fake_dispatch(name, args, context):
         seen_args.update(args)
-        return "core-rtr-01 has 3 findings"      # real data from the tool
+        return ToolResult("ok", "core-rtr-01 has 3 findings")  # real data from the tool
 
     monkeypatch.setattr(orchestrator, "dispatch", fake_dispatch)
     # The model, seeing anonymized context, emits the anon label in its tool args
@@ -106,7 +107,7 @@ def test_verbatim_onboarding_tool_emits_result_directly(monkeypatch):
     # list_capabilities returns a ready-to-display menu; the loop must emit it as
     # the answer WITHOUT a second LLM turn (small local models drop it otherwise).
     async def fake_dispatch(name, args, context):
-        return "CAPABILITY MENU\n- explore\n- audit"
+        return ToolResult("ok", "CAPABILITY MENU\n- explore\n- audit")
 
     monkeypatch.setattr(orchestrator, "dispatch", fake_dispatch)
     # Only ONE scripted turn: a second provider call would IndexError on the empty

@@ -52,7 +52,7 @@ def test_dispatch_routes_diff_runs(tmp_path, monkeypatch):
     _write_run(tmp_path, "runA")
     _write_run(tmp_path, "runB", devices=[{"device_id": "core-sw-01", "site": "demo"},
                                           {"device_id": "acc-sw-09", "site": "demo"}])
-    out = asyncio.run(registry.dispatch("diff_runs", {"run_a": "runA", "run_b": "runB"}, {"run_id": ""}))
+    out = asyncio.run(registry.dispatch("diff_runs", {"run_a": "runA", "run_b": "runB"}, {"run_id": ""})).text
     assert "Drift runA → runB" in out
     assert "acc-sw-09" in out
 
