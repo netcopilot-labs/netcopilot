@@ -8,6 +8,8 @@ import logging
 
 from netcopilot.graph.client import get_driver, get_site_for_run, is_available
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -18,12 +20,12 @@ async def query_topology(
     include_links: bool = True,
     include_services: bool = False,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Get network topology: devices, physical links, routing adjacencies."""
     run_id = context.get("run_id", "")
 
     if not is_available():
-        return "Neo4j is unavailable. Cannot query topology."
+        return ToolResult("error", "Neo4j is unavailable. Cannot query topology.")
 
     driver = get_driver()
 
@@ -83,10 +85,10 @@ async def query_topology(
                         svc_lines.append(f"  {m['device']} — {m['intf']}: {m['desc']}")
                     svc_lines.append("")
                     svc_lines.append(f"Use trace_path(service=\"{device_filter}\") to trace the traffic path.")
-                    return "\n".join(svc_lines)
-            return f"No devices found for run {run_id}" + (
+                    return ToolResult("ok", "\n".join(svc_lines))
+            return ToolResult("no_data", f"No devices found for run {run_id}" + (
                 f" matching '{device_filter}'" if device_filter else ""
-            )
+            ))
 
         # ── Build output ─────────────────────────────────────────────────
         if device_filter:
@@ -311,4 +313,4 @@ async def query_topology(
                     members = ", ".join(sorted(svc["members"]))
                     lines.append(f"  [{svc['type']}] {svc['name']}: {members}")
 
-    return "\n".join(lines)
+    return ToolResult("ok", "\n".join(lines))

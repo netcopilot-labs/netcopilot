@@ -27,7 +27,7 @@ def _write_run(runs_dir, run_id, *, site="demo", devices=None, findings=None):
 
 def _call(**kwargs):
     ctx = kwargs.pop("context", {"run_id": "", "site": "demo"})
-    return asyncio.run(run_diff.diff_runs(context=ctx, **kwargs))
+    return asyncio.run(run_diff.diff_runs(context=ctx, **kwargs)).text
 
 
 # ---------------------------------------------------------------------------

@@ -16,16 +16,17 @@ visible (a coverage test flags the omission).
 from __future__ import annotations
 
 from netcopilot.prompts import load_about, load_dashboard_guide
+from netcopilot.mcp.result import ToolResult
 
 
-async def about_netcopilot(*, context: dict) -> str:
+async def about_netcopilot(*, context: dict) -> ToolResult:
     """Return the canonical NetCopilot product description, verbatim."""
-    return load_about()
+    return ToolResult("ok", load_about())
 
 
-async def dashboard_guide(*, context: dict) -> str:
+async def dashboard_guide(*, context: dict) -> ToolResult:
     """Return the canonical NetCopilot dashboard tour, verbatim."""
-    return load_dashboard_guide()
+    return ToolResult("ok", load_dashboard_guide())
 
 
 # ── Capability menu ──────────────────────────────────────────────────────────
@@ -238,7 +239,7 @@ def _render_other_bucket(uncategorized_tools: list[str]) -> str:
     return "\n".join(lines)
 
 
-async def list_capabilities(*, context: dict) -> str:
+async def list_capabilities(*, context: dict) -> ToolResult:
     """Return the categorized capability menu, auto-derived from TOOL_SCHEMAS."""
     from netcopilot.mcp.registry import TOOL_SCHEMAS
 
@@ -258,7 +259,7 @@ async def list_capabilities(*, context: dict) -> str:
         parts.append(_render_other_bucket(other_tools))
         parts.append("")
 
-    return "\n".join(parts).rstrip() + "\n"
+    return ToolResult("ok", "\n".join(parts).rstrip() + "\n")
 
 
 def get_categorized_tool_names() -> dict[str, list[str]]:

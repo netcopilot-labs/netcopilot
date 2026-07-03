@@ -14,7 +14,7 @@ def test_blast_radius_registered():
 
 def test_blast_radius_graceful_without_neo4j(monkeypatch):
     monkeypatch.setattr(analysis, "is_available", lambda: False)
-    out = asyncio.run(analysis.blast_radius(device="x", context={"run_id": "r"}))
+    out = asyncio.run(analysis.blast_radius(device="x", context={"run_id": "r"})).text
     assert "unavailable" in out.lower()
 
 

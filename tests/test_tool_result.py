@@ -7,6 +7,8 @@ Pure-function tests — no Neo4j, no LLM.
 
 import asyncio
 
+import pytest
+
 from netcopilot.mcp import registry
 from netcopilot.mcp.registry import MAX_RESULT_CHARS, ToolResult, VALID_RESULT_STATUSES
 
@@ -39,14 +41,15 @@ def test_handler_exception_is_error_status(monkeypatch):
     assert out.text == "Tool 'query_topology' failed: kaput"
 
 
-def test_str_return_is_coerced_to_ok(monkeypatch):
-    # Transitional: bare-string handlers become ok envelopes (removed in S03-2).
+def test_non_toolresult_return_fails_loud(monkeypatch):
+    # The contract is enforced, not coerced: a bare-string handler is a
+    # programming error and must raise, not degrade silently.
     async def legacy(**kwargs):
         return "plain text"
 
     monkeypatch.setitem(registry._HANDLERS, "query_topology", legacy)
-    out = asyncio.run(registry.dispatch("query_topology", {}, {}))
-    assert out == ToolResult("ok", "plain text")
+    with pytest.raises(TypeError, match="must return ToolResult"):
+        asyncio.run(registry.dispatch("query_topology", {}, {}))
 
 
 def test_truncation_caps_text_and_preserves_fields(monkeypatch):

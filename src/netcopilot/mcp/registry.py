@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass, replace
+from dataclasses import replace
 
+from .result import ToolResult, VALID_RESULT_STATUSES  # noqa: F401 — re-exported
 from .tools import (
     analysis,
     analyze,
@@ -39,27 +40,6 @@ from .tools import (
 log = logging.getLogger(__name__)
 
 MAX_RESULT_CHARS = int(os.environ.get("MCP_MAX_RESULT_CHARS", "32000"))
-
-# Valid values for ToolResult.status. ``ok`` carries data; the rest are the
-# named failure modes tools already expressed as prose — now machine-readable.
-VALID_RESULT_STATUSES = {"ok", "no_data", "not_found", "ambiguous", "error"}
-
-
-@dataclass(frozen=True)
-class ToolResult:
-    """Typed tool-result envelope — the machine-readable tool contract.
-
-    ``text`` is what the model sees, verbatim (byte-identical to the pre-envelope
-    strings). ``status`` distinguishes data from failure without parsing prose.
-    ``verdict``/``highlight``/``verbatim`` carry semantics tools already compute,
-    previously flattened into text or smuggled through string conventions.
-    """
-
-    status: str  # one of VALID_RESULT_STATUSES
-    text: str
-    verdict: dict | None = None
-    highlight: dict | None = None
-    verbatim: bool = False
 
 TOOL_SCHEMAS: list[dict] = [
     {
@@ -552,7 +532,13 @@ _HANDLERS = {
 
 
 async def dispatch(tool_name: str, arguments: dict, context: dict) -> ToolResult:
-    """Route a tool call to its handler. Never raises; caps result length."""
+    """Route a tool call to its handler.
+
+    Never raises on tool failure (failures become ``status="error"``
+    envelopes); caps result length. A handler returning anything other than
+    ``ToolResult`` is a programming error and raises — the contract is
+    enforced, not coerced.
+    """
     if tool_name not in _HANDLERS:
         return ToolResult(
             "error",
@@ -563,10 +549,11 @@ async def dispatch(tool_name: str, arguments: dict, context: dict) -> ToolResult
     except Exception as exc:
         log.exception("Tool '%s' failed with args %s", tool_name, arguments)
         return ToolResult("error", f"Tool '{tool_name}' failed: {exc}")
-    if isinstance(result, str):
-        # Transitional coercion (removed once all handlers return ToolResult):
-        # a bare-string handler return is data with default semantics.
-        result = ToolResult("ok", result)
+    if not isinstance(result, ToolResult):
+        raise TypeError(
+            f"Handler '{tool_name}' returned {type(result).__name__}; "
+            "handlers must return ToolResult (the tool contract)."
+        )
     if len(result.text) > MAX_RESULT_CHARS:
         result = replace(
             result,

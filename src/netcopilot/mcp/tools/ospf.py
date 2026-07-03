@@ -10,6 +10,8 @@ from pathlib import Path
 
 from netcopilot.graph.client import get_driver, is_available
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -18,13 +20,13 @@ async def get_ospf_detail(
     device: str | None = None,
     area: str | None = None,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Get OSPF detail: processes, areas, interfaces, neighbors, authentication."""
     run_id = context.get("run_id", "")
     data_dir = context.get("data_dir", "")
 
     if not is_available():
-        return "Neo4j unavailable. OSPF queries require the graph database."
+        return ToolResult("error", "Neo4j unavailable. OSPF queries require the graph database.")
 
     driver = get_driver()
     lines = []
@@ -47,17 +49,17 @@ async def get_ospf_detail(
             if rec:
                 device = rec["name"]
             else:
-                return f"Device '{device}' not found."
+                return ToolResult("not_found", f"Device '{device}' not found.")
 
         # Load genie_ospf.json
         ospf_path = Path(data_dir) / "facts" / device / "genie_ospf.json"
         if not ospf_path.exists():
-            return f"No OSPF data for device '{device}'."
+            return ToolResult("no_data", f"No OSPF data for device '{device}'.")
 
         try:
             data = json.loads(ospf_path.read_text())
         except (json.JSONDecodeError, OSError):
-            return f"Failed to read OSPF data for '{device}'."
+            return ToolResult("error", f"Failed to read OSPF data for '{device}'.")
 
         lines.append(f"OSPF Detail — {device}")
         lines.append("")
@@ -206,4 +208,4 @@ async def get_ospf_detail(
                 lines.append(f"    Members: {member_list}")
                 lines.append("")
 
-    return "\n".join(lines)
+    return ToolResult("ok", "\n".join(lines))

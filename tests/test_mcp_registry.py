@@ -21,5 +21,5 @@ def test_dispatch_unknown_tool():
 
 def test_query_topology_graceful_without_neo4j(monkeypatch):
     monkeypatch.setattr(topology, "is_available", lambda: False)
-    out = asyncio.run(topology.query_topology(context={"run_id": "x"}))
+    out = asyncio.run(topology.query_topology(context={"run_id": "x"})).text
     assert "unavailable" in out.lower()

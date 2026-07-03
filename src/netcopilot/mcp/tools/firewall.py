@@ -10,6 +10,8 @@ import logging
 
 from netcopilot.graph.client import get_driver, is_available
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -21,12 +23,12 @@ async def get_firewall_policies(
     action: str | None = None,
     service: str | None = None,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Query firewall policies from Neo4j FirewallPolicy nodes."""
     run_id = context.get("run_id", "")
 
     if not is_available():
-        return "Neo4j is unavailable. Firewall policy queries require the graph database."
+        return ToolResult("error", "Neo4j is unavailable. Firewall policy queries require the graph database.")
 
     driver = get_driver()
 
@@ -71,7 +73,7 @@ async def get_firewall_policies(
             filters.append(f"device={device}")
         if action:
             filters.append(f"action={action}")
-        return f"No firewall policies found{' for ' + ', '.join(filters) if filters else ''} in run {run_id}."
+        return ToolResult("no_data", f"No firewall policies found{' for ' + ', '.join(filters) if filters else ''} in run {run_id}.")
 
     # Post-filter by zone (stored as arrays on FortiGate, not on ACLs)
     if source_zone:
@@ -99,7 +101,7 @@ async def get_firewall_policies(
         ]
 
     if not policies:
-        return f"No policies match the specified zone/service filters."
+        return ToolResult("no_data", f"No policies match the specified zone/service filters.")
 
     # Format output
     lines = []
@@ -126,7 +128,7 @@ async def get_firewall_policies(
             lines.append(f"  {dev}: {type_str} ({permit} permit, {deny} deny{implicit})")
         lines.append("")
         lines.append("Use get_firewall_policies(device='<name>') to see policies for a specific device.")
-        return "\n".join(lines)
+        return ToolResult("ok", "\n".join(lines))
 
     # Cap output per device
     MAX_POLICIES_PER_DEVICE = 30
@@ -206,4 +208,4 @@ async def get_firewall_policies(
             lines.append("  [DENY] implicit deny-all (default — traffic not matched above is dropped)")
         lines.append("")
 
-    return "\n".join(lines).strip()
+    return ToolResult("ok", "\n".join(lines).strip())

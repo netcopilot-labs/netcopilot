@@ -8,6 +8,8 @@ from netcopilot.findings import (
     load_findings_enriched,
 )
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -38,13 +40,13 @@ async def get_findings(
     acknowledged: bool | None = None,
     limit: int = 20,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Get deterministic rule-engine findings with optional filters."""
     run_id = context.get("run_id", "")
     findings = load_findings_enriched(run_id)
 
     if findings is None:
-        return f"No findings data found for run {run_id}."
+        return ToolResult("no_data", f"No findings data found for run {run_id}.")
 
     # Apply filters
     filtered = findings
@@ -123,7 +125,7 @@ async def get_findings(
             )
             msg += (f" No finding is at severity '{severity}'. Severities "
                     f"actually present (matching other filters): {dist_str}.")
-        return msg
+        return ToolResult("no_data", msg)
 
     # Count by severity (from ALL filtered findings, not just limited)
     sev_counts: dict[str, int] = {}
@@ -201,4 +203,4 @@ async def get_findings(
     if truncated:
         lines.append(f"[Showing {limit} of {total} — add filters to narrow results]")
 
-    return "\n".join(lines)
+    return ToolResult("ok", "\n".join(lines))

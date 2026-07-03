@@ -19,6 +19,8 @@ from pathlib import Path
 from netcopilot.graph.client import get_driver, is_available
 from netcopilot.findings import resolve_device as _shared_resolve, suggest_devices, get_device_role, is_security_device, is_default_route
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -461,7 +463,7 @@ async def trace_path(
     vrf: str | None = None,
     max_hops: int = 10,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Trace network path from source to destination across L2/L3/VRF boundaries."""
     run_id = context.get("run_id", "")
     data_dir = context.get("data_dir", "")
@@ -471,7 +473,7 @@ async def trace_path(
     # ── Service Resolution ──────────────────────────────────────────
     if service:
         if not is_available():
-            return "Neo4j unavailable for service resolution."
+            return ToolResult("error", "Neo4j unavailable for service resolution.")
         driver = get_driver()
 
         # 1. Search interface descriptions for service keyword (all statuses)
@@ -507,11 +509,11 @@ async def trace_path(
                 )
 
         if not intf_matches and not vlan_members:
-            return (
+            return ToolResult("not_found", (
                 f"No interfaces or VLANs matching service '{service}' found. "
                 "Interface descriptions and VLAN names are searched. "
                 "Try a different term or use source_device parameter instead."
-            )
+            ))
 
         # Group interface matches by device
         devices_with_intfs = {}
@@ -573,7 +575,7 @@ async def trace_path(
             lines.append(f"Which location? Call trace_path(service=\"{service}\", "
                          f"source_device=\"<device>\") with a specific device.")
             lines.append(f"Available buildings: {', '.join(buildings)}")
-            return "\n".join(lines)
+            return ToolResult("ambiguous", "\n".join(lines))
 
         # ── Single building or source_device specified: pick endpoint ─
         if not source_device:
@@ -621,7 +623,7 @@ async def trace_path(
                 lines.append("")
                 lines.append(f"Which traffic type? Call trace_path(service=\"{service}\", "
                              f"source_device=\"{source_device}\", vrf=\"<vrf_name>\")")
-                return "\n".join(lines)
+                return ToolResult("ambiguous", "\n".join(lines))
 
             # Use the service VRF if resolved, otherwise the only real VRF
             if service_vrf:
@@ -664,12 +666,12 @@ async def trace_path(
 
     # ── Resolve source device ───────────────────────────────────────
     if not source_device:
-        return "Specify source_device or service parameter."
+        return ToolResult("error", "Specify source_device or service parameter.")
 
     resolved = _shared_resolve(source_device, run_id)
     if not resolved:
         suggestion = suggest_devices(source_device, run_id)
-        return f"Device '{source_device}' not found.{suggestion}"
+        return ToolResult("not_found", f"Device '{source_device}' not found.{suggestion}")
     source_device = resolved
 
     # ── Build IP lookup ─────────────────────────────────────────────
@@ -683,7 +685,7 @@ async def trace_path(
     # ── Load source routing table ───────────────────────────────────
     routes_by_vrf = _load_routes(source_device, data_dir)
     if not routes_by_vrf:
-        return f"No routing data for {source_device}."
+        return ToolResult("no_data", f"No routing data for {source_device}.")
 
     # ── If no VRF specified, pick best ──────────────────────────────
     if not vrf:
@@ -693,7 +695,7 @@ async def trace_path(
         if not vrf:
             lines.append(f"Device {source_device} has VRFs: {', '.join(available_vrfs)}")
             lines.append("None have a default route to trace.")
-            return "\n".join(lines)
+            return ToolResult("no_data", "\n".join(lines))
 
         traceable = [v for v in available_vrfs if _find_default_route(routes_by_vrf[v])]
         if len(traceable) > 1:
@@ -941,4 +943,4 @@ async def trace_path(
         if spofs:
             lines.append(f"  Single points of failure: {', '.join(spofs)}")
 
-    return "\n".join(lines)
+    return ToolResult("ok", "\n".join(lines))

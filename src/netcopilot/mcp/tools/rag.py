@@ -17,6 +17,8 @@ import logging
 
 from netcopilot.rag import store
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 # Cap on how much chunk text to show per result (chars)
@@ -150,14 +152,14 @@ async def lookup_vendor_docs(
     doc_type: str | None = None,
     n_results: int = 5,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Look up vendor configuration / CLI documentation.
 
     Use for: "How do I configure X?", "What is the syntax for Y?",
     "Show me the Z command".
     """
     if not query or not query.strip():
-        return "lookup_vendor_docs: empty query."
+        return ToolResult("error", "lookup_vendor_docs: empty query.")
 
     # Auto-detect OS family from context if caller didn't specify
     if not os_family:
@@ -175,9 +177,10 @@ async def lookup_vendor_docs(
         )
     except Exception as exc:
         log.exception("lookup_vendor_docs failed: %s", exc)
-        return f"lookup_vendor_docs failed: {exc}"
+        return ToolResult("error", f"lookup_vendor_docs failed: {exc}")
 
-    return _format_results(query, results)
+    return ToolResult("no_data" if not results else "ok",
+                      _format_results(query, results))
 
 
 async def lookup_network_knowledge(
@@ -185,7 +188,7 @@ async def lookup_network_knowledge(
     query: str,
     n_results: int = 5,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Look up general networking knowledge across all vendor docs.
 
     Use for conceptual questions ("explain VRRP vs HSRP", "what is DMVPN?",
@@ -193,7 +196,7 @@ async def lookup_network_knowledge(
     so the LLM gets a broader cross-vendor view.
     """
     if not query or not query.strip():
-        return "lookup_network_knowledge: empty query."
+        return ToolResult("error", "lookup_network_knowledge: empty query.")
 
     n = max(1, min(int(n_results or 5), _MAX_RESULTS))
 
@@ -201,6 +204,7 @@ async def lookup_network_knowledge(
         results = store.search(query=query, n_results=n)
     except Exception as exc:
         log.exception("lookup_network_knowledge failed: %s", exc)
-        return f"lookup_network_knowledge failed: {exc}"
+        return ToolResult("error", f"lookup_network_knowledge failed: {exc}")
 
-    return _format_results(query, results)
+    return ToolResult("no_data" if not results else "ok",
+                      _format_results(query, results))

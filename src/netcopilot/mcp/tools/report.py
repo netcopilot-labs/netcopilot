@@ -37,6 +37,8 @@ import logging
 import os
 from typing import Any
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -58,7 +60,7 @@ async def generate_report(
     tools_used: list[str] | None = None,
     conclusions: str | None = None,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Generate a NetCopilot report (general or conversation-scoped).
 
     For scope="general", no other parameters are needed — the tool reads
@@ -78,17 +80,17 @@ async def generate_report(
     """
     # Validate scope
     if scope not in ("general", "conversation"):
-        return (
+        return ToolResult("error", (
             f"generate_report: invalid scope {scope!r}. "
             f"Must be 'general' or 'conversation'."
-        )
+        ))
 
     run_id = (context or {}).get("run_id", "")
     if not run_id:
-        return (
+        return ToolResult("error", (
             "generate_report: no run_id in context. "
             "A network run must be selected before generating a report."
-        )
+        ))
 
     # Build the request locally rather than going through HTTP — the report
     # generator is in-process and we don't need the HTTP round-trip. We
@@ -104,10 +106,10 @@ async def generate_report(
             from netcopilot.dashboard.backend.reports.generator import build_conversation_report
 
             if not title:
-                return (
+                return ToolResult("error", (
                     "generate_report (conversation scope): the LLM must supply a "
                     "non-empty `title` summarizing the conversation topic."
-                )
+                ))
             report = build_conversation_report(
                 run_id,
                 title=title,
@@ -121,7 +123,7 @@ async def generate_report(
             report_dict = report.to_dict()
     except Exception as exc:
         log.exception("generate_report failed for run_id=%s scope=%s", run_id, scope)
-        return f"generate_report failed: {type(exc).__name__}: {exc}"
+        return ToolResult("error", f"generate_report failed: {type(exc).__name__}: {exc}")
 
     # Format a chat-friendly summary the LLM should echo to the operator.
     # The LLM is instructed (in the system prompt) to print this verbatim
@@ -149,7 +151,7 @@ async def generate_report(
     # result and emits them as `highlight` SSE events (see
     # netcopilot/orchestrator.py, _strip_inline_highlight).
     # We append the marker to the end of the result string.
-    return summary + f"\n\n__highlight__:{json.dumps(highlight_payload)}"
+    return ToolResult("ok", summary + f"\n\n__highlight__:{json.dumps(highlight_payload)}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

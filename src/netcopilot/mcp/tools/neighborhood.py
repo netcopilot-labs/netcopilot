@@ -11,6 +11,8 @@ import logging
 from netcopilot.findings import device_from_finding, load_findings_enriched
 from netcopilot.graph.client import get_driver, is_available
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 _MAX_HOPS_CAP = 4
@@ -21,12 +23,12 @@ async def get_network_neighborhood(
     device: str,
     hops: int = 1,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Return the network neighborhood for *device* up to *hops* hops away."""
     run_id = context.get("run_id", "")
 
     if not is_available():
-        return "Neo4j is unavailable. Neighborhood analysis requires the topology graph."
+        return ToolResult("error", "Neo4j is unavailable. Neighborhood analysis requires the topology graph.")
 
     hops = max(1, min(hops, _MAX_HOPS_CAP))
     driver = get_driver()
@@ -48,10 +50,10 @@ async def get_network_neighborhood(
                 run_id=run_id, name=device,
             ).single()
             if not rec:
-                return (
+                return ToolResult("not_found", (
                     f"Device '{device}' not found in run {run_id}. "
                     "Use query_topology to list available devices."
-                )
+                ))
         device = rec["name"]
         dev_role = rec["role"] or ""
         dev_building = rec["building"] or ""
@@ -174,11 +176,11 @@ async def get_network_neighborhood(
     finding_counts = _load_finding_counts(context, device, hop_devices)
 
     # ── Format output ──────────────────────────────────────────────
-    return _format_output(
+    return ToolResult("ok", _format_output(
         device, dev_role, dev_building, dev_os, dev_cluster,
         hops, all_links, hop_layers, hop_devices,
         shared_vlans, shared_ospf, bgp_sessions, finding_counts,
-    )
+    ))
 
 
 def _load_finding_counts(

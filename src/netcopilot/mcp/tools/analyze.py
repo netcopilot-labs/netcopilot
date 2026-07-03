@@ -23,6 +23,8 @@ from netcopilot.findings import (
     load_findings_enriched,
 )
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 # Cache rule catalog
@@ -58,13 +60,13 @@ async def analyze_findings(
     rule_id: str,
     device: str | None = None,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Analyze a finding rule: priority ranking, remediation CLI, correlation insights."""
     run_id = context.get("run_id", "")
 
     findings = load_findings_enriched(run_id)
     if not findings:
-        return f"No findings data for run {run_id}."
+        return ToolResult("no_data", f"No findings data for run {run_id}.")
 
     # Filter by rule_id — exclude acknowledged findings
     all_rule = [f for f in findings if f.get("rule_id") == rule_id]
@@ -72,10 +74,10 @@ async def analyze_findings(
     acked_count = len(all_rule) - len(rule_findings)
     if not rule_findings:
         if acked_count > 0:
-            return (
+            return ToolResult("ok", (
                 f"All {acked_count} finding(s) for rule '{rule_id}' have been acknowledged "
                 f"by the operator. No active (unacknowledged) findings remain for this rule."
-            )
+            ))
         # Suggest similar rules — match prefix (BGP_ → BGP_*) or keyword
         all_rules = sorted(set(f.get("rule_id", "") for f in findings))
         rule_prefix = rule_id.split("_")[0] + "_" if "_" in rule_id else rule_id
@@ -83,13 +85,13 @@ async def analyze_findings(
             part in r for part in rule_id.split("_") if len(part) > 3
         )][:10]
         suggestion = f"\nSimilar rules: {', '.join(similar)}" if similar else ""
-        return f"Rule '{rule_id}' not found in this run.{suggestion}\nUse get_findings() to discover active rules."
+        return ToolResult("not_found", f"Rule '{rule_id}' not found in this run.{suggestion}\nUse get_findings() to discover active rules.")
 
     # Filter by device if specified
     if device:
         rule_findings = [f for f in rule_findings if device_from_finding(f) == device]
         if not rule_findings:
-            return f"No {rule_id} findings on device {device}."
+            return ToolResult("no_data", f"No {rule_id} findings on device {device}.")
 
     # Group by device
     devices_data: dict[str, list] = {}
@@ -212,4 +214,4 @@ async def analyze_findings(
         lines.append("  No remediation template available for this rule.")
         lines.append("  Manual investigation required.")
 
-    return "\n".join(lines)
+    return ToolResult("ok", "\n".join(lines))

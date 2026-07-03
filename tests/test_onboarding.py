@@ -17,7 +17,7 @@ EXCLUDED = {
 
 
 def test_about_returns_verbatim_text():
-    out = asyncio.run(onboarding.about_netcopilot(context={}))
+    out = asyncio.run(onboarding.about_netcopilot(context={})).text
     assert out == load_about()
     assert "NetCopilot is open-source Network Context Intelligence" in out
     # OSS build does not claim Catalyst Center / NetBox integration.
@@ -26,7 +26,7 @@ def test_about_returns_verbatim_text():
 
 
 def test_dashboard_guide_returns_verbatim_text():
-    out = asyncio.run(onboarding.dashboard_guide(context={}))
+    out = asyncio.run(onboarding.dashboard_guide(context={})).text
     assert out == load_dashboard_guide()
     # all 5 view modes named
     for view in ["Physical", "MGMT", "L2/L3", "OSPF", "BGP"]:
@@ -34,7 +34,7 @@ def test_dashboard_guide_returns_verbatim_text():
 
 
 def test_list_capabilities_renders_categories():
-    out = asyncio.run(onboarding.list_capabilities(context={}))
+    out = asyncio.run(onboarding.list_capabilities(context={})).text
     for header in ["EXPLORE THE NETWORK", "TROUBLESHOOT PROBLEMS",
                    "TRACE TRAFFIC AND IMPACT", "SECURITY AND POLICIES",
                    "LOOK UP VENDOR DOCUMENTATION", "ABOUT NETCOPILOT"]:
