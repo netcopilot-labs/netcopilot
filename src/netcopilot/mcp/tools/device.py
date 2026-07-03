@@ -288,4 +288,4 @@ async def get_device_detail(
             except (json.JSONDecodeError, OSError):
                 lines.extend(["", "Security: data unavailable"])
 
-    return ToolResult("ok", "\n".join(lines))
+    return ToolResult("ok", "\n".join(lines), highlight={"device": device})

@@ -21,12 +21,12 @@ from netcopilot.mcp.result import ToolResult
 
 async def about_netcopilot(*, context: dict) -> ToolResult:
     """Return the canonical NetCopilot product description, verbatim."""
-    return ToolResult("ok", load_about())
+    return ToolResult("ok", load_about(), verbatim=True)
 
 
 async def dashboard_guide(*, context: dict) -> ToolResult:
     """Return the canonical NetCopilot dashboard tour, verbatim."""
-    return ToolResult("ok", load_dashboard_guide())
+    return ToolResult("ok", load_dashboard_guide(), verbatim=True)
 
 
 # ── Capability menu ──────────────────────────────────────────────────────────
@@ -259,7 +259,7 @@ async def list_capabilities(*, context: dict) -> ToolResult:
         parts.append(_render_other_bucket(other_tools))
         parts.append("")
 
-    return ToolResult("ok", "\n".join(parts).rstrip() + "\n")
+    return ToolResult("ok", "\n".join(parts).rstrip() + "\n", verbatim=True)
 
 
 def get_categorized_tool_names() -> dict[str, list[str]]:

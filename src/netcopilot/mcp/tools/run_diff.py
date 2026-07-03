@@ -180,4 +180,9 @@ async def diff_runs(
             f"\n\nOther runs on record for site '{site}' — to compare a different "
             f"pair, pass run_a (older) and/or run_b (newer):\n{listed}"
         )
-    return ToolResult("ok", rendered)
+    s = result.to_dict()["summary"]
+    return ToolResult(
+        "ok",
+        rendered,
+        verdict={"drift": (s["added"] + s["removed"] + s["changed"]) > 0, **s},
+    )

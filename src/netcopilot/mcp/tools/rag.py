@@ -124,6 +124,18 @@ def _format_results(query: str, results: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _coverage_verdict(results: list[dict]) -> dict | None:
+    """Machine-readable form of the low-coverage signal in _format_results."""
+    if not results:
+        return None
+    top_vec = max(
+        (r.get("vector_score", r.get("score", 0.0)) for r in results),
+        default=0.0,
+    )
+    return {"low_coverage": top_vec < _LOW_COVERAGE_THRESHOLD,
+            "top_similarity": top_vec}
+
+
 def _autodetect_os_family(context: dict, vendor: str | None) -> str | None:
     """Best-effort: pick os_family from context['device_os'] if set.
 
@@ -180,7 +192,8 @@ async def lookup_vendor_docs(
         return ToolResult("error", f"lookup_vendor_docs failed: {exc}")
 
     return ToolResult("no_data" if not results else "ok",
-                      _format_results(query, results))
+                      _format_results(query, results),
+                      verdict=_coverage_verdict(results))
 
 
 async def lookup_network_knowledge(
@@ -207,4 +220,5 @@ async def lookup_network_knowledge(
         return ToolResult("error", f"lookup_network_knowledge failed: {exc}")
 
     return ToolResult("no_data" if not results else "ok",
-                      _format_results(query, results))
+                      _format_results(query, results),
+                      verdict=_coverage_verdict(results))

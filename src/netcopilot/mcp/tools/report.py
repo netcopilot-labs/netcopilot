@@ -151,7 +151,13 @@ async def generate_report(
     # result and emits them as `highlight` SSE events (see
     # netcopilot/orchestrator.py, _strip_inline_highlight).
     # We append the marker to the end of the result string.
-    return ToolResult("ok", summary + f"\n\n__highlight__:{json.dumps(highlight_payload)}")
+    # The inline marker stays until the orchestrator reads envelope.highlight
+    # (removed together with the strip logic in s03-4).
+    return ToolResult(
+        "ok",
+        summary + f"\n\n__highlight__:{json.dumps(highlight_payload)}",
+        highlight=highlight_payload,
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────

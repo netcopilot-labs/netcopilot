@@ -66,7 +66,17 @@ async def blast_radius(
         )
         all_links = [dict(r) for r in result]
 
-    return ToolResult("ok", _analyze_full_failure(device, all_links, device_insights))
+    risk = device_insights[0].get("risk_score", 0) if device_insights else 0
+    risk_level = "HIGH" if risk > 50 else "MODERATE" if risk > 20 else "LOW"
+    highlight = {"device": device}
+    if member is not None:
+        highlight["failedMember"] = member
+    return ToolResult(
+        "ok",
+        _analyze_full_failure(device, all_links, device_insights),
+        verdict={"risk_level": risk_level, "score": risk},
+        highlight=highlight,
+    )
 
 
 def _analyze_full_failure(

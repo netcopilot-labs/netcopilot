@@ -216,10 +216,25 @@ async def get_redundancy_assessment(
         a = next((a for a in assessments if a["name"] == device), None)
         if not a:
             return ToolResult("not_found", f"No assessment for '{device}'.")
-        return ToolResult("ok", _format_device_assessment(a, devices, neighbors))
+        return ToolResult(
+            "ok",
+            _format_device_assessment(a, devices, neighbors),
+            verdict={"status": a["status"], "risk": a["risk"]},
+        )
 
     # ── Network-wide assessment ────────────────────────────────────
-    return ToolResult("ok", _format_network_assessment(assessments))
+    verdict = {
+        "devices": len(assessments),
+        "ha_protected": sum(1 for a in assessments if a["has_ha"]),
+        "spof_no_ha": sum(
+            1 for a in assessments
+            if a["isolated_on_failure"] and not a["has_ha"]
+            and a["status"] != "unreachable"
+        ),
+        "single_uplink": sum(1 for a in assessments if a["status"] == "single_uplink"),
+        "unreachable": sum(1 for a in assessments if a["status"] == "unreachable"),
+    }
+    return ToolResult("ok", _format_network_assessment(assessments), verdict=verdict)
 
 
 def _is_upstream(device_role: str, neighbor_role: str) -> bool:

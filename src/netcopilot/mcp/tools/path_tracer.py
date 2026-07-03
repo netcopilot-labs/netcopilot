@@ -943,4 +943,9 @@ async def trace_path(
         if spofs:
             lines.append(f"  Single points of failure: {', '.join(spofs)}")
 
-    return ToolResult("ok", "\n".join(lines))
+    path_devices: list[str] = []
+    for h in hops:
+        if h["device"] not in path_devices:
+            path_devices.append(h["device"])
+    highlight = {"devices": path_devices} if path_devices else {"device": source_device}
+    return ToolResult("ok", "\n".join(lines), highlight=highlight)
