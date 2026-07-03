@@ -62,9 +62,10 @@ class RegistryTool(FastMCPTool):
         return MCPToolResult(content=envelope.text, structured_content=structured)
 
 
-def _register_tools() -> None:
-    for schema in TOOL_SCHEMAS:
-        mcp.add_tool(
+def register_tools(server: FastMCP = mcp, schemas: list[dict] = TOOL_SCHEMAS) -> None:
+    """Register every registry schema on the server — generated, not enumerated."""
+    for schema in schemas:
+        server.add_tool(
             RegistryTool(
                 name=schema["name"],
                 description=schema["description"],
@@ -73,7 +74,7 @@ def _register_tools() -> None:
         )
 
 
-_register_tools()
+register_tools()
 
 
 def main() -> None:

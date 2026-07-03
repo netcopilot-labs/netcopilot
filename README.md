@@ -45,8 +45,12 @@ evidence-backed model — organized by what you're trying to do. *(Or just ask i
 - 📊 **Reports** — shift-handover report, investigation case-file; email or PDF.
 - 📖 **About** — what NetCopilot is, how the dashboard works.
 
-All exposed over **MCP** — a human, an LLM, or another agent can call any of it.
-The in-app menu (`list_capabilities`) is always the current source of truth.
+All exposed over **MCP** — a human, an LLM, or another agent can call any of it:
+the server surface is generated from the tool registry, so external clients see
+every tool. Results carry a machine-readable `status` (and a `verdict` where the
+tool computes one) as MCP structured content alongside the text; tool errors map
+to MCP-native `isError`. The in-app menu (`list_capabilities`) is always the
+current source of truth.
 
 ## Architecture
 
