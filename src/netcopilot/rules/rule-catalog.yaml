@@ -1135,7 +1135,7 @@
   category: genie_infrastructure
   protocol: ospf
   tier: surface
-  description: OSPF routers in the same domain have different auto-cost reference bandwidths — routing costs will be inconsistent
+  description: OSPF routers in the same domain have different auto-cost reference bandwidths (exact-match across devices sharing an OSPF process id) — link costs are computed on different scales
   genie_source:
     file: ospf.py
     line_range: 148-151
@@ -1194,7 +1194,7 @@
   category: genie_infrastructure
   protocol: ospf
   tier: deep
-  description: OSPF routers in the same domain have inconsistent SPF throttle timers — reconvergence rates differ
+  description: OSPF routers in the same domain have differing SPF throttle timers (the (start, hold, maximum) triplet must match exactly across devices sharing an OSPF process id) — reconvergence rates differ
   genie_source:
     file: ospf.py
     line_range: 165-169
@@ -1716,7 +1716,7 @@
   category: genie_infrastructure
   protocol: ospf
   tier: deep
-  description: OSPF routers in the same domain have inconsistent LSA throttle timers — LSA flooding rates differ
+  description: OSPF routers in the same domain have differing LSA throttle timers (the (start, hold, maximum) triplet must match exactly across devices sharing an OSPF process id) — LSA flooding rates differ
   genie_source:
     file: ospf.py
     line_range: 165-169
@@ -2909,16 +2909,27 @@
     rpc: get-config
   cross_device: topology
   cross_device_compare: global_consistency
-  check_logic: "# Phase 1: collect cluster_id per device\ncluster_index = {}\nfor device in all_devices:\n  for instance in\
-    \ device.bgp.instances:\n    for vrf in instance.vrfs:\n      cid = vrf.cluster_id\n      if cid is None:\n        continue\
-    \   # Not a route reflector — skip\n      cluster_index.setdefault(cid, []).append(\n        f\"{device.hostname}:{vrf.vrf_id}\"\
-    \n      )\n\n# Phase 2: flag cluster_ids shared by more than one RR\n# (valid sharing: multiple RRs in the SAME cluster\
-    \ use the SAME cluster_id —\n# but the topology checker must verify they are in the same cluster.\n# Without topology\
-    \ context, flag all duplicates as potential issues.)\nfor cid, rrs in sorted(cluster_index.items()):\n  if len(rrs) >\
-    \ 1:\n    finding(\n      severity=\"critical\",\n      message=(\n        f\"BGP cluster-id {cid} is used by {len(rrs)}\
-    \ devices: \"\n        f\"{', '.join(sorted(rrs))}. If these are in different RR clusters, \"\n        f\"route reflector\
-    \ loop prevention will discard valid routes.\"\n      ),\n      evidence={\n        \"cluster_id\": cid,\n        \"devices\"\
-    : sorted(rrs)\n      }\n    )\n"
+  check_logic: |
+    # Config-sourced (bgp_config.json, parsed from running-config): genie's
+    # operational BGP output cannot supply route-reflector-client or an unset
+    # cluster-id — both are config-only facts.
+    # Phase 1: effective cluster-ID per route reflector. A device is an RR
+    # when at least one BGP neighbor is marked route-reflector-client; its
+    # effective cluster-ID is the explicit `bgp cluster-id` when configured,
+    # otherwise the BGP router-ID (the IOS / IOS-XR default).
+    cid_map = {}
+    for hostname, facts in all_devices:
+        cfg = facts.bgp_config
+        if cfg and any(n.route_reflector_client for n in cfg.neighbors):
+            cid = cfg.cluster_id or cfg.router_id
+            cid_map.setdefault(cid, []).append(hostname)
+    # Phase 2: flag any effective cluster-ID shared by 2+ route reflectors
+    # (exact-match on the cluster-ID string). Same-cluster sharing is
+    # legitimate — the operator confirms intent; see notes.
+    for cid, rrs in cid_map.items():
+        if len(rrs) > 1:
+            finding("critical",
+                    f"BGP cluster-ID {cid} shared by {len(rrs)} route reflectors")
   notes: '# IMPORTANT: Multiple RRs in the SAME cluster legitimately share a cluster-id.
 
     # This rule fires for any shared cluster-id and lets the operator confirm whether
@@ -3283,7 +3294,8 @@
   - path: device.interfaces[].mtu
     type: integer
     healthy_value: null
-    threshold: both link endpoints must be equal
+    threshold: equal after IP-MTU normalization; differences <= 14 bytes
+      (L2-header convention zone) are ignored
   collection:
     show_commands:
     - show interfaces
@@ -3302,15 +3314,27 @@
     type: link/bilateral
     fields:
     - device.interfaces[].mtu
-    logic: link.endpoint_a.interfaces[a_intf].mtu == link.endpoint_b.interfaces[b_intf].mtu
-  check_logic: "for link in model.links:\n  a_mtu = get_interface(link.endpoint_a.device, link.endpoint_a.interface).mtu\n\
-    \  b_mtu = get_interface(link.endpoint_b.device, link.endpoint_b.interface).mtu\n  if a_mtu is not None and b_mtu is not\
-    \ None and a_mtu != b_mtu:\n    finding(\n      severity=\"critical\",\n      message=(\n        f\"MTU mismatch on link\
-    \ \"\n        f\"{link.endpoint_a.device}:{link.endpoint_a.interface} ({a_mtu}) vs \"\n        f\"{link.endpoint_b.device}:{link.endpoint_b.interface}\
-    \ ({b_mtu})\"\n      ),\n      evidence={\n        \"link\": link.id,\n        \"endpoint_a\": {\"device\": link.endpoint_a.device,\n\
-    \                       \"interface\": link.endpoint_a.interface, \"mtu\": a_mtu},\n        \"endpoint_b\": {\"device\"\
-    : link.endpoint_b.device,\n                       \"interface\": link.endpoint_b.interface, \"mtu\": b_mtu}\n      }\n\
-    \    )\n"
+    logic: normalize_ip_mtu(endpoint_a) == normalize_ip_mtu(endpoint_b) — differences <= 14 bytes ignored
+  check_logic: |
+    # Compare IP MTU, not raw interface MTU: IOS XR reports the L2 MTU
+    # (includes the 14-byte Ethernet header — default 1514) while IOS XE
+    # reports the IP MTU (default 1500). Normalize both sides to IP MTU,
+    # then ignore any remaining difference of <= 14 bytes — that zone is
+    # exactly the L2-header convention ambiguity and is operationally
+    # benign. Only a larger difference (e.g. 1500 vs 9000) is a real,
+    # unambiguous MTU mismatch.
+    for link in model.links:
+        a_mtu = normalize_ip_mtu(facts_a, intf_a.mtu)
+        b_mtu = normalize_ip_mtu(facts_b, intf_b.mtu)
+        if a_mtu is None or b_mtu is None:
+            continue
+        if abs(a_mtu - b_mtu) <= 14:
+            continue
+        # critical when either endpoint is oper-down (the mismatch may be
+        # causing an outage); high when the link is up (working, but at
+        # risk of silent packet drops)
+        severity = "high" if both_endpoints_up(link) else "critical"
+        finding(severity, f"MTU mismatch: {a_mtu} vs {b_mtu}")
   notes: '# Requires model.links topology data — data model must include link adjacencies.
 
     # MTU mismatch is one of the hardest issues to diagnose in production.
@@ -3368,14 +3392,18 @@
     fields:
     - device.interfaces[].duplex_mode
     logic: link.endpoint_a.interfaces[a_intf].duplex_mode == link.endpoint_b.interfaces[b_intf].duplex_mode
-  check_logic: "for link in model.links:\n  a_duplex = get_interface(link.endpoint_a.device, link.endpoint_a.interface).duplex_mode\n\
-    \  b_duplex = get_interface(link.endpoint_b.device, link.endpoint_b.interface).duplex_mode\n  if a_duplex is not None\
-    \ and b_duplex is not None and a_duplex != b_duplex:\n    finding(\n      severity=\"critical\",\n      message=(\n  \
-    \      f\"Duplex mismatch on link \"\n        f\"{link.endpoint_a.device}:{link.endpoint_a.interface} ({a_duplex}) vs\
-    \ \"\n        f\"{link.endpoint_b.device}:{link.endpoint_b.interface} ({b_duplex})\"\n      ),\n      evidence={\n   \
-    \     \"link\": link.id,\n        \"endpoint_a\": {\"device\": link.endpoint_a.device,\n                       \"interface\"\
-    : link.endpoint_a.interface, \"duplex_mode\": a_duplex},\n        \"endpoint_b\": {\"device\": link.endpoint_b.device,\n\
-    \                       \"interface\": link.endpoint_b.interface, \"duplex_mode\": b_duplex}\n      }\n    )\n"
+  check_logic: |
+    # Exact-match comparison of duplex_mode on the two endpoints of each
+    # link; skip when either side is unreported.
+    for link in model.links:
+        a_duplex = intf_a.duplex_mode
+        b_duplex = intf_b.duplex_mode
+        if a_duplex and b_duplex and a_duplex != b_duplex:
+            # severity depends on operational state: info when both
+            # endpoints are up (auto-negotiation resolved it), critical
+            # otherwise (the mismatch may be why the link is down)
+            severity = "info" if both_endpoints_up(link) else "critical"
+            finding(severity, f"Duplex mismatch: {a_duplex} vs {b_duplex}")
   notes: '# Duplex mismatch symptoms overlap with CRC errors — correlate with INTF_CRC_ERROR_RATE_HIGH.
 
     # Genie stores duplex_mode as "full", "half", or "auto" — normalize before compare.
@@ -3432,15 +3460,22 @@
     type: link/bilateral
     fields:
     - device.interfaces[].port_speed
-    logic: link.endpoint_a.interfaces[a_intf].port_speed == link.endpoint_b.interfaces[b_intf].port_speed
-  check_logic: "for link in model.links:\n  a_speed = get_interface(link.endpoint_a.device, link.endpoint_a.interface).port_speed\n\
-    \  b_speed = get_interface(link.endpoint_b.device, link.endpoint_b.interface).port_speed\n  if a_speed is not None and\
-    \ b_speed is not None and a_speed != b_speed:\n    finding(\n      severity=\"warning\",\n      message=(\n        f\"\
-    Speed mismatch on link \"\n        f\"{link.endpoint_a.device}:{link.endpoint_a.interface} ({a_speed}) vs \"\n       \
-    \ f\"{link.endpoint_b.device}:{link.endpoint_b.interface} ({b_speed})\"\n      ),\n      evidence={\n        \"link\"\
-    : link.id,\n        \"endpoint_a\": {\"device\": link.endpoint_a.device,\n                       \"interface\": link.endpoint_a.interface,\
-    \ \"port_speed\": a_speed},\n        \"endpoint_b\": {\"device\": link.endpoint_b.device,\n                       \"interface\"\
-    : link.endpoint_b.interface, \"port_speed\": b_speed}\n      }\n    )\n"
+    logic: normalize_mbps(endpoint_a.port_speed or bandwidth) == normalize_mbps(endpoint_b.port_speed or bandwidth)
+  check_logic: |
+    # Normalize both sides to Mbps before comparing: genie mixes formats
+    # ("1000mbps", "100gb/s", plain kbit/s integers from bandwidth). Fall
+    # back to case-insensitive string compare when a value cannot be
+    # normalized. Speed source: port_speed, else bandwidth.
+    for link in model.links:
+        a_speed = intf_a.port_speed or intf_a.bandwidth
+        b_speed = intf_b.port_speed or intf_b.bandwidth
+        if a_speed is None or b_speed is None:
+            continue
+        if normalize_mbps(a_speed) != normalize_mbps(b_speed):
+            # info when both endpoints are up (auto-negotiation handled
+            # it), low otherwise
+            severity = "info" if both_endpoints_up(link) else "low"
+            finding(severity, f"Speed mismatch: {a_speed} vs {b_speed}")
   notes: '# Genie reports port_speed as a string like "1000Mbps", "10Gbps" — normalize before compare.
 
     # verify port_speed field population on C9KV virtual interfaces in virtual-lab.
