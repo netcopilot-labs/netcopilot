@@ -37,13 +37,13 @@ async def query_topology(
     Call this first for any question about network structure or device inventory."""
     from .tools.topology import query_topology as _impl
 
-    return await _impl(
+    return (await _impl(
         site=site,
         device_filter=device_filter,
         include_links=include_links,
         include_services=include_services,
         context=build_context(site=site),
-    )
+    )).text
 
 
 @mcp.tool()
@@ -57,14 +57,14 @@ async def get_findings(
     """Get deterministic rule-engine findings. Filter by device, severity, or category."""
     from .tools.findings import get_findings as _impl
 
-    return await _impl(
+    return (await _impl(
         device=device,
         severity=severity,
         category=category,
         acknowledged=acknowledged,
         limit=limit,
         context=build_context(),
-    )
+    )).text
 
 
 @mcp.tool()
@@ -77,13 +77,13 @@ async def blast_radius(
     """Analyse the impact of a device failure: directly affected devices and links lost."""
     from .tools.analysis import blast_radius as _impl
 
-    return await _impl(
+    return (await _impl(
         device=device,
         member=member,
         interface=interface,
         max_hops=max_hops,
         context=build_context(),
-    )
+    )).text
 
 
 def main() -> None:

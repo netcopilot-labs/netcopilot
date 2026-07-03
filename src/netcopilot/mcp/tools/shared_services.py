@@ -9,6 +9,8 @@ import logging
 
 from netcopilot.graph.client import get_driver, is_available
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -19,7 +21,7 @@ async def get_shared_services(
     device: str | None = None,
     ip: str | None = None,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Get shared service membership: VLANs, subnets, OSPF areas, BGP ASNs.
 
     Use ip parameter to find which device/interface/VLAN owns an IP address.
@@ -27,14 +29,14 @@ async def get_shared_services(
     run_id = context.get("run_id", "")
 
     if not is_available():
-        return "Neo4j unavailable."
+        return ToolResult("error", "Neo4j unavailable.")
 
     driver = get_driver()
     lines = []
 
     # ── IP lookup mode: find which interface/device/VLAN owns an IP ──
     if ip:
-        return await _lookup_ip(ip, run_id, driver)
+        return ToolResult("ok", await _lookup_ip(ip, run_id, driver))
 
     # Resolve device name if provided
     if device:
@@ -125,7 +127,7 @@ async def get_shared_services(
                         lines.append("")
 
             if not members:
-                return f"No shared service matching '{name}' found."
+                return ToolResult("not_found", f"No shared service matching '{name}' found.")
 
             stype = members[0].get("stype", "?")
             ident = members[0].get("ident", name)
@@ -154,7 +156,7 @@ async def get_shared_services(
             services = [dict(r) for r in result]
 
             if not services:
-                return f"No shared services of type '{service_type}' found."
+                return ToolResult("no_data", f"No shared services of type '{service_type}' found.")
 
             lines.append(f"Shared services — {service_type} ({len(services)})")
             lines.append("")
@@ -192,7 +194,7 @@ async def get_shared_services(
             lines.append("Use name filter for specific service membership (e.g., name='0.0.0.8' for OSPF area).")
             lines.append("Use device filter for all services on a device.")
 
-    return "\n".join(lines)
+    return ToolResult("ok", "\n".join(lines))
 
 
 async def _lookup_ip(ip: str, run_id: str, driver) -> str:

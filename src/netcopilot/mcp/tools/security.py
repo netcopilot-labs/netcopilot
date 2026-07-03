@@ -10,6 +10,8 @@ from pathlib import Path
 
 from netcopilot.graph.client import get_driver, is_available
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -17,13 +19,13 @@ async def get_security_posture(
     *,
     device: str | None = None,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Get security configuration for a device or network overview."""
     run_id = context.get("run_id", "")
     data_dir = context.get("data_dir", "")
 
     if not is_available():
-        return "Neo4j is unavailable."
+        return ToolResult("error", "Neo4j is unavailable.")
 
     driver = get_driver()
 
@@ -52,30 +54,30 @@ async def get_security_posture(
                 )
                 svc = [r["device"] for r in svc_result]
                 if svc:
-                    return (
+                    return ToolResult("ok", (
                         f"'{device}' is a service, not a device. "
                         f"Found on: {', '.join(svc)}. "
                         f"Use get_security_posture(device=\"{svc[0]}\") for security details."
-                    )
-                return f"Device '{device}' not found."
+                    ))
+                return ToolResult("not_found", f"Device '{device}' not found.")
             device = rec["name"]
             os_type = rec["os"] or ""
             role = rec["role"] or ""
     else:
         # Network-wide overview
-        return await _network_overview(run_id, data_dir, driver)
+        return ToolResult("ok", await _network_overview(run_id, data_dir, driver))
 
     # Per-device security posture — try Neo4j SecurityConfig first.
     neo4j_result = _posture_from_neo4j(device, role, os_type, run_id, driver)
     if neo4j_result:
-        return neo4j_result
+        return ToolResult("ok", neo4j_result)
 
     # Fallback to disk read (runs without SecurityConfig nodes).
     facts_dir = Path(data_dir) / "facts" / device
     if os_type == "fortios":
-        return _fortigate_posture(device, role, facts_dir)
+        return ToolResult("ok", _fortigate_posture(device, role, facts_dir))
     else:
-        return _cisco_posture(device, role, os_type, facts_dir)
+        return ToolResult("ok", _cisco_posture(device, role, os_type, facts_dir))
 
 
 def _posture_from_neo4j(device: str, role: str, os_type: str, run_id: str, driver) -> str | None:

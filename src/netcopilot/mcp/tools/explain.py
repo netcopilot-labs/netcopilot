@@ -8,6 +8,8 @@ import logging
 from netcopilot.analysis.remediation_loader import _load_catalog, get_remediation
 from netcopilot.findings import get_os_family, load_findings_enriched
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -16,7 +18,7 @@ async def explain_finding(
     rule_id: str,
     device: str | None = None,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Get explanation and OS-specific remediation CLI for a finding rule."""
     run_id = context.get("run_id", "")
     catalog = _load_catalog()
@@ -33,15 +35,15 @@ async def explain_finding(
         ]
         if similar:
             suggestions = ", ".join(sorted(similar)[:10])
-            return (
+            return ToolResult("not_found", (
                 f"Rule '{rule_id}' not found in catalog.\n"
                 f"Similar rules: {suggestions}\n"
                 "Use get_findings() to discover active rule IDs in this run."
-            )
-        return (
+            ))
+        return ToolResult("not_found", (
             f"Rule '{rule_id}' not found in catalog.\n"
             "Use get_findings(category='...') to discover active rule IDs."
-        )
+        ))
 
     # Build explanation
     lines = [
@@ -105,4 +107,4 @@ async def explain_finding(
     else:
         lines.extend(["", "Remediation: no CLI template in catalog for this rule."])
 
-    return "\n".join(lines)
+    return ToolResult("ok", "\n".join(lines))

@@ -16,10 +16,10 @@ def test_schema_normalized_shape():
 
 def test_dispatch_unknown_tool():
     out = asyncio.run(registry.dispatch("does_not_exist", {}, {"run_id": ""}))
-    assert "Unknown tool" in out
+    assert out.status == "error" and "Unknown tool" in out.text
 
 
 def test_query_topology_graceful_without_neo4j(monkeypatch):
     monkeypatch.setattr(topology, "is_available", lambda: False)
-    out = asyncio.run(topology.query_topology(context={"run_id": "x"}))
+    out = asyncio.run(topology.query_topology(context={"run_id": "x"})).text
     assert "unavailable" in out.lower()

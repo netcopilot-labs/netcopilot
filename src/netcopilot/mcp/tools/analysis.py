@@ -11,6 +11,8 @@ import logging
 from netcopilot.correlation import blast_radius as _blast_radius
 from netcopilot.graph.client import get_driver, is_available
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -21,12 +23,12 @@ async def blast_radius(
     interface: str | None = None,
     max_hops: int = 3,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Analyse the impact of a device failure: directly affected devices + links lost."""
     run_id = context.get("run_id", "")
 
     if not is_available():
-        return "Neo4j is unavailable. Blast radius analysis requires the topology graph."
+        return ToolResult("error", "Neo4j is unavailable. Blast radius analysis requires the topology graph.")
 
     driver = get_driver()
     with driver.session() as session:
@@ -42,10 +44,10 @@ async def blast_radius(
                 run_id=run_id, name=device,
             ).single()
             if not record:
-                return (
+                return ToolResult("not_found", (
                     f"Device '{device}' not found in run {run_id}. "
                     "Use query_topology to list available devices."
-                )
+                ))
         device = record["name"]
 
     device_insights = [i for i in _blast_radius(run_id) if i.get("device") == device]
@@ -64,7 +66,17 @@ async def blast_radius(
         )
         all_links = [dict(r) for r in result]
 
-    return _analyze_full_failure(device, all_links, device_insights)
+    risk = device_insights[0].get("risk_score", 0) if device_insights else 0
+    risk_level = "HIGH" if risk > 50 else "MODERATE" if risk > 20 else "LOW"
+    highlight = {"device": device}
+    if member is not None:
+        highlight["failedMember"] = member
+    return ToolResult(
+        "ok",
+        _analyze_full_failure(device, all_links, device_insights),
+        verdict={"risk_level": risk_level, "score": risk},
+        highlight=highlight,
+    )
 
 
 def _analyze_full_failure(

@@ -24,6 +24,8 @@ from datetime import datetime
 
 from netcopilot.diff.engine import available_runs, compute_diff, load_run, previous_run
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 #: Cap the itemised list per tier so a large drift never blows the result size;
@@ -103,7 +105,7 @@ async def diff_runs(
     run_b: str | None = None,
     runs_back: int | None = None,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Diff two runs of a site. ``run_b`` = newer ("after"), ``run_a`` = older
     ("before"). Both default sensibly: ``run_b`` to the current loaded run,
     ``run_a`` to the previous same-site run of ``run_b``. ``runs_back=N`` resolves
@@ -119,16 +121,16 @@ async def diff_runs(
 
     after = run_b or context.get("run_id") or None
     if not after:
-        return (
+        return ToolResult("error", (
             "diff_runs: no run to compare. Pass run_b (the newer run) or load a "
             "current run first."
-        )
+        ))
 
     # Resolve/validate the newer run; if it's a bad reference, list what exists.
     try:
         after_data = load_run(after, runs_dir)
     except FileNotFoundError:
-        return _runs_hint(runs_dir, None, after)
+        return ToolResult("not_found", _runs_hint(runs_dir, None, after))
     site = after_data.site
 
     # Resolve the older run.
@@ -136,7 +138,7 @@ async def diff_runs(
         try:
             before_data = load_run(run_a, runs_dir)
         except FileNotFoundError:
-            return _runs_hint(runs_dir, site, run_a)
+            return ToolResult("not_found", _runs_hint(runs_dir, site, run_a))
     elif runs_back and runs_back >= 1:
         # "N runs ago" → the Nth same-site run chronologically before `after`.
         # Timestamp run_ids sort chronologically; non-timestamp ids (e.g. a demo
@@ -144,10 +146,10 @@ async def diff_runs(
         preds = sorted(r for r in available_runs(runs_dir, site) if r < after)
         if runs_back > len(preds):
             listed = "\n".join(f"  • {r}  ({_human_ts(r)})" for r in preds) or "  (none)"
-            return (
+            return ToolResult("not_found", (
                 f"diff_runs: only {len(preds)} run(s) precede '{after}' for site "
                 f"'{site}' — cannot go {runs_back} back. Earlier runs:\n{listed}"
-            )
+            ))
         before_data = load_run(preds[-runs_back], runs_dir)
     else:
         before = previous_run(after, runs_dir)
@@ -158,13 +160,13 @@ async def diff_runs(
             if others:
                 listed = "\n".join(f"  • {r}  ({_human_ts(r)})" for r in others)
                 msg += f" Other available runs:\n{listed}"
-            return msg
+            return ToolResult("no_data", msg)
         before_data = load_run(before, runs_dir)
 
     try:
         result = compute_diff(before_data, after_data)
     except ValueError as exc:  # cross-site, duplicate key, malformed run
-        return f"diff_runs: {exc}"
+        return ToolResult("error", f"diff_runs: {exc}")
 
     rendered = _render(result)
     # Always surface the rest of the run inventory so the model can resolve a
@@ -178,4 +180,9 @@ async def diff_runs(
             f"\n\nOther runs on record for site '{site}' — to compare a different "
             f"pair, pass run_a (older) and/or run_b (newer):\n{listed}"
         )
-    return rendered
+    s = result.to_dict()["summary"]
+    return ToolResult(
+        "ok",
+        rendered,
+        verdict={"drift": (s["added"] + s["removed"] + s["changed"]) > 0, **s},
+    )

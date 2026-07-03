@@ -10,6 +10,8 @@ import logging
 from netcopilot.analysis.correlation_engine import compute_insights
 from netcopilot.graph.client import get_driver, is_available
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -18,14 +20,14 @@ async def get_systemic_patterns(
     insight_type: str | None = None,
     device: str | None = None,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Get systemic security patterns across the network."""
     run_id = context.get("run_id", "")
 
     # Resolve device name if provided
     if device:
         if not is_available():
-            return "Neo4j unavailable."
+            return ToolResult("error", "Neo4j unavailable.")
         import re
         filt = device.lower()
         if '-' not in filt:
@@ -42,17 +44,17 @@ async def get_systemic_patterns(
             if rec:
                 device = rec["name"]
             else:
-                return f"Device '{device}' not found."
+                return ToolResult("not_found", f"Device '{device}' not found.")
 
     # Get all insights from correlation engine
     try:
         all_insights = compute_insights(run_id)
     except Exception as exc:
         log.warning("Correlation engine failed: %s", exc)
-        return f"Correlation engine error: {exc}"
+        return ToolResult("error", f"Correlation engine error: {exc}")
 
     if not all_insights:
-        return "No correlation insights available for this run."
+        return ToolResult("no_data", "No correlation insights available for this run.")
 
     # Filter out blast_radius (has its own tool)
     insights = [i for i in all_insights if i.get("type") != "blast_radius"]
@@ -67,10 +69,10 @@ async def get_systemic_patterns(
 
     if insight_type:
         if insight_type not in valid_types:
-            return (
+            return ToolResult("error", (
                 f"Unknown insight type '{insight_type}'. "
                 f"Valid types: {', '.join(sorted(valid_types))}"
-            )
+            ))
         engine_type = _TYPE_MAP[insight_type]
         insights = [i for i in insights if i.get("type") == engine_type]
 
@@ -86,7 +88,7 @@ async def get_systemic_patterns(
             msg += f" for type '{insight_type}'"
         if device:
             msg += f" for device '{device}'"
-        return msg + "."
+        return ToolResult("no_data", msg + ".")
 
     # Group by type
     by_type: dict[str, list] = {}
@@ -127,4 +129,4 @@ async def get_systemic_patterns(
             lines.append(f"  ... and {len(items) - 15} more")
         lines.append("")
 
-    return "\n".join(lines)
+    return ToolResult("ok", "\n".join(lines))

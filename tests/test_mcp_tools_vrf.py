@@ -72,7 +72,7 @@ def test_ospf_area_grouped_by_vrf_not_merged(monkeypatch):
     monkeypatch.setattr(ospf_tool, "get_driver", lambda: driver)
 
     out = asyncio.run(ospf_tool.get_ospf_detail(
-        area="0", context={"run_id": "r1", "data_dir": ""}))
+        area="0", context={"run_id": "r1", "data_dir": ""})).text
 
     assert "VRF RED:" in out
     assert "VRF BLUE:" in out
@@ -95,7 +95,7 @@ def test_ospf_area_single_vrf_no_group_header(monkeypatch):
     monkeypatch.setattr(ospf_tool, "get_driver", lambda: driver)
 
     out = asyncio.run(ospf_tool.get_ospf_detail(
-        area="0", context={"run_id": "r1", "data_dir": ""}))
+        area="0", context={"run_id": "r1", "data_dir": ""})).text
 
     assert "Devices in area 0 (2)" in out
     assert "VRF default:" not in out
@@ -128,7 +128,7 @@ def test_device_detail_ospf_row_shows_nondefault_vrf(monkeypatch):
 
     out = asyncio.run(device_tool.get_device_detail(
         device="acc-sw-03", sections=["ospf"],
-        context={"run_id": "r1", "data_dir": None}))
+        context={"run_id": "r1", "data_dir": None})).text
 
     # Non-default VRF labelled on its row.
     assert "VRF:RED" in out

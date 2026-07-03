@@ -9,6 +9,8 @@ import logging
 
 from netcopilot.graph.client import get_driver, is_available
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -16,12 +18,12 @@ async def get_redundancy_assessment(
     *,
     device: str | None = None,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Assess network redundancy — identify real single points of failure."""
     run_id = context.get("run_id", "")
 
     if not is_available():
-        return "Neo4j unavailable."
+        return ToolResult("error", "Neo4j unavailable.")
 
     driver = get_driver()
 
@@ -42,7 +44,7 @@ async def get_redundancy_assessment(
             if rec:
                 device = rec["name"]
             else:
-                return f"Device '{device}' not found."
+                return ToolResult("not_found", f"Device '{device}' not found.")
 
     # ── Gather all device data from Neo4j ──────────────────────────
     with driver.session() as session:
@@ -213,11 +215,26 @@ async def get_redundancy_assessment(
     if device:
         a = next((a for a in assessments if a["name"] == device), None)
         if not a:
-            return f"No assessment for '{device}'."
-        return _format_device_assessment(a, devices, neighbors)
+            return ToolResult("not_found", f"No assessment for '{device}'.")
+        return ToolResult(
+            "ok",
+            _format_device_assessment(a, devices, neighbors),
+            verdict={"status": a["status"], "risk": a["risk"]},
+        )
 
     # ── Network-wide assessment ────────────────────────────────────
-    return _format_network_assessment(assessments)
+    verdict = {
+        "devices": len(assessments),
+        "ha_protected": sum(1 for a in assessments if a["has_ha"]),
+        "spof_no_ha": sum(
+            1 for a in assessments
+            if a["isolated_on_failure"] and not a["has_ha"]
+            and a["status"] != "unreachable"
+        ),
+        "single_uplink": sum(1 for a in assessments if a["status"] == "single_uplink"),
+        "unreachable": sum(1 for a in assessments if a["status"] == "unreachable"),
+    }
+    return ToolResult("ok", _format_network_assessment(assessments), verdict=verdict)
 
 
 def _is_upstream(device_role: str, neighbor_role: str) -> bool:

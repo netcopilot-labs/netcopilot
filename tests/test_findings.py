@@ -28,5 +28,5 @@ def test_get_findings_registered():
 
 def test_get_findings_graceful_without_neo4j(monkeypatch):
     monkeypatch.setattr(findings_tool, "load_findings_enriched", lambda run_id: None)
-    out = asyncio.run(findings_tool.get_findings(context={"run_id": "x"}))
+    out = asyncio.run(findings_tool.get_findings(context={"run_id": "x"})).text
     assert "No findings data" in out

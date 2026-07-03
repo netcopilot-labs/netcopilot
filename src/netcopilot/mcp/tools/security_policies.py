@@ -14,6 +14,8 @@ import logging
 
 from netcopilot.graph.client import get_driver, is_available
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -23,7 +25,7 @@ async def get_security_policies(
     kind: str = "all",
     name: str | None = None,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Get ACLs, route-policies, and prefix-sets for a Cisco device.
 
     Args:
@@ -40,10 +42,10 @@ async def get_security_policies(
     """
     run_id = context.get("run_id", "")
     if not run_id:
-        return "Error: run_id missing from context."
+        return ToolResult("error", "Error: run_id missing from context.")
 
     if not is_available():
-        return "Neo4j is unavailable. Cannot resolve device."
+        return ToolResult("error", "Neo4j is unavailable. Cannot resolve device.")
 
     # ── Device resolution (fuzzy match against Neo4j) ────────────────────
     driver = get_driver()
@@ -60,7 +62,7 @@ async def get_security_policies(
             run_id=run_id, filt=filt,
         ).single()
     if not rec:
-        return f"Device '{device}' not found. Use query_topology to list devices."
+        return ToolResult("not_found", f"Device '{device}' not found. Use query_topology to list devices.")
     resolved = rec["name"]
     os_type = rec["os"] or ""
     role = rec["role"] or ""
@@ -98,7 +100,7 @@ async def get_security_policies(
     if show_ps:
         lines.extend(_render_prefix_sets(prefix_lists))
 
-    return "\n".join(lines).rstrip()
+    return ToolResult("ok", "\n".join(lines).rstrip())
 
 
 # ── Neo4j query helpers ───────────────────────────────────────────────────

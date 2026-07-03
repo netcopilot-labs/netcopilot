@@ -11,6 +11,8 @@ import logging
 from netcopilot.findings import device_from_finding, load_findings_enriched
 from netcopilot.graph.client import get_driver, is_available
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -18,12 +20,12 @@ async def get_site_summary(
     *,
     building: str | None = None,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Return an operational summary for a building or all buildings."""
     run_id = context.get("run_id", "")
 
     if not is_available():
-        return "Neo4j is unavailable. Site summary requires the topology graph."
+        return ToolResult("error", "Neo4j is unavailable. Site summary requires the topology graph.")
 
     driver = get_driver()
 
@@ -56,11 +58,11 @@ async def get_site_summary(
 
     if not devices:
         if building:
-            return (
+            return ToolResult("not_found", (
                 f"No devices found in building '{building}'. "
                 "Use query_topology to list available buildings."
-            )
-        return f"No devices found in run {run_id}."
+            ))
+        return ToolResult("no_data", f"No devices found in run {run_id}.")
 
     # Group by building
     by_building: dict[str, list[dict]] = {}
@@ -233,7 +235,7 @@ async def get_site_summary(
         lines.append(f"Network summary: {total_buildings} buildings, {total_devices} devices, "
                       f"{total_findings} findings ({total_critical} critical)")
 
-    return "\n".join(lines)
+    return ToolResult("ok", "\n".join(lines))
 
 
 def _load_finding_counts(context: dict) -> dict[str, dict]:

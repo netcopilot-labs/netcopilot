@@ -9,6 +9,8 @@ import logging
 
 from netcopilot.graph.client import get_driver, is_available
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -33,12 +35,12 @@ async def get_traffic_shapers(
     policy_name: str | None = None,
     min_rate: int | None = None,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Query QoS traffic shaping and policing policies from Interface nodes."""
     run_id = context.get("run_id", "")
 
     if not is_available():
-        return "Neo4j is unavailable. QoS queries require the graph database."
+        return ToolResult("error", "Neo4j is unavailable. QoS queries require the graph database.")
 
     driver = get_driver()
 
@@ -95,7 +97,7 @@ async def get_traffic_shapers(
         if min_rate is not None:
             filters.append(f"min_rate={min_rate} Mbps")
         hint = f" for {', '.join(filters)}" if filters else ""
-        return f"No QoS policies found{hint} in run {run_id}."
+        return ToolResult("no_data", f"No QoS policies found{hint} in run {run_id}.")
 
     # Group by device
     devices: dict[str, list[dict]] = {}
@@ -104,9 +106,9 @@ async def get_traffic_shapers(
 
     # Summary mode: no device filter, >2 devices
     if not device and len(devices) > 2:
-        return _format_summary(records, devices)
+        return ToolResult("ok", _format_summary(records, devices))
 
-    return _format_detail(records, devices)
+    return ToolResult("ok", _format_detail(records, devices))
 
 
 def _format_summary(records: list[dict], devices: dict[str, list[dict]]) -> str:

@@ -9,6 +9,8 @@ import logging
 
 from netcopilot.graph.client import get_driver, is_available
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 
@@ -18,12 +20,12 @@ async def get_routing_table(
     vrf: str | None = None,
     protocol: str | None = None,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Get routing table for a device, optionally filtered by VRF and protocol."""
     run_id = context.get("run_id", "")
 
     if not is_available():
-        return "Neo4j is unavailable. Cannot query routing table."
+        return ToolResult("error", "Neo4j is unavailable. Cannot query routing table.")
 
     driver = get_driver()
 
@@ -39,7 +41,7 @@ async def get_routing_table(
         if rec:
             device = rec["name"]
         else:
-            return f"Device '{device}' not found. Use query_topology to list devices."
+            return ToolResult("not_found", f"Device '{device}' not found. Use query_topology to list devices.")
 
     # Query Route nodes from Neo4j
     with driver.session() as session:
@@ -54,7 +56,7 @@ async def get_routing_table(
         routes = [dict(r) for r in result]
 
     if not routes:
-        return f"No routing data found for device '{device}'."
+        return ToolResult("no_data", f"No routing data found for device '{device}'.")
 
     # Build IP → device name lookup for next-hop resolution
     with driver.session() as session:
@@ -81,14 +83,14 @@ async def get_routing_table(
     if vrf:
         routes = [r for r in routes if (r.get("vrf") or "").lower() == vrf.lower()]
         if not routes:
-            return f"No routes in VRF '{vrf}' on device '{device}'."
+            return ToolResult("no_data", f"No routes in VRF '{vrf}' on device '{device}'.")
 
     # Filter by protocol
     if protocol:
         proto_lower = protocol.lower()
         routes = [r for r in routes if proto_lower in (r.get("protocol") or "").lower()]
         if not routes:
-            return f"No {protocol} routes on device '{device}'" + (f" in VRF '{vrf}'" if vrf else "") + "."
+            return ToolResult("no_data", f"No {protocol} routes on device '{device}'" + (f" in VRF '{vrf}'" if vrf else "") + ".")
 
     # Get unique VRFs
     vrfs = sorted(set(r.get("vrf") or "default" for r in routes))
@@ -127,4 +129,4 @@ async def get_routing_table(
                 lines.append(f"    ... and {len(p_routes) - 20} more")
         lines.append("")
 
-    return "\n".join(lines)
+    return ToolResult("ok", "\n".join(lines))

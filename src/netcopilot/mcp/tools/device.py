@@ -11,6 +11,8 @@ from pathlib import Path
 from netcopilot.findings import SEVERITY_ORDER, device_from_finding, load_findings_enriched
 from netcopilot.graph.client import get_driver, is_available
 
+from netcopilot.mcp.result import ToolResult
+
 log = logging.getLogger(__name__)
 
 VALID_SECTIONS = {"interfaces", "routing", "bgp", "ospf", "findings", "security"}
@@ -21,13 +23,13 @@ async def get_device_detail(
     device: str,
     sections: list[str] | None = None,
     context: dict,
-) -> str:
+) -> ToolResult:
     """Get full state for one device: interfaces, routing, BGP/OSPF, findings."""
     run_id = context.get("run_id", "")
     data_dir = context.get("data_dir")
 
     if not is_available():
-        return "Neo4j is unavailable. Device detail requires the topology graph."
+        return ToolResult("error", "Neo4j is unavailable. Device detail requires the topology graph.")
 
     driver = get_driver()
 
@@ -84,11 +86,11 @@ async def get_device_detail(
                     lines.append("")
                     lines.append(f"Use trace_path(service=\"{device}\") to trace the traffic path.")
                     lines.append(f"Use get_device_detail(device=\"{devices_found[0]}\") for device details.")
-                    return "\n".join(lines)
-                return (
+                    return ToolResult("ok", "\n".join(lines))
+                return ToolResult("not_found", (
                     f"'{device}' not found as a device or service in run {run_id}. "
                     "Use query_topology to list available devices."
-                )
+                ))
 
     dev_data = dict(record)
     device = dev_data["name"]  # Use canonical name
@@ -286,4 +288,4 @@ async def get_device_detail(
             except (json.JSONDecodeError, OSError):
                 lines.extend(["", "Security: data unavailable"])
 
-    return "\n".join(lines)
+    return ToolResult("ok", "\n".join(lines), highlight={"device": device})

@@ -10,7 +10,7 @@ renders as it sees fit:
 
     {"type": "tool_status", "data": "Querying get_findings..."}
     {"type": "tool_call",   "data": {"name": "get_findings", "arguments": {...}}}
-    {"type": "tool_result", "data": {"name": "get_findings", "content": "..."}}
+    {"type": "tool_result", "data": {"name": "get_findings", "content": "...", "status": "ok"}}
     {"type": "content",     "data": "There are 5 devices..."}
     {"type": "highlight",   "data": {"device": "core-rtr-01"}}
     {"type": "usage",       "data": {"model": ..., "input_tokens": ..., ...}}
@@ -28,22 +28,18 @@ arguments before dispatch and anonymizes tool results before feeding them back.
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from collections.abc import AsyncGenerator
 
 from .llm import LLMProvider, get_provider
-from .mcp.registry import MAX_RESULT_CHARS, TOOL_SCHEMAS, dispatch
+from .mcp.registry import MAX_RESULT_CHARS, TOOL_SCHEMAS, ToolResult, dispatch
 from .prompts import load_system_prompt
 
 log = logging.getLogger(__name__)
 
 # The full tool-routing contract, shipped as package data. Loaded once (cached).
 SYSTEM_PROMPT = load_system_prompt()
-
-# Tools whose results drive topology-map highlighting in graphical clients.
-_HIGHLIGHT_TOOLS = {"blast_radius", "trace_path", "get_device_detail"}
 
 # ── Deterministic LaTeX → Unicode output normalizer ──────────────────────────
 # Some models intermittently emit LaTeX math ($\rightarrow$, $\le 1$) despite a
@@ -82,98 +78,11 @@ def sanitize_math(text: str) -> str:
     return text
 
 
-# A tool can emit a trailing `__highlight__:<json>` marker to trigger a client-
-# side effect (e.g. switching a panel to report view). The loop strips the
-# marker from the visible result — the model never sees it — and emits it as a
-# highlight event.
-_INLINE_HIGHLIGHT_RE = re.compile(r"\n*__highlight__:(\{.*?\})\s*$", re.DOTALL)
-
-
-def _strip_inline_highlight(tool_result: str) -> tuple[str, dict | None]:
-    """Strip a trailing ``__highlight__:<json>`` marker from a tool result.
-
-    Returns (cleaned_result, parsed_highlight_or_none). If the marker is absent
-    or malformed, returns (tool_result, None) unchanged.
-    """
-    match = _INLINE_HIGHLIGHT_RE.search(tool_result)
-    if not match:
-        return tool_result, None
-    try:
-        payload = json.loads(match.group(1))
-    except json.JSONDecodeError:
-        return tool_result, None
-    return tool_result[: match.start()].rstrip(), payload
-
-
-def extract_highlight(tool_name: str, tool_args: dict, tool_result: str) -> dict | None:
-    """Extract topology-highlight data from a spatial tool's result.
-
-    Returns a dict with the device name (and optional ``failedMember`` for
-    cluster analysis), or a ``devices`` list for path tracing. Only fires for
-    tools in ``_HIGHLIGHT_TOOLS``.
-    """
-    if tool_name not in _HIGHLIGHT_TOOLS:
-        return None
-
-    device = tool_args.get("device") or tool_args.get("source_device") or ""
-
-    # Resolve shorthand device names from the tool result (canonical name).
-    if device and tool_name == "get_device_detail" and "Device: " in tool_result:
-        for line in tool_result.split("\n"):
-            if line.startswith("Device: "):
-                device = line.split("Device: ", 1)[1].strip()
-                break
-
-    if device and tool_name == "blast_radius" and "Blast radius" in tool_result:
-        for line in tool_result.split("\n"):
-            if "Blast radius" in line and "—" in line:
-                device = line.split("—", 1)[1].strip().split(" ")[0]
-                break
-
-    if tool_name == "trace_path":
-        # Extract ALL hop devices for path highlighting, e.g. a result line like
-        #   "Hop 1: core-rtr-01 [default] (distribution_switch)"
-        path_devices = []
-        for line in tool_result.split("\n"):
-            if line.strip().startswith("Hop "):
-                parts = line.split(": ", 1)
-                if len(parts) > 1:
-                    hop_device = parts[1].split(" ")[0].strip()
-                    if hop_device and hop_device not in path_devices:
-                        path_devices.append(hop_device)
-        if path_devices:
-            return {"devices": path_devices}
-        # Fallback: extract from a "Path:" line.
-        for line in tool_result.split("\n"):
-            if line.startswith("Path:"):
-                parts = line.split("Path: ", 1)
-                if len(parts) > 1:
-                    device = parts[1].split(" ")[0].strip()
-                    break
-
-    if not device:
-        return None
-
-    result = {"device": device}
-    if tool_name == "blast_radius" and tool_args.get("member") is not None:
-        result["failedMember"] = tool_args["member"]
-    return result
-
-
 def _truncate(text: str, max_chars: int) -> str:
     """Truncate a tool result that exceeds the per-client char limit."""
     if len(text) <= max_chars:
         return text
     return text[:max_chars] + f"\n\n[Truncated at {max_chars} chars. Use filters to narrow.]"
-
-
-#: Onboarding tools return a ready-to-display answer (product blurb / dashboard
-#: tour / capability menu) — the tool output *is* the answer. The system prompt
-#: asks the model to quote it verbatim, which small local models (e.g. Gemma)
-#: don't do reliably (they drop the block and emit ~nothing). So when one of
-#: these is called, emit its result directly as the answer and finalize, instead
-#: of a second LLM turn. Mirrors the source repo's VERBATIM_TOOLS handling.
-_VERBATIM_ONBOARDING_TOOLS = {"about_netcopilot", "dashboard_guide", "list_capabilities"}
 
 
 async def run_tool_loop(
@@ -226,26 +135,32 @@ async def run_tool_loop(
                 yield {"type": "tool_call", "data": {"name": tc.name, "arguments": args}}
 
                 try:
-                    tool_result = await dispatch(tc.name, args, context)
+                    result = await dispatch(tc.name, args, context)
                 except Exception as exc:
-                    tool_result = f"Tool error: {exc}"
+                    result = ToolResult("error", f"Tool error: {exc}")
 
-                tool_result, inline_highlight = _strip_inline_highlight(tool_result)
-                tool_result = _truncate(tool_result, max_result_chars)
-                highlight = extract_highlight(tc.name, args, tool_result)
+                tool_text = _truncate(result.text, max_result_chars)
 
                 # The model sees the anonymized result; the local client sees real data.
-                stored = anonymizer.anonymize(tool_result) if anonymizer else tool_result
+                stored = anonymizer.anonymize(tool_text) if anonymizer else tool_text
                 history.append({"role": "tool", "tool_call_id": tc.id, "content": stored})
 
-                yield {"type": "tool_result", "data": {"name": tc.name, "content": tool_result}}
-                if inline_highlight:
-                    yield {"type": "highlight", "data": inline_highlight}
-                if highlight:
-                    yield {"type": "highlight", "data": highlight}
+                yield {
+                    "type": "tool_result",
+                    "data": {"name": tc.name, "content": tool_text,
+                             "status": result.status},
+                }
+                # Structured client side-effects (topology highlight, report
+                # panel) come from the envelope — no prose scraping, no markers.
+                if result.highlight:
+                    yield {"type": "highlight", "data": result.highlight}
 
-                if tc.name in _VERBATIM_ONBOARDING_TOOLS and verbatim_answer is None:
-                    verbatim_answer = tool_result
+                # A verbatim tool's output *is* the answer (product blurb /
+                # dashboard tour / capability menu): emit it directly and
+                # finalize instead of a second LLM turn — small local models
+                # drop the block when asked to re-quote it.
+                if result.verbatim and verbatim_answer is None:
+                    verbatim_answer = tool_text
 
             if verbatim_answer is not None:
                 # The onboarding tool output is itself the answer — emit it directly
