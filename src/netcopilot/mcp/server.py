@@ -19,6 +19,7 @@ import os
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 from fastmcp.tools.tool import Tool as FastMCPTool, ToolResult as MCPToolResult
 
 from netcopilot.context import build_context
@@ -37,14 +38,28 @@ mcp = FastMCP(
 
 
 class RegistryTool(FastMCPTool):
-    """A FastMCP tool backed by the registry: schema verbatim, calls ``dispatch``."""
+    """A FastMCP tool backed by the registry: schema verbatim, calls ``dispatch``.
+
+    Wire shape (ADR-0005): text content is ``envelope.text`` verbatim (what an
+    LLM client reads — identical to the internal model-facing text);
+    ``structuredContent`` carries the machine-readable ``status`` (+ ``verdict``
+    when the tool computed one); ``status="error"`` maps to MCP-native
+    ``isError`` via ``ToolError``. ``not_found``/``no_data``/``ambiguous`` are
+    valid answers, not errors. ``highlight``/``verbatim`` are intra-app
+    presentation hints and do not travel.
+    """
 
     async def run(self, arguments: dict[str, Any]) -> MCPToolResult:
         # `context` is reserved for the server-built run context — a client
         # arg by that name would collide with dispatch's keyword.
         args = {k: v for k, v in arguments.items() if k != "context"}
         envelope = await dispatch(self.name, args, build_context(site=args.get("site")))
-        return MCPToolResult(content=envelope.text)
+        if envelope.status == "error":
+            raise ToolError(envelope.text)
+        structured: dict[str, Any] = {"status": envelope.status}
+        if envelope.verdict is not None:
+            structured["verdict"] = envelope.verdict
+        return MCPToolResult(content=envelope.text, structured_content=structured)
 
 
 def _register_tools() -> None:
