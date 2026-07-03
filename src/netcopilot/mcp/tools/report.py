@@ -32,7 +32,6 @@ Report mode and open the EmailRecipientPopover.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from typing import Any
@@ -147,17 +146,9 @@ async def generate_report(
         "run_id": run_id,
     }
 
-    # The orchestrator looks for `__highlight__:<json>` markers in the tool
-    # result and emits them as `highlight` SSE events (see
-    # netcopilot/orchestrator.py, _strip_inline_highlight).
-    # We append the marker to the end of the result string.
-    # The inline marker stays until the orchestrator reads envelope.highlight
-    # (removed together with the strip logic in s03-4).
-    return ToolResult(
-        "ok",
-        summary + f"\n\n__highlight__:{json.dumps(highlight_payload)}",
-        highlight=highlight_payload,
-    )
+    # The orchestrator emits envelope.highlight as a `highlight` SSE event —
+    # the payload rides the typed field, not an inline text marker.
+    return ToolResult("ok", summary, highlight=highlight_payload)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

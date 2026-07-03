@@ -46,7 +46,7 @@ def test_stream_emits_full_event_sequence(monkeypatch):
         "tool_status", "tool_call", "tool_result", "content", "usage", "done",
     ]
     tr = next(e for e in events if e["type"] == "tool_result")
-    assert tr["data"] == {"name": "query_topology", "content": "5 devices"}
+    assert tr["data"] == {"name": "query_topology", "content": "5 devices", "status": "ok"}
     assert next(e for e in events if e["type"] == "content")["data"] == "There are 5 devices."
 
 
@@ -107,7 +107,7 @@ def test_verbatim_onboarding_tool_emits_result_directly(monkeypatch):
     # list_capabilities returns a ready-to-display menu; the loop must emit it as
     # the answer WITHOUT a second LLM turn (small local models drop it otherwise).
     async def fake_dispatch(name, args, context):
-        return ToolResult("ok", "CAPABILITY MENU\n- explore\n- audit")
+        return ToolResult("ok", "CAPABILITY MENU\n- explore\n- audit", verbatim=True)
 
     monkeypatch.setattr(orchestrator, "dispatch", fake_dispatch)
     # Only ONE scripted turn: a second provider call would IndexError on the empty
@@ -134,3 +134,50 @@ def test_provider_error_yields_error_event(monkeypatch):
 
     events = _collect([{"role": "user", "content": "q"}], Boom())
     assert events[-1]["type"] == "error" and "AI service unavailable" in events[-1]["data"]
+
+
+def test_highlight_event_passes_envelope_payload_verbatim(monkeypatch):
+    # The frontend contract: highlight payload keys arrive exactly as the tool
+    # emitted them — no prose scraping in between.
+    payload = {"device": "core-rtr-01", "failedMember": 0}
+
+    async def fake_dispatch(name, args, context):
+        return ToolResult("ok", "Blast radius — core-rtr-01", highlight=payload)
+
+    monkeypatch.setattr(orchestrator, "dispatch", fake_dispatch)
+    provider = StubProvider([
+        LLMResult(text=None, tool_calls=[ToolCall("1", "blast_radius", {})]),
+        LLMResult(text="done", tool_calls=[]),
+    ])
+    events = _collect([{"role": "user", "content": "impact?"}], provider)
+    hl = [e for e in events if e["type"] == "highlight"]
+    assert len(hl) == 1 and hl[0]["data"] == payload
+
+
+def test_no_highlight_event_without_field(monkeypatch):
+    async def fake_dispatch(name, args, context):
+        return ToolResult("ok", "plain data")
+
+    monkeypatch.setattr(orchestrator, "dispatch", fake_dispatch)
+    provider = StubProvider([
+        LLMResult(text=None, tool_calls=[ToolCall("1", "get_findings", {})]),
+        LLMResult(text="done", tool_calls=[]),
+    ])
+    events = _collect([{"role": "user", "content": "q"}], provider)
+    assert not [e for e in events if e["type"] == "highlight"]
+
+
+def test_error_status_surfaces_in_tool_result_event(monkeypatch):
+    async def fake_dispatch(name, args, context):
+        return ToolResult("error", "Tool 'x' failed: boom")
+
+    monkeypatch.setattr(orchestrator, "dispatch", fake_dispatch)
+    provider = StubProvider([
+        LLMResult(text=None, tool_calls=[ToolCall("1", "get_findings", {})]),
+        LLMResult(text="sorry", tool_calls=[]),
+    ])
+    events = _collect([{"role": "user", "content": "q"}], provider)
+    tr = next(e for e in events if e["type"] == "tool_result")
+    assert tr["data"]["status"] == "error"
+    # the model still sees the failure text verbatim in history
+    assert "failed: boom" in tr["data"]["content"]
