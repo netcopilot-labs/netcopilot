@@ -35,6 +35,7 @@ from .tools import (
     site_summary,
     topology,
     traffic_shapers,
+    validate,
 )
 
 log = logging.getLogger(__name__)
@@ -500,6 +501,41 @@ TOOL_SCHEMAS: list[dict] = [
             "required": [],
         },
     },
+    {
+        "name": "validate_change",
+        "description": (
+            "Deterministic pass/warn/fail verdict on a network change: compares the "
+            "pre-change and post-change runs and judges the drift — FAIL on new "
+            "critical/high findings or on changes outside the declared scope, WARN "
+            "on minor new findings or unscoped/unattributable drift, PASS when only "
+            "the intended devices changed. Use after a change: 'did my change work?', "
+            "'validate the change on X', 'did anything unexpected change?'. For the "
+            "raw change list use diff_runs instead."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "run_before": {
+                    "type": "string",
+                    "description": "Pre-change run. Omit to default to the previous same-site run of run_after.",
+                },
+                "run_after": {
+                    "type": "string",
+                    "description": "Post-change run. Omit to default to the current loaded run.",
+                },
+                "scope_devices": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Devices that were SUPPOSED to change (the declared intent). "
+                        "Drift touching only other devices fails the verdict. Omit for "
+                        "a threshold-only verdict (no intent check)."
+                    ),
+                },
+            },
+            "required": [],
+        },
+    },
 ]
 
 _HANDLERS = {
@@ -525,6 +561,7 @@ _HANDLERS = {
     "get_routing_table": routing.get_routing_table,
     "get_ospf_detail": ospf.get_ospf_detail,
     "diff_runs": run_diff.diff_runs,
+    "validate_change": validate.validate_change,
     "about_netcopilot": onboarding.about_netcopilot,
     "dashboard_guide": onboarding.dashboard_guide,
     "list_capabilities": onboarding.list_capabilities,

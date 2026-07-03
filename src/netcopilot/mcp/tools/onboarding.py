@@ -55,6 +55,7 @@ _TOOL_CATEGORIES: dict[str, str] = {
     "analyze_findings":          _CAT_TROUBLESHOOT,
     "get_systemic_patterns":     _CAT_TROUBLESHOOT,
     "diff_runs":                 _CAT_TROUBLESHOOT,
+    "validate_change":           _CAT_TROUBLESHOOT,
     # 🛣 TRACE TRAFFIC AND IMPACT
     "trace_path":                _CAT_TRACE,
     "blast_radius":              _CAT_TRACE,
