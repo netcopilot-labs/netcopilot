@@ -6,26 +6,17 @@ from a run's Neo4j identifiers before any content reaches a cloud provider.
 from __future__ import annotations
 
 import logging
-import os
 
 from netcopilot.anonymizer import SessionAnonymizer
-from netcopilot.graph.client import get_driver, get_site_for_run, is_available
+from netcopilot.context import build_context
+from netcopilot.graph.client import get_driver, is_available
 
 log = logging.getLogger(__name__)
-
-RUNS_DIR = os.environ.get("RUNS_DIR", "runs")
 
 
 def build_tool_context(run_id: str) -> dict:
     """Build the MCP tool context (run_id, site, data_dir) for a run."""
-    site = get_site_for_run(run_id) if is_available() else None
-    if not site and "_" in run_id:
-        site = run_id.split("_")[0]
-    return {
-        "run_id": run_id,
-        "site": site or "unknown",
-        "data_dir": f"{RUNS_DIR}/{run_id}",
-    }
+    return build_context(run_id=run_id)
 
 
 def seed_anonymizer(anon: SessionAnonymizer, run_id: str) -> None:

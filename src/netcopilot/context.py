@@ -1,9 +1,12 @@
-"""Resolve the run context (run_id + site) that a tool call needs.
+"""Resolve the run context (run_id + site + data_dir) that a tool call needs.
 
-Shared by the MCP server and the CLI/orchestrator so run resolution lives in one place.
+Shared by the MCP server, the CLI/orchestrator, and the chat clients (via
+``agent_runtime.build_tool_context``) so run resolution lives in one place.
 """
 
 from __future__ import annotations
+
+import os
 
 from .graph.client import get_driver, get_site_for_run, is_available
 
@@ -27,14 +30,24 @@ def resolve_run_id(site: str | None = None) -> str | None:
 
 
 def build_context(site: str | None = None, run_id: str | None = None) -> dict:
-    """Build the {run_id, site} context a tool needs, resolving the latest run if unset."""
+    """Build the {run_id, site, data_dir} context a tool needs, resolving the latest run if unset.
+
+    ``data_dir`` points at the run's collected files (``$RUNS_DIR/<run_id>``) —
+    the file-reading tools (trace_path, get_ospf_detail, ...) silently degrade
+    to no_data without it, so every context built here must carry it.
+    """
     if not run_id:
         run_id = resolve_run_id(site)
     if not run_id:
-        return {"run_id": "", "site": site or "unknown"}
+        return {"run_id": "", "site": site or "unknown", "data_dir": ""}
     resolved = site
     if not resolved:
         resolved = (get_site_for_run(run_id) if is_available() else None) or (
             run_id.split("_")[0] if "_" in run_id else None
         )
-    return {"run_id": run_id, "site": resolved or "unknown"}
+    runs_dir = os.environ.get("RUNS_DIR", "runs")
+    return {
+        "run_id": run_id,
+        "site": resolved or "unknown",
+        "data_dir": f"{runs_dir}/{run_id}",
+    }
