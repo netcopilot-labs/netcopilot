@@ -11,6 +11,55 @@ const TIER_META = {
   changed: { label: 'Changed', color: '#D97706', bg: '#FFFBEB', sign: '~' },
 }
 
+// S05-4: automatic change-validation verdict (threshold-only — no declared
+// scope in the UI; scoped validation is the CLI/MCP flow).
+const VERDICT_META = {
+  pass: { label: 'PASS', icon: '✅', color: '#065F46', bg: '#ECFDF5', border: '#A7F3D0' },
+  warn: { label: 'WARN', icon: '⚠️', color: '#92400E', bg: '#FFFBEB', border: '#FDE68A' },
+  fail: { label: 'FAIL', icon: '❌', color: '#991B1B', bg: '#FEF2F2', border: '#FECACA' },
+}
+
+function VerdictBanner({ verdict }) {
+  const [expanded, setExpanded] = useState(false)
+  if (!verdict || !VERDICT_META[verdict.result]) return null
+  const meta = VERDICT_META[verdict.result]
+  const reasons = verdict.reasons || []
+  const shown = expanded ? reasons : reasons.slice(0, 3)
+  return (
+    <div
+      className="px-3 py-2 border-b shrink-0"
+      style={{ background: meta.bg, borderColor: meta.border }}
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-sm">{meta.icon}</span>
+        <span className="text-sm font-bold" style={{ color: meta.color }}>
+          {meta.label}
+        </span>
+        <span className="text-[11px] text-gray-500">change validation</span>
+      </div>
+      {shown.map((r, i) => (
+        <div key={i} className="text-[11px] mt-0.5" style={{ color: meta.color }}>
+          • {r.detail}
+        </div>
+      ))}
+      {reasons.length > 3 && (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="text-[11px] mt-0.5 hover:underline"
+          style={{ color: meta.color }}
+        >
+          {expanded ? 'show less' : `+${reasons.length - 3} more reason(s)`}
+        </button>
+      )}
+      {verdict.counts?.resolved_findings > 0 && (
+        <div className="text-[11px] text-gray-500 mt-0.5">
+          ✔ {verdict.counts.resolved_findings} finding(s) resolved since the previous run
+        </div>
+      )}
+    </div>
+  )
+}
+
 function fmt(v) {
   const s = v === null || v === undefined ? '∅' : typeof v === 'object' ? JSON.stringify(v) : String(v)
   return s.length > 40 ? s.slice(0, 39) + '…' : s
@@ -73,7 +122,7 @@ export default function DriftPanel({ diffData, loading, error, focus, onElementC
   if (error) return <div className="p-4 text-sm text-red-600">Diff failed: {error}</div>
   if (!diffData) return <div className="p-4 text-sm text-gray-500">Select "⇄ Diff" to compare runs.</div>
 
-  const { run_a, run_b, summary, changes, note } = diffData
+  const { run_a, run_b, summary, changes, note, verdict } = diffData
   const drift = changes.filter((c) => c.tier !== 'info')
   const info = changes.filter((c) => c.tier === 'info')
 
@@ -101,6 +150,8 @@ export default function DriftPanel({ diffData, loading, error, focus, onElementC
           <span className="text-gray-400">i {summary.info}</span>
         </div>
       </div>
+
+      <VerdictBanner verdict={verdict} />
 
       {note && <div className="px-3 py-2 text-xs text-gray-500">{note}</div>}
 
