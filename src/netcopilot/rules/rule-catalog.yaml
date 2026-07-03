@@ -5988,12 +5988,13 @@
   category: cis_benchmark
   protocol: fortigate
   tier: surface
-  description: CIS 2.1.3 L1 — Ensure timezone is properly configured (manual review)
+  description: CIS 2.1.3 L1 — Ensure timezone is not left at factory default ('00');
+    full timezone correctness remains manual review
   genie_source: null
   required_fields:
   - path: fortigate.system.global.timezone
     type: string
-    healthy_value: configured
+    healthy_value: any non-default timezone (not '00')
     threshold: null
   collection:
     show_commands: []
@@ -6006,9 +6007,14 @@
   cross_device: false
   cross_device_compare: null
   requires: null
-  check_logic: "# auto=False — timezone correctness requires operator validation.\nglobal_cfg = fortigate_rest(\"/api/v2/cmdb/system/global\"\
-    )\ntz = global_cfg.get(\"timezone\", \"not set\")\nfinding(\n  f\"Timezone is set to '{tz}' — verify this matches site\
-    \ location and org policy\",\n  severity=\"informational\"\n)\n"
+  check_logic: |
+    # Automated check (the eval below): flag a timezone left at the FortiGate
+    # factory default ('00'). Whether a NON-default timezone is the CORRECT one
+    # for the site is not automatable from collected data — that residual stays
+    # manual review (CIS marks this check auto=False).
+    tz = fortigate_rest("/api/v2/cmdb/system/global").get("timezone", "not set")
+    if tz == "00":
+        finding("Timezone is factory default (00) — set the site's local timezone")
   notes: '# CIS FortiGate Benchmark v1.1.0 — Check 2.1.3, Level 1, auto=False
 
     # Timezone affects log timestamps and cross-system correlation.
