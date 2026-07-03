@@ -7,14 +7,16 @@ token redaction) and skip the bot import when python-telegram-bot is absent.
 
 import pytest
 
-from netcopilot import agent_runtime
+from netcopilot import agent_runtime, context
 from netcopilot.anonymizer import SessionAnonymizer
 
 
 # ── agent_runtime (shared by the dashboard SSE route + the Telegram bot) ──────
+# build_tool_context delegates to context.build_context (s04-1), so the Neo4j
+# gate to patch lives on the context module.
 
 def test_build_tool_context_derives_site_from_run_id(monkeypatch):
-    monkeypatch.setattr(agent_runtime, "is_available", lambda: False)
+    monkeypatch.setattr(context, "is_available", lambda: False)
     ctx = agent_runtime.build_tool_context("hq_2026-01-15_10-00-00")
     assert ctx["run_id"] == "hq_2026-01-15_10-00-00"
     assert ctx["site"] == "hq"            # prefix fallback when Neo4j is down
@@ -22,7 +24,7 @@ def test_build_tool_context_derives_site_from_run_id(monkeypatch):
 
 
 def test_build_tool_context_unknown_site_without_prefix(monkeypatch):
-    monkeypatch.setattr(agent_runtime, "is_available", lambda: False)
+    monkeypatch.setattr(context, "is_available", lambda: False)
     assert agent_runtime.build_tool_context("plainrun")["site"] == "unknown"
 
 

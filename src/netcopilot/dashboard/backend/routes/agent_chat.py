@@ -17,7 +17,6 @@ leave the host; the local Ollama provider needs no anonymization.
 
 import json
 import logging
-import os
 import time
 
 from fastapi import APIRouter, HTTPException
@@ -25,7 +24,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from netcopilot.anonymizer import SessionAnonymizer
-from netcopilot.graph.client import get_driver, get_site_for_run, is_available
+from netcopilot.context import build_context
+from netcopilot.graph.client import get_driver, is_available
 from netcopilot.llm import get_provider
 from netcopilot.llm.registry import get_model, is_configured, load_registry
 from netcopilot.orchestrator import SYSTEM_PROMPT, run_tool_loop
@@ -33,7 +33,6 @@ from netcopilot.orchestrator import SYSTEM_PROMPT, run_tool_loop
 log = logging.getLogger(__name__)
 router = APIRouter()
 
-RUNS_DIR = os.environ.get("RUNS_DIR", "runs")
 MAX_TOOL_TURNS = 15
 
 # The selectable models come from the registry (models.yaml, or the legacy env
@@ -98,14 +97,7 @@ async def agent_chat(run_id: str, request: AgentChatRequest):
 
 def _build_context(run_id: str) -> dict:
     """Build the tool context (run_id, site, data_dir) from a run_id."""
-    site = get_site_for_run(run_id) if is_available() else None
-    if not site and "_" in run_id:
-        site = run_id.split("_")[0]
-    return {
-        "run_id": run_id,
-        "site": site or "unknown",
-        "data_dir": f"{RUNS_DIR}/{run_id}",
-    }
+    return build_context(run_id=run_id)
 
 
 def _sse(event_type: str, data) -> str:

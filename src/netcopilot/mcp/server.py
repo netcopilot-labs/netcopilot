@@ -3,6 +3,12 @@
 The network IS the MCP server: any MCP-compatible client (Claude Desktop, another
 agent, ...) can discover and call these tools. Read-only — never changes devices.
 
+The surface is generated from the registry (``TOOL_SCHEMAS``), so the external
+tool list is always identical to the internal one — names, descriptions, and
+parameter schemas have a single source of truth, and every call routes through
+``dispatch()`` (same contract enforcement, error envelopes, and truncation as
+the internal orchestrator path).
+
     python -m netcopilot.mcp.server
 """
 
@@ -10,80 +16,65 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
+from fastmcp.tools.tool import Tool as FastMCPTool, ToolResult as MCPToolResult
 
 from netcopilot.context import build_context
+
+from .registry import TOOL_SCHEMAS, dispatch
 
 log = logging.getLogger(__name__)
 
 mcp = FastMCP(
     "NetCopilot Network Intelligence",
     instructions=(
-        "Network context tools. Query topology, findings, and blast radius for a "
+        "Network context tools. Query topology, findings, paths, and analysis for a "
         "collected network. Read-only — never changes devices."
     ),
 )
 
 
-@mcp.tool()
-async def query_topology(
-    site: str | None = None,
-    device_filter: str | None = None,
-    include_links: bool = True,
-    include_services: bool = False,
-) -> str:
-    """Get network topology: devices, physical links, routing adjacencies.
-    Call this first for any question about network structure or device inventory."""
-    from .tools.topology import query_topology as _impl
+class RegistryTool(FastMCPTool):
+    """A FastMCP tool backed by the registry: schema verbatim, calls ``dispatch``.
 
-    return (await _impl(
-        site=site,
-        device_filter=device_filter,
-        include_links=include_links,
-        include_services=include_services,
-        context=build_context(site=site),
-    )).text
+    Wire shape (ADR-0005): text content is ``envelope.text`` verbatim (what an
+    LLM client reads — identical to the internal model-facing text);
+    ``structuredContent`` carries the machine-readable ``status`` (+ ``verdict``
+    when the tool computed one); ``status="error"`` maps to MCP-native
+    ``isError`` via ``ToolError``. ``not_found``/``no_data``/``ambiguous`` are
+    valid answers, not errors. ``highlight``/``verbatim`` are intra-app
+    presentation hints and do not travel.
+    """
 
-
-@mcp.tool()
-async def get_findings(
-    device: str | None = None,
-    severity: str | None = None,
-    category: str | None = None,
-    acknowledged: bool | None = None,
-    limit: int = 20,
-) -> str:
-    """Get deterministic rule-engine findings. Filter by device, severity, or category."""
-    from .tools.findings import get_findings as _impl
-
-    return (await _impl(
-        device=device,
-        severity=severity,
-        category=category,
-        acknowledged=acknowledged,
-        limit=limit,
-        context=build_context(),
-    )).text
+    async def run(self, arguments: dict[str, Any]) -> MCPToolResult:
+        # `context` is reserved for the server-built run context — a client
+        # arg by that name would collide with dispatch's keyword.
+        args = {k: v for k, v in arguments.items() if k != "context"}
+        envelope = await dispatch(self.name, args, build_context(site=args.get("site")))
+        if envelope.status == "error":
+            raise ToolError(envelope.text)
+        structured: dict[str, Any] = {"status": envelope.status}
+        if envelope.verdict is not None:
+            structured["verdict"] = envelope.verdict
+        return MCPToolResult(content=envelope.text, structured_content=structured)
 
 
-@mcp.tool()
-async def blast_radius(
-    device: str,
-    member: int | None = None,
-    interface: str | None = None,
-    max_hops: int = 3,
-) -> str:
-    """Analyse the impact of a device failure: directly affected devices and links lost."""
-    from .tools.analysis import blast_radius as _impl
+def register_tools(server: FastMCP = mcp, schemas: list[dict] = TOOL_SCHEMAS) -> None:
+    """Register every registry schema on the server — generated, not enumerated."""
+    for schema in schemas:
+        server.add_tool(
+            RegistryTool(
+                name=schema["name"],
+                description=schema["description"],
+                parameters=schema["parameters"],
+            )
+        )
 
-    return (await _impl(
-        device=device,
-        member=member,
-        interface=interface,
-        max_hops=max_hops,
-        context=build_context(),
-    )).text
+
+register_tools()
 
 
 def main() -> None:
