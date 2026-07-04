@@ -121,14 +121,16 @@ Measured against gridctl `v0.1.0-beta.13` fronting NetCopilot v1.3.0
 | Text content of results | ✅ intact |
 | Tool errors (`isError` + message) | ✅ preserved |
 | Tool names | ⚠️ namespaced `server__tool` (e.g. `netcopilot__trace_path`) — transparent for LLM clients, relevant if you hardcode tool names |
-| **MCP `structuredContent`** | ❌ **dropped** — NetCopilot results carry a machine-readable `{status, verdict}` as structured content; the gateway currently forwards only the text |
+| **MCP `structuredContent`** | ❌ **dropped** — NetCopilot results carry a machine-readable `{status, verdict}` as structured content; the gateway currently forwards only the text. Reported upstream with a fix: [gridctl#848](https://github.com/gridctl/gridctl/issues/848) / [PR gridctl#849](https://github.com/gridctl/gridctl/pull/849) |
 
 **What the last row means in practice:** LLM/chat clients are unaffected —
 they read the text, which is identical. But a *machine* consumer of the
 change-validation verdict (e.g. a pipeline parsing `verdict.result` instead
 of text) should connect to NetCopilot's MCP endpoint directly until the
-gateway forwards structured content. The `netcopilot validate` CLI (exit
-codes 0/1/2) is unaffected — it never crosses the gateway.
+gateway forwards structured content — we've verified the linked fix restores
+full pass-through, so check whether your gridctl version includes it. The
+`netcopilot validate` CLI (exit codes 0/1/2) is unaffected — it never crosses
+the gateway.
 
 ## When to skip the gateway
 
