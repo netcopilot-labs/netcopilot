@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from netcopilot.declared_state import get_source
+from netcopilot.inventory.base import normalize_os
 from netcopilot.declared_state.staging import stage_candidate
 
 log = logging.getLogger(__name__)
@@ -41,15 +42,15 @@ log = logging.getLogger(__name__)
 # deterministically below.
 
 _OS_TO_MANUFACTURER = {
-    "iosxr": "Cisco",
-    "iosxe": "Cisco",
+    "ios-xr": "Cisco",
+    "ios-xe": "Cisco",
     "fortios": "Fortinet",
 }
 
 # Platform slug + display name. NetBox best-practice is a stable slug.
 _OS_TO_PLATFORM = {
-    "iosxr": ("cisco-ios-xr", "Cisco IOS-XR"),
-    "iosxe": ("cisco-ios-xe", "Cisco IOS-XE"),
+    "ios-xr": ("cisco-ios-xr", "Cisco IOS-XR"),
+    "ios-xe": ("cisco-ios-xe", "Cisco IOS-XE"),
     "fortios": ("fortinet-fortios", "Fortinet FortiOS"),
 }
 
@@ -254,7 +255,7 @@ def _bootstrap_sites(yaml_devices, netbox_sites, pending_index, result):
 def _bootstrap_manufacturers(yaml_devices, pending_index, result):
     seen: set[str] = set()
     for dev in yaml_devices:
-        os_name = (dev.get("os") or "").lower()
+        os_name = normalize_os(dev.get("os") or "")
         manufacturer = _OS_TO_MANUFACTURER.get(os_name)
         if not manufacturer:
             result.warnings.append(
@@ -282,7 +283,7 @@ def _bootstrap_manufacturers(yaml_devices, pending_index, result):
 def _bootstrap_platforms(yaml_devices, pending_index, result):
     seen: set[str] = set()
     for dev in yaml_devices:
-        os_name = (dev.get("os") or "").lower()
+        os_name = normalize_os(dev.get("os") or "")
         platform = _OS_TO_PLATFORM.get(os_name)
         if not platform:
             continue
@@ -324,7 +325,7 @@ def _bootstrap_clusters(yaml_devices, netbox_clusters, pending_index, result):
         cluster = dev.get("cluster")
         if not isinstance(cluster, dict):
             continue
-        os_name = (dev.get("os") or "").lower()
+        os_name = normalize_os(dev.get("os") or "")
         if os_name not in _HA_PAIR_OS:
             continue
         name = cluster.get("name")
@@ -382,7 +383,7 @@ def _bootstrap_virtual_chassis(yaml_devices, run_id, pending_index, result):
         name = dev.get("name")
         if not name:
             continue
-        os_name = (dev.get("os") or "").lower()
+        os_name = normalize_os(dev.get("os") or "")
         members = _load_cluster_members(name, run_id)
         if not _is_cisco_stack(os_name, members):
             continue
@@ -434,7 +435,7 @@ def _bootstrap_devices(
         if not name:
             continue
 
-        os_name = (dev.get("os") or "").lower()
+        os_name = normalize_os(dev.get("os") or "")
         members = _load_cluster_members(name, run_id) if run_id else []
         is_stack = _is_cisco_stack(os_name, members)
         is_ha = _is_fortigate_ha(os_name, members)
@@ -585,7 +586,7 @@ def _bootstrap_interfaces(yaml_devices, run_id, pending_index, result):
             result.warnings.append(f"{name}: genie_interface.json empty or non-dict")
             continue
 
-        os_name = (dev.get("os") or "").lower()
+        os_name = normalize_os(dev.get("os") or "")
         members = _load_cluster_members(name, run_id)
         is_stack = _is_cisco_stack(os_name, members)
         is_ha = _is_fortigate_ha(os_name, members)
@@ -710,7 +711,7 @@ def _bootstrap_inventory_items(yaml_devices, run_id, pending_index, result):
         name = dev.get("name")
         if not name:
             continue
-        os_name = (dev.get("os") or "").lower()
+        os_name = normalize_os(dev.get("os") or "")
 
         # Per-physical-device model: attribute the SFP to the right physical-member Device.
         members = _load_cluster_members(name, run_id)
@@ -725,7 +726,7 @@ def _bootstrap_inventory_items(yaml_devices, run_id, pending_index, result):
                 return _member_device_name(name, _master_position(members))
             return name
 
-        if os_name in ("iosxr", "iosxe"):
+        if os_name in ("ios-xr", "ios-xe"):
             inv_path = raw_dir / name / "show_inventory.txt"
             if not inv_path.is_file():
                 continue
@@ -866,7 +867,7 @@ def _provision_device_types(
         return {}
 
     # Mirror NetBoxAdapter's pre-provisioned manufacturer slugs.
-    os_to_mfr_slug = {"iosxr": "cisco", "iosxe": "cisco", "fortios": "fortinet"}
+    os_to_mfr_slug = {"ios-xr": "cisco", "ios-xe": "cisco", "fortios": "fortinet"}
 
     type_id_by_slug: dict[str, int] = {}
 
@@ -903,7 +904,7 @@ def _provision_device_types(
             result.warnings.append(f"{name}: no chassis model found in facts")
             continue
 
-        os_name = (dev.get("os") or "").lower()
+        os_name = normalize_os(dev.get("os") or "")
         mfr_slug = os_to_mfr_slug.get(os_name)
         if not mfr_slug:
             result.warnings.append(
@@ -967,7 +968,7 @@ _DEDUP_KEY_FIELD = {
 # ── Per-physical-device expansion helpers ────────────────────────────────────
 
 
-_CISCO_STACK_OS = {"iosxe", "iosxr"}
+_CISCO_STACK_OS = {"ios-xe", "ios-xr"}
 
 # Match "<word>NN/" — first numeric token after the leading interface name family.
 # Used for Catalyst-stack interface attribution: GigabitEthernet1/0/1 → slot 1.
@@ -1065,7 +1066,7 @@ def _index_existing_pending() -> dict[tuple[str, str], str]:
     :data:`_DEDUP_KEY_FIELD` so the storage and lookup paths agree on which
     payload field uniquely identifies a candidate.
     """
-    from lib.neo4j import get_driver
+    from netcopilot.graph.client import get_driver
 
     try:
         with get_driver().session() as session:

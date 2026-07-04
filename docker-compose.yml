@@ -125,6 +125,59 @@ services:
     depends_on:
       - dashboard
 
+  # ── Demo NetBox (declared-state layer, s11 / ADR-0013) ─────────────────────
+  # Opt-in: `docker compose --profile netbox up -d`. A local NetBox instance
+  # NetCopilot can document the demo network into (the dogfood flow:
+  # `netcopilot netbox bootstrap … && netcopilot netbox approve --all` with
+  # NETBOX_WRITE_ENABLED=true). Off by default — the core stack never needs it.
+  netbox-postgres:
+    image: postgres:16-alpine
+    profiles: ["netbox"]
+    environment:
+      POSTGRES_DB: netbox
+      POSTGRES_USER: netbox
+      POSTGRES_PASSWORD: ${NETBOX_DB_PASSWORD:-netboxdemo}
+    volumes:
+      - netbox_pgdata:/var/lib/postgresql/data
+    networks:
+      - netcopilot
+    restart: unless-stopped
+
+  netbox-redis:
+    image: valkey/valkey:8-alpine
+    profiles: ["netbox"]
+    networks:
+      - netcopilot
+    restart: unless-stopped
+
+  netbox:
+    image: netboxcommunity/netbox:v4.2
+    profiles: ["netbox"]
+    ports:
+      - "${NETBOX_HTTP_PORT:-8001}:8080"      # UI/API → http://localhost:8001
+    environment:
+      DB_HOST: netbox-postgres
+      DB_NAME: netbox
+      DB_USER: netbox
+      DB_PASSWORD: ${NETBOX_DB_PASSWORD:-netboxdemo}
+      REDIS_HOST: netbox-redis
+      REDIS_CACHE_HOST: netbox-redis
+      # NetBox requires >= 50 chars; this demo default is 58. Override in .env.
+      SECRET_KEY: ${NETBOX_SECRET_KEY:-demo-secret-key-change-me-0123456789abcdefghijklmnopqrstuv}
+      SKIP_SUPERUSER: "false"
+      SUPERUSER_NAME: ${NETBOX_SUPERUSER_NAME:-admin}
+      SUPERUSER_EMAIL: ${NETBOX_SUPERUSER_EMAIL:-admin@example.com}
+      SUPERUSER_PASSWORD: ${NETBOX_SUPERUSER_PASSWORD:-netboxdemo}
+      # Deterministic demo token so the dogfood flow works out of the box.
+      # DEMO-ONLY value — set your own NETBOX_API_TOKEN in .env for anything real.
+      SUPERUSER_API_TOKEN: ${NETBOX_API_TOKEN:-0123456789abcdef0123456789abcdef01234567} # gitleaks:allow
+    depends_on:
+      - netbox-postgres
+      - netbox-redis
+    networks:
+      - netcopilot
+    restart: unless-stopped
+
 networks:
   netcopilot:
     driver: bridge
@@ -135,4 +188,6 @@ volumes:
   runs:
     driver: local
   chromadb:
+    driver: local
+  netbox_pgdata:
     driver: local

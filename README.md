@@ -136,6 +136,25 @@ Telegram bot). Data persists in named volumes across `docker compose down`; add
   docker compose exec dashboard \
     python -m netcopilot.rag.ingest --docs-dir /app/knowledge_base
   ```
+- **Your NetBox (declared state).** NetCopilot reads your NetBox as the L0
+  "what the network *should* look like" layer, and — with explicit opt-in —
+  can document what it collected back into NetBox through a staged →
+  human-approved → audited pipeline (every write is a reviewable candidate;
+  nothing is auto-approved, nothing is ever deleted). Point `NETBOX_URL` +
+  `NETBOX_API_TOKEN` at your instance, or try the bundled demo NetBox:
+  ```bash
+  docker compose --profile netbox up -d          # local NetBox on :8001
+  export NETBOX_URL=http://localhost:8001
+  export NETBOX_API_TOKEN=0123456789abcdef0123456789abcdef01234567   # demo token, gitleaks:allow
+  export NETBOX_WRITE_ENABLED=true               # writes are OFF by default
+  netcopilot netbox bootstrap <run_id> --inventory <your lab.yaml>
+  netcopilot netbox pending                      # review what would be written
+  netcopilot netbox approve --all                # human approval → NetBox populated
+  netcopilot netbox history                      # append-only audit log
+  ```
+  In chat: *"what does NetBox say about core-sw-01?"*, *"what did NetCopilot
+  write to NetBox?"*. Writes require `NETBOX_WRITE_ENABLED=true` — without it
+  NetCopilot is a pure reader (see `CONSTITUTION.md`, Article I).
 - **Your Telegram bot.** Set `TELEGRAM_BOT_TOKEN` (from @BotFather) and
   `TELEGRAM_ALLOWED_USERS` in `.env`, then `docker compose up -d telegram`.
 - **Your email (reports).** Set the `SMTP_*` block in `.env` (any SMTP server).
