@@ -115,4 +115,8 @@ async def validate_change(
 
     verdict = evaluate_change(diff, before_data, after_data, scope)
     text = _render(verdict, before_data.run_id, after_data.run_id, scope, unknown_scope)
-    return ToolResult("ok", text, verdict=verdict.to_dict())
+    # Surface unknown_scope (declared-scope devices in neither run — operator
+    # typos) in the machine-readable verdict, not just the prose.
+    verdict_dict = verdict.to_dict()
+    verdict_dict["unknown_scope"] = unknown_scope
+    return ToolResult("ok", text, verdict=verdict_dict)

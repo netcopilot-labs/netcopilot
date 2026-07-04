@@ -43,3 +43,19 @@ def test_get_findings_genuinely_empty_is_no_data(monkeypatch):
     res = asyncio.run(findings_tool.get_findings(context={"run_id": "x"}))
     assert res.status == "no_data"
     assert "No findings recorded" in res.text
+
+
+def test_get_findings_carries_severity_verdict(monkeypatch):
+    # S08-6: a machine-readable severity summary for the dashboard banner.
+    fs = [
+        {"severity": "critical", "rule_id": "R1", "evidence": {"element_id": "d1"},
+         "finding_id": "R1::d1"},
+        {"severity": "high", "rule_id": "R2", "evidence": {"element_id": "d1"},
+         "finding_id": "R2::d1", "acknowledged": True},
+    ]
+    monkeypatch.setattr(findings_tool, "load_findings_enriched", lambda run_id: fs)
+    res = asyncio.run(findings_tool.get_findings(context={"run_id": "x"}))
+    assert res.verdict["total"] == 2
+    assert res.verdict["critical"] == 1 and res.verdict["high"] == 1
+    assert res.verdict["acknowledged"] == 1
+    assert res.verdict["by_severity"]["critical"] == 1

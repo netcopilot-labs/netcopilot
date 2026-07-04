@@ -65,7 +65,8 @@ async def get_security_posture(
             role = rec["role"] or ""
     else:
         # Network-wide overview
-        return ToolResult("ok", await _network_overview(run_id, data_dir, driver))
+        text, verdict = await _network_overview(run_id, data_dir, driver)
+        return ToolResult("ok", text, verdict=verdict)
 
     # Per-device security posture — try Neo4j SecurityConfig first.
     neo4j_result = _posture_from_neo4j(device, role, os_type, run_id, driver)
@@ -514,7 +515,7 @@ def _fortigate_posture(device: str, role: str, facts_dir: Path) -> str:
     return "\n".join(lines)
 
 
-async def _network_overview(run_id: str, data_dir: str, driver) -> str:
+async def _network_overview(run_id: str, data_dir: str, driver) -> tuple[str, dict]:
     """Network-wide security overview from Neo4j SecurityConfig nodes."""
     lines = ["Security posture — Network overview", ""]
 
@@ -636,4 +637,14 @@ async def _network_overview(run_id: str, data_dir: str, driver) -> str:
     lines.append("")
     lines.append("Use get_security_posture(device=\"<name>\") for per-device detail.")
 
-    return "\n".join(lines)
+    # Machine-readable posture: fail on any hard gap, warn on uncollected
+    # devices (posture unknown) or missing banners, pass otherwise.
+    gaps = {
+        "aaa_missing": len(aaa_missing), "snmp_v2": len(snmp_v2),
+        "ntp_no_auth": len(ntp_no_auth), "no_logging": len(no_logging),
+        "no_banner": len(no_banner), "tacacs_key_missing": len(tacacs_key_missing),
+        "uncollected": len(no_data),
+    }
+    hard = aaa_missing or snmp_v2 or ntp_no_auth or no_logging or tacacs_key_missing
+    posture = "fail" if hard else ("warn" if (no_data or no_banner) else "pass")
+    return "\n".join(lines), {"posture": posture, "gaps": gaps}

@@ -207,4 +207,13 @@ async def get_findings(
     if truncated:
         lines.append(f"[Showing {limit} of {total} — add filters to narrow results]")
 
-    return ToolResult("ok", "\n".join(lines))
+    # Machine-readable severity summary — the dashboard banner / an orchestrator
+    # gate can act on this without prose-scraping.
+    verdict = {
+        "total": total,
+        "by_severity": dict(sev_counts),
+        "critical": sev_counts.get("critical", 0),
+        "high": sev_counts.get("high", 0),
+        "acknowledged": acked_count,
+    }
+    return ToolResult("ok", "\n".join(lines), verdict=verdict)
