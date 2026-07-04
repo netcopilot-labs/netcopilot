@@ -113,11 +113,13 @@ _CATEGORY_RENDER: dict[str, dict] = {
             "Priority ranking and per-device remediation steps",
             "Systemic issues spanning multiple devices",
             "What changed between two runs (drift)",
+            "Validate a change: pass/warn/fail verdict — did only the intended devices change?",
         ],
         "examples": [
             "What are the most critical findings right now?",
             "How do I fix the BGP authentication issue on border-rtr-01?",
             "What changed since the last run?",
+            "I just changed core-rtr-01 — did anything unexpected change?",
         ],
     },
     _CAT_TRACE: {
