@@ -31,14 +31,17 @@ async def get_site_summary(
 
     # ── 1. Devices by building ──────────────────────────────────────
     with driver.session() as session:
+        # Include uncollected devices in the roster (marked below): an
+        # operational summary that hides down/uncollected devices is a
+        # false-clean. `collected` is projected so the render can flag them.
         if building:
             result = session.run(
                 """
                 MATCH (d:Device {run_id: $run_id})
-                WHERE d.collected = true
-                  AND toLower(d.building) = toLower($building)
+                WHERE toLower(d.building) = toLower($building)
                 RETURN d.name AS name, d.role AS role, d.building AS building,
-                       d.os_type AS os_type, d.cluster_size AS cluster_size
+                       d.os_type AS os_type, d.cluster_size AS cluster_size,
+                       d.collected AS collected
                 ORDER BY d.role, d.name
                 """,
                 run_id=run_id, building=building,
@@ -47,9 +50,9 @@ async def get_site_summary(
             result = session.run(
                 """
                 MATCH (d:Device {run_id: $run_id})
-                WHERE d.collected = true
                 RETURN d.name AS name, d.role AS role, d.building AS building,
-                       d.os_type AS os_type, d.cluster_size AS cluster_size
+                       d.os_type AS os_type, d.cluster_size AS cluster_size,
+                       d.collected AS collected
                 ORDER BY d.building, d.role, d.name
                 """,
                 run_id=run_id,
@@ -144,14 +147,21 @@ async def get_site_summary(
         for d in devs:
             by_role.setdefault(d["role"] or "unknown", []).append(d)
 
+        uncollected = [d for d in devs if d.get("collected") is False]
         lines.append("")
-        lines.append("Devices:")
+        header = "Devices:"
+        if uncollected:
+            header += f"  ({len(uncollected)} not collected — marked ⚠)"
+        lines.append(header)
         for role, role_devs in sorted(by_role.items()):
             for d in role_devs:
                 cluster_tag = ""
                 if d.get("cluster_size") and d["cluster_size"] > 1:
                     cluster_tag = f" [{d['cluster_size']}-member HA]"
-                lines.append(f"  {d['name']} — {role} ({d.get('os_type', '?')}){cluster_tag}")
+                # Uncollected devices belong in the roster, flagged — hiding
+                # them would make an unreachable device read as absent.
+                uncollected_tag = " ⚠ NOT COLLECTED" if d.get("collected") is False else ""
+                lines.append(f"  {d['name']} — {role} ({d.get('os_type', '?')}){cluster_tag}{uncollected_tag}")
 
         # Redundancy summary
         ha_devices = [d for d in devs if d.get("cluster_size") and d["cluster_size"] > 1]

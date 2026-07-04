@@ -613,7 +613,15 @@ async def _network_overview(run_id: str, data_dir: str, driver) -> str:
     if tacacs_key_missing:
         lines.append(f"⚠ TACACS key missing ({len(tacacs_key_missing)}): {', '.join(tacacs_key_missing)}")
 
-    if not aaa_missing and not snmp_v2 and not ntp_no_auth and not no_logging:
+    no_gaps = (not aaa_missing and not snmp_v2 and not ntp_no_auth
+               and not no_logging and not tacacs_key_missing)
+    if no_gaps and no_data:
+        # Honest: don't paint the network clean when some devices were never
+        # collected — their posture is simply unknown.
+        lines.append(f"✓ No gaps on the {analyzed} analyzed device(s) — but "
+                     f"{len(no_data)} device(s) had no security data collected "
+                     f"(posture unknown): {', '.join(no_data)}")
+    elif no_gaps:
         lines.append("✓ No critical security gaps detected")
 
     lines.append("")
