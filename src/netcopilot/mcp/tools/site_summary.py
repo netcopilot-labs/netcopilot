@@ -31,14 +31,17 @@ async def get_site_summary(
 
     # ── 1. Devices by building ──────────────────────────────────────
     with driver.session() as session:
-        # Include uncollected devices in the roster (marked below): an
+        # Include uncollected MANAGED devices in the roster (marked below): an
         # operational summary that hides down/uncollected devices is a
-        # false-clean. `collected` is projected so the render can flag them.
+        # false-clean. `d.role IS NOT NULL` keeps managed devices (role comes
+        # from inventory, present even if collection failed) while excluding
+        # external BGP-peer placeholder nodes (no role/building), which are not
+        # site inventory — mirrors query_topology's managed/external split.
         if building:
             result = session.run(
                 """
                 MATCH (d:Device {run_id: $run_id})
-                WHERE toLower(d.building) = toLower($building)
+                WHERE d.role IS NOT NULL AND toLower(d.building) = toLower($building)
                 RETURN d.name AS name, d.role AS role, d.building AS building,
                        d.os_type AS os_type, d.cluster_size AS cluster_size,
                        d.collected AS collected
@@ -50,6 +53,7 @@ async def get_site_summary(
             result = session.run(
                 """
                 MATCH (d:Device {run_id: $run_id})
+                WHERE d.role IS NOT NULL
                 RETURN d.name AS name, d.role AS role, d.building AS building,
                        d.os_type AS os_type, d.cluster_size AS cluster_size,
                        d.collected AS collected
@@ -57,7 +61,10 @@ async def get_site_summary(
                 """,
                 run_id=run_id,
             )
-        devices = [dict(r) for r in result]
+        # Defense-in-depth (matches query_topology's managed/external split):
+        # only role-bearing managed devices are site inventory; external
+        # BGP-peer placeholder nodes (no role) are never roster entries.
+        devices = [dict(r) for r in result if r["role"] is not None]
 
     if not devices:
         if building:

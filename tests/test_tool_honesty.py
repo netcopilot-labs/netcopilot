@@ -52,7 +52,11 @@ def test_site_summary_marks_uncollected_devices(monkeypatch):
         {"name": "sw-01", "role": "core", "building": "HQ", "os_type": "iosxe",
          "cluster_size": 1, "collected": True},
         {"name": "sw-02", "role": "access", "building": "HQ", "os_type": "iosxe",
-         "cluster_size": 1, "collected": False},  # never collected
+         "cluster_size": 1, "collected": False},  # uncollected MANAGED device
+        # external BGP-peer placeholder (no role/building) — NOT site inventory,
+        # must not appear in the roster despite the collected filter removal.
+        {"name": "203.0.113.9", "role": None, "building": None, "os_type": None,
+         "cluster_size": None, "collected": False},
     ]
     # queries in order: roster, uplinks, ospf areas, bgp
     script = [devices, [], [], []]
@@ -61,7 +65,8 @@ def test_site_summary_marks_uncollected_devices(monkeypatch):
     monkeypatch.setattr(site_tool, "load_findings_enriched", lambda run_id: [])
     res = asyncio.run(site_tool.get_site_summary(context={"run_id": "r"}))
     assert "sw-02" in res.text
-    assert "NOT COLLECTED" in res.text  # the uncollected device is flagged, not hidden
+    assert "NOT COLLECTED" in res.text  # the uncollected managed device is flagged, not hidden
+    assert "203.0.113.9" not in res.text  # external peer excluded from the roster
 
 
 # ── device_detail: requested sections speak even without a data_dir ──────────
