@@ -30,6 +30,11 @@ ROUTE_POLICY = "RoutePolicy"
 PREFIX_SET_ENTRY = "PrefixSetEntry"
 ISDB_SERVICE = "ISDBService"   # FortiGate Internet Service (ISDB) referenced by a policy
 
+# NetBox declared-state staging (s11, ADR-0013). PendingWrite is transient
+# (deleted on approve/reject); Write is the append-only audit log.
+NETBOX_PENDING_WRITE = "NetBoxPendingWrite"
+NETBOX_WRITE = "NetBoxWrite"
+
 # User UI state (kept out of run-data; not deleted by run cleanup)
 LAYOUT_POSITION = "LayoutPosition"   # saved node positions per view: (site, view, node_id)
 ACKNOWLEDGEMENT = "Acknowledgement"  # finding ack: (site, finding_id), persists across runs
@@ -64,6 +69,9 @@ HAS_PREFIX_ENTRY = "HAS_PREFIX_ENTRY"     # Device → PrefixSetEntry
 HAS_FINDING = "HAS_FINDING"               # Device → Finding
 HAS_SECURITY_CONFIG = "HAS_SECURITY_CONFIG"  # Device → SecurityConfig
 REFERENCES_ISDB = "REFERENCES_ISDB"       # Device → ISDBService
+AFFECTS_DEVICE = "AFFECTS_DEVICE"         # NetBoxPendingWrite → Device (s11)
+AFFECTS_INTERFACE = "AFFECTS_INTERFACE"   # NetBoxPendingWrite → Interface (s11)
+FROM_FINDING = "FROM_FINDING"             # NetBoxPendingWrite → Finding (s11, used by drift)
 
 
 # Mapping from model link_type → Neo4j relationship type
