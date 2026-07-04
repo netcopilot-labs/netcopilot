@@ -515,10 +515,12 @@ def test_routing_and_ospf_tools_live(tmp_path):
     routing = asyncio.run(registry.dispatch("get_routing_table", {"device": "core-rtr-01"}, ctx)).text
     assert "192.0.2.0/24" in routing and "core-rtr-01" in routing
 
-    # OSPF overview: the Cypher executes against SharedService (no ospf_area in this
-    # MODEL → graceful "No OSPF areas found", but the header always renders).
-    ospf_out = asyncio.run(registry.dispatch("get_ospf_detail", {}, ctx)).text
-    assert "OSPF Areas Overview" in ospf_out
+    # OSPF overview: this model has no ospf_area SharedService → the honest
+    # result is no_data (s08-4), not an "OSPF Areas Overview" header over an
+    # empty list.
+    ospf_res = asyncio.run(registry.dispatch("get_ospf_detail", {}, ctx))
+    assert ospf_res.status == "no_data"
+    assert "No OSPF areas found" in ospf_res.text
 
     # Unknown device resolves to a clean message, not an error.
     miss = asyncio.run(registry.dispatch("get_routing_table", {"device": "nope-99"}, ctx)).text
