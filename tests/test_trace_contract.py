@@ -168,6 +168,7 @@ def test_find_route_to_prefers_active_over_inactive_specific():
 
 
 def _patch_walk(monkeypatch, *, routes, ebgp=None, ip_to_device=None):
+    monkeypatch.setattr(path_tracer, "is_available", lambda: False)  # hermetic: no real Neo4j
     monkeypatch.setattr(path_tracer, "_shared_resolve", lambda name, run_id: "r1")
     monkeypatch.setattr(path_tracer, "_build_ip_to_device", lambda run_id: ip_to_device or {})
     monkeypatch.setattr(path_tracer, "_get_bgp_exit", lambda device, run_id: ebgp)
@@ -218,10 +219,13 @@ def test_verdict_reachable_shape(monkeypatch):
     res = asyncio.run(path_tracer.trace_path(source_device="r1", destination="internet",
                                              context={"run_id": "r", "data_dir": "d"}))
     v = res.verdict
-    assert set(v) == {"result", "reasons", "hops", "blocked_by", "risks", "run_id"}
+    assert set(v) == {"result", "reasons", "hops", "blocked_by", "risks", "run_id", "return_path"}
     assert v["result"] == "reachable"
     assert v["blocked_by"] is None
     assert v["run_id"] == "r"
+    # internet destination → return path not verifiable, stated explicitly
+    assert v["return_path"] is None
+    assert any("return path not verifiable" in r for r in v["reasons"])
 
 
 def test_verdict_blocked_by_deny_policy(monkeypatch):
@@ -285,6 +289,116 @@ def test_verdict_src_ip_omitted_reason(monkeypatch):
     res = asyncio.run(path_tracer.trace_path(source_device="fw1", destination="198.51.100.9",
                                              context={"run_id": "r", "data_dir": "d"}))
     assert any("source IP not supplied" in r for r in res.verdict["reasons"])
+
+
+# ── S07-6: return-path / asymmetry ───────────────────────────────────────────
+
+def test_return_path_not_verifiable_without_src_ip(monkeypatch):
+    # Internal destination but no src_ip → return path explicitly not evaluated.
+    routes = {"default": [
+        {"prefix": "192.0.2.0/24", "vrf": "default", "protocol": "ospf", "next_hop": "10.0.0.2",
+         "interface": "Gi0/0", "ad": 110, "metric": 0, "active": True, "source": "ospf", "note": ""},
+    ]}
+    _patch_walk(monkeypatch, routes=routes, ip_to_device={"10.0.0.2": "r2", "192.0.2.9": "r2"})
+    monkeypatch.setattr(path_tracer, "load_findings_enriched", lambda run_id: [])
+    monkeypatch.setattr(path_tracer, "_load_routes",
+                        lambda device, data_dir: routes if device == "r1" else {})
+    res = asyncio.run(path_tracer.trace_path(source_device="r1", destination="192.0.2.9",
+                                             context={"run_id": "r", "data_dir": "d"}))
+    assert res.verdict["return_path"] is None
+    assert any("source IP not supplied" in r for r in res.verdict["reasons"])
+
+
+def test_return_path_reverse_walk_executes(monkeypatch):
+    # Concrete endpoints both in-scope + src_ip given → the reverse walk runs and
+    # populates return_path (proves dest->src tracing, not just the guards).
+    r1_routes = {"default": [
+        {"prefix": "192.0.2.0/24", "vrf": "default", "protocol": "ospf", "next_hop": "10.0.0.2",
+         "interface": "Gi0/0", "ad": 110, "metric": 0, "active": True, "source": "ospf", "note": ""}]}
+    r2_routes = {"default": [
+        {"prefix": "10.0.0.0/8", "vrf": "default", "protocol": "ospf", "next_hop": "192.0.2.1",
+         "interface": "Gi0/0", "ad": 110, "metric": 0, "active": True, "source": "ospf", "note": ""}]}
+    monkeypatch.setattr(path_tracer, "is_available", lambda: False)
+    monkeypatch.setattr(path_tracer, "_shared_resolve", lambda name, run_id: name)
+    monkeypatch.setattr(path_tracer, "_build_ip_to_device", lambda run_id: {
+        "10.0.0.2": "r2", "192.0.2.9": "r2", "192.0.2.1": "r1", "10.0.0.1": "r1"})
+    monkeypatch.setattr(path_tracer, "_get_bgp_exit", lambda device, run_id: None)
+    monkeypatch.setattr(path_tracer, "get_device_role", lambda device, run_id: "core")
+    monkeypatch.setattr(path_tracer, "is_security_device", lambda device, run_id: False)
+    monkeypatch.setattr(path_tracer, "_resolve_in_interface", lambda nd, nh, run_id: None)
+    monkeypatch.setattr(path_tracer, "load_findings_enriched", lambda run_id: [])
+    monkeypatch.setattr(path_tracer, "_load_routes",
+                        lambda device, data_dir: r1_routes if device == "r1"
+                        else r2_routes if device == "r2" else {})
+    res = asyncio.run(path_tracer.trace_path(source_device="r1", destination="192.0.2.9",
+                                             src_ip="10.0.0.1",
+                                             context={"run_id": "r", "data_dir": "d"}))
+    assert res.verdict["return_path"] is not None
+    assert "result" in res.verdict["return_path"]
+    assert "asymmetric" in res.verdict["return_path"]
+
+
+# ── S07-5: ACL-aware hop checks ──────────────────────────────────────────────
+
+def test_addr_matches():
+    assert path_tracer._addr_matches("any", "192.0.2.1") is True
+    assert path_tracer._addr_matches("192.0.2.0/24", "192.0.2.9") is True
+    assert path_tracer._addr_matches("192.0.2.0/24", "203.0.113.9") is False
+    assert path_tracer._addr_matches("192.0.2.0/24", None) is True  # unknown → permissive
+
+
+def test_evaluate_acl_explicit_deny():
+    aces = [
+        {"seq": 10, "action": "deny", "srcaddr": "any", "dstaddr": "198.51.100.0/24", "service": "tcp 443"},
+        {"seq": 20, "action": "permit", "srcaddr": "any", "dstaddr": "any", "service": ""},
+    ]
+    r = path_tracer._evaluate_acl(aces, "10.0.0.1", "198.51.100.9", "tcp", 443, src_known=True)
+    assert r["decision"] == "deny" and r["ace"] == 10
+
+
+def test_evaluate_acl_permit_first_match():
+    aces = [
+        {"seq": 10, "action": "permit", "srcaddr": "any", "dstaddr": "198.51.100.0/24", "service": ""},
+        {"seq": 20, "action": "deny", "srcaddr": "any", "dstaddr": "any", "service": ""},
+    ]
+    r = path_tracer._evaluate_acl(aces, "10.0.0.1", "198.51.100.9", "tcp", 443, src_known=True)
+    assert r["decision"] == "permit" and r["ace"] == 10
+
+
+def test_evaluate_acl_implicit_deny_only_when_src_known():
+    aces = [{"seq": 10, "action": "permit", "srcaddr": "10.0.0.0/8", "dstaddr": "192.0.2.0/24", "service": ""}]
+    # dst 203.0.113.9 matches no ACE → implicit deny when src known...
+    r_known = path_tracer._evaluate_acl(aces, "10.0.0.1", "203.0.113.9", None, None, src_known=True)
+    assert r_known["decision"] == "deny" and r_known["ace"] == "implicit"
+    # ...but unknown (not fabricating a block) when src is not supplied.
+    r_unknown = path_tracer._evaluate_acl(aces, None, "203.0.113.9", None, None, src_known=False)
+    assert r_unknown["decision"] == "unknown"
+
+
+def test_check_acls_at_hop_deny(monkeypatch):
+    monkeypatch.setattr(path_tracer, "is_available", lambda: True)
+    monkeypatch.setattr(path_tracer, "get_driver", lambda: _FakeDriver([
+        {"name": "BLOCK-OUT", "seq": 10, "action": "deny", "srcaddr": "any",
+         "dstaddr": "198.51.100.0/24", "service": "tcp 443",
+         "applied_to": ["GigabitEthernet0/1 outbound"]},
+    ]))
+    r = path_tracer._check_acls_at_hop("sw1", "GigabitEthernet0/1", "outbound",
+                                       "10.0.0.1", "198.51.100.9", "tcp", 443, "run")
+    assert r["decision"] == "deny"
+    assert r["policy"] == "BLOCK-OUT"
+    assert r["policy_device"] == "sw1"
+
+
+def test_check_acls_at_hop_unbound_interface_returns_none(monkeypatch):
+    monkeypatch.setattr(path_tracer, "is_available", lambda: True)
+    monkeypatch.setattr(path_tracer, "get_driver", lambda: _FakeDriver([
+        {"name": "BLOCK-OUT", "seq": 10, "action": "deny", "srcaddr": "any",
+         "dstaddr": "198.51.100.0/24", "service": "", "applied_to": ["GigabitEthernet0/9 outbound"]},
+    ]))
+    # ACL bound to Gi0/9, but the traffic egresses Gi0/1 → not governed here.
+    r = path_tracer._check_acls_at_hop("sw1", "GigabitEthernet0/1", "outbound",
+                                       "10.0.0.1", "198.51.100.9", "tcp", 443, "run")
+    assert r is None
 
 
 def test_hop_carries_interfaces(monkeypatch):

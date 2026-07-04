@@ -137,6 +137,119 @@ def _findings_on_path(path_devices: list[str], run_id: str) -> list[dict]:
     return risks
 
 
+def _acls_on_device(device: str, run_id: str) -> dict[str, dict]:
+    """Cisco ACLs on ``device`` → ``{acl_name: {applied_to, aces}}``.
+
+    ACEs come from the per-ACE :FirewallPolicy nodes (policy_type='acl'),
+    ordered by seq (ACE evaluation order); ``applied_to`` is the interface+direction
+    bindings (deduped across the ACL's ACEs)."""
+    acls: dict[str, dict] = {}
+    if not is_available():
+        return acls
+    driver = get_driver()
+    with driver.session() as session:
+        result = session.run(
+            "MATCH (d:Device {run_id: $run_id})-[:HAS_POLICY]->(p:FirewallPolicy) "
+            "WHERE toLower(d.name) = toLower($device) AND p.policy_type = 'acl' "
+            "RETURN p.name AS name, p.policyid AS seq, p.action AS action, "
+            "p.srcaddr AS srcaddr, p.dstaddr AS dstaddr, p.service AS service, "
+            "p.applied_to AS applied_to ORDER BY p.name, p.policyid",
+            run_id=run_id, device=device,
+        )
+        for rec in result:
+            name = rec["name"]
+            entry = acls.setdefault(name, {"applied_to": list(rec["applied_to"] or []), "aces": []})
+            entry["aces"].append({
+                "seq": rec["seq"], "action": rec["action"] or "permit",
+                "srcaddr": rec["srcaddr"] or "any", "dstaddr": rec["dstaddr"] or "any",
+                "service": rec["service"] or "",
+            })
+    return acls
+
+
+def _addr_matches(addr_str: str, ip: str | None) -> bool:
+    """Is ``ip`` within ``addr_str`` (CIDRs / "any")? Unknown ip → True (permissive).
+
+    Permissive on an unknown/None ip so an absent src never *fabricates* a
+    non-match (which downstream would turn into a false block)."""
+    import ipaddress
+
+    if not addr_str or addr_str.strip().lower() == "any":
+        return True
+    if ip is None:
+        return True
+    try:
+        target = ipaddress.ip_address(ip.split("/")[0])
+    except ValueError:
+        return True
+    for cidr in addr_str.replace(",", " ").split():
+        cidr = cidr.strip()
+        if not cidr:
+            continue
+        try:
+            if "/" in cidr and target in ipaddress.ip_network(cidr, strict=False):
+                return True
+            if "/" not in cidr and target == ipaddress.ip_address(cidr):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def _evaluate_acl(aces: list[dict], src_ip: str | None, dst_ip: str,
+                  protocol: str | None, dst_port: int | None, src_known: bool) -> dict:
+    """First-match evaluate an ACL's ACEs against the flow.
+
+    Returns ``{decision, ace}`` — decision ∈ permit/deny/unknown. An explicit
+    matching ACE decides. If none matches, the ACL's implicit deny applies —
+    but only when the source is known; with an unknown source we return
+    ``unknown`` (manual review) rather than fabricate a block.
+    """
+    from netcopilot.parse.policy_resolver import service_allows
+
+    for ace in aces:
+        if (_addr_matches(ace.get("dstaddr", "any"), dst_ip)
+                and _addr_matches(ace.get("srcaddr", "any"), src_ip)
+                and service_allows(protocol, dst_port, ace.get("service", ""))):
+            action = (ace.get("action") or "permit").lower()
+            decision = "deny" if action in ("deny", "drop") else "permit"
+            return {"decision": decision, "ace": ace.get("seq")}
+    return {"decision": "deny" if src_known else "unknown", "ace": "implicit"}
+
+
+def _check_acls_at_hop(device: str, interface: str, direction: str, src_ip: str | None,
+                       dst_ip: str, protocol: str | None, dst_port: int | None,
+                       run_id: str) -> dict | None:
+    """Evaluate ACLs bound to ``device``'s ``interface`` in ``direction``.
+
+    Returns the first blocking/uncertain ACL result ``{text, decision, policy,
+    ace, via}`` (decision deny/unknown), or ``None`` when no bound ACL governs
+    the flow or all bound ACLs permit it. This is what makes Cisco ACLs on
+    transit devices visible to the trace — they were never consulted before.
+    """
+    if not interface:
+        return None
+    acls = _acls_on_device(device, run_id)
+    if not acls:
+        return None
+    src_known = src_ip is not None
+    want = f"{interface} {direction}".lower()
+    for name, acl in acls.items():
+        bound = any(b.lower().startswith(want) for b in acl["applied_to"])
+        if not bound:
+            continue
+        res = _evaluate_acl(acl["aces"], src_ip, dst_ip, protocol, dst_port, src_known)
+        if res["decision"] == "permit":
+            continue  # this ACL permits — keep checking others, don't block
+        verb = "DENIES" if res["decision"] == "deny" else "may block"
+        note = "" if res["decision"] == "deny" else " (source unknown — manual review)"
+        text = (f"ACL '{name}' {direction} on {device} {interface} {verb} traffic "
+                f"(ACE {res['ace']}){note}")
+        return {"text": text, "decision": res["decision"], "policy": name,
+                "ace": res["ace"], "via": f"acl-{direction}", "policy_device": device}
+    return None
+
+
 def _check_firewall_policy(
     fw_device: str, src_ip: str, dst_ip: str, src_intf: str, dst_intf: str, run_id: str,
     protocol: str | None = None, dst_port: int | None = None,
@@ -191,7 +304,7 @@ def _check_firewall_policy(
             text = (f"Firewall policy: '{name}' (id:{p.get('id', '?')}) "
                     f"{verb} traffic (match by {via_display or via}, service: {svc})")
             return {"text": text, "decision": decision, "policy": name,
-                    "id": p.get("id"), "via": via}
+                    "id": p.get("id"), "via": via, "policy_device": fw_device}
 
         try:
             dst_addr = ipaddress.ip_address(dst_ip) if dst_ip and dst_ip != "0.0.0.0" else None
@@ -491,6 +604,29 @@ def _pick_best_vrf(device_routes: dict[str, list[dict]]) -> str | None:
     return None
 
 
+def _pick_vrf_for_dest(device_routes: dict[str, list[dict]], dest_ip: str) -> str | None:
+    """Pick the VRF to trace toward ``dest_ip``.
+
+    Prefers a VRF with a specific (non-default) active route to the destination;
+    for an internet/external destination — or when nothing specific matches —
+    falls back to :func:`_pick_best_vrf` (default-route heuristics). This lets
+    an internal-destination trace start even when no VRF has a default route."""
+    if dest_ip and dest_ip not in ("0.0.0.0/0", "0.0.0.0/0.0.0.0", "::/0"):
+        best_vrf, best_len = None, -1
+        for v, routes in device_routes.items():
+            r = _find_route_to(routes, dest_ip)
+            if r and not is_default_route(r.get("prefix", "")):
+                try:
+                    plen = int(r["prefix"].split("/")[1])
+                except (ValueError, IndexError, KeyError):
+                    plen = 0
+                if plen > best_len:
+                    best_vrf, best_len = v, plen
+        if best_vrf:
+            return best_vrf
+    return _pick_best_vrf(device_routes)
+
+
 def _get_bgp_exit(device: str, run_id: str) -> list[dict] | None:
     """Check if device has eBGP sessions (internet exit).
 
@@ -627,8 +763,13 @@ async def trace_path(
     run_id: str | None = None,
     max_hops: int = 10,
     context: dict,
+    _return_trace: bool = False,
 ) -> ToolResult:
-    """Trace network path from source to destination across L2/L3/VRF boundaries."""
+    """Trace network path from source to destination across L2/L3/VRF boundaries.
+
+    ``_return_trace`` is set on the internal reverse walk (dest→src) so it does
+    not itself spawn another reverse walk — internal, not a client parameter.
+    """
     # ``run_id`` arg pins the trace to a specific run (pre/post-change
     # comparison); otherwise use the context's current run.
     run_id = run_id or context.get("run_id", "")
@@ -865,11 +1006,11 @@ async def trace_path(
     # ── If no VRF specified, pick best ──────────────────────────────
     if not vrf:
         available_vrfs = sorted(routes_by_vrf.keys())
-        vrf = _pick_best_vrf(routes_by_vrf)
+        vrf = _pick_vrf_for_dest(routes_by_vrf, dest_ip)
 
         if not vrf:
             lines.append(f"Device {source_device} has VRFs: {', '.join(available_vrfs)}")
-            lines.append("None have a default route to trace.")
+            lines.append("None have a route toward the destination to trace.")
             return ToolResult("no_data", "\n".join(lines))
 
         traceable = [v for v in available_vrfs if _find_default_route(routes_by_vrf[v])]
@@ -1076,6 +1217,30 @@ async def trace_path(
         lines.append(f"  Boundary: {boundary}")
 
         in_interface = _resolve_in_interface(next_device, next_hop, run_id) if next_device else None
+
+        # ACL evaluation at this hop — outbound on this device's egress interface,
+        # inbound on the next device's ingress interface. Cisco ACLs on transit
+        # devices were previously invisible to the trace. A deny (or unknown)
+        # from a bound ACL becomes the hop's governing decision unless a
+        # firewall policy already denied.
+        if not (hop_policy and hop_policy.get("decision") == "deny"):
+            for acl_dev, acl_intf, acl_dir in (
+                (current_device, interface, "outbound"),
+                (next_device, in_interface, "inbound"),
+            ):
+                if not acl_intf:
+                    continue
+                acl_res = _check_acls_at_hop(
+                    acl_dev, acl_intf, acl_dir, src_ip, dest_ip,
+                    flow_protocol, flow_dst_port, run_id,
+                )
+                if acl_res and acl_res["decision"] in ("deny", "unknown"):
+                    lines.append(f"  ACL: {acl_res['text']}")
+                    if hop_policy is None or acl_res["decision"] == "deny":
+                        hop_policy = acl_res
+                    if acl_res["decision"] == "deny":
+                        break
+
         hops.append({
             "device": current_device,
             "vrf": current_vrf,
@@ -1147,7 +1312,70 @@ async def trace_path(
         hops, path_devices, run_id, destination,
         src_ip=src_ip, protocol=flow_protocol, dst_port=flow_dst_port,
     )
+
+    # ── Return-path / asymmetry (skipped on the reverse walk itself) ─────
+    if not _return_trace:
+        await _augment_return_path(
+            verdict, path_devices=path_devices, destination=destination,
+            dst_ip=dest_ip, src_ip=src_ip, ip_to_device=ip_to_device,
+            run_id=run_id, context=context,
+            protocol=flow_protocol, dst_port=flow_dst_port,
+        )
+        if verdict.get("return_path"):
+            rp = verdict["return_path"]
+            lines.append("")
+            lines.append(f"Return path: {rp['result']}"
+                         + (" — ASYMMETRIC" if rp.get("asymmetric") else "")
+                         + (f" — BLOCKED by {rp['blocked_by']['policy']}"
+                            if rp.get("blocked_by") else ""))
+
     return ToolResult("ok", "\n".join(lines), highlight=highlight, verdict=verdict)
+
+
+async def _augment_return_path(
+    verdict: dict, *, path_devices: list[str], destination: str, dst_ip: str,
+    src_ip: str | None, ip_to_device: dict, run_id: str, context: dict,
+    protocol: str | None, dst_port: int | None,
+) -> None:
+    """Add return-path awareness to the verdict (in place).
+
+    ACLs are stateless: a forward-permit with a return-blocked or asymmetric
+    reverse path is a broken flow a one-way trace would call "reachable". Only
+    attempted when both endpoints are concrete in-scope devices; otherwise the
+    verdict states plainly that the return path was not verified — never silent.
+    """
+    verdict["return_path"] = None
+    external = destination.lower() == "internet" or dst_ip in ("0.0.0.0/0", "0.0.0.0/0.0.0.0", "")
+    if external:
+        verdict["reasons"].append("return path not verifiable (external destination)")
+        return
+    dst_device = ip_to_device.get(dst_ip.split("/")[0] if dst_ip else "")
+    if not dst_device:
+        verdict["reasons"].append("return path not evaluated (destination is not an in-scope device)")
+        return
+    if not src_ip:
+        verdict["reasons"].append("return path not evaluated (source IP not supplied)")
+        return
+
+    rev = await trace_path(
+        source_device=dst_device, destination=src_ip, src_ip=dst_ip,
+        protocol=protocol, dst_port=dst_port, run_id=run_id, context=context,
+        _return_trace=True,
+    )
+    rev_v = rev.verdict or {}
+    rev_devices = (rev.highlight or {}).get("devices", []) if rev.highlight else []
+    asymmetric = bool(rev_devices) and set(rev_devices) != set(path_devices)
+    verdict["return_path"] = {
+        "result": rev_v.get("result", "unknown"),
+        "asymmetric": asymmetric,
+        "blocked_by": rev_v.get("blocked_by"),
+    }
+    if rev_v.get("result") == "blocked":
+        verdict["reasons"].append("return path is blocked (stateless-ACL / asymmetric hole)")
+        if verdict["result"] == "reachable":
+            verdict["result"] = "partial"
+    elif asymmetric:
+        verdict["reasons"].append("return path is asymmetric (different device sequence)")
 
 
 def _build_trace_verdict(
