@@ -53,6 +53,12 @@ def _render(verdict: ChangeVerdict, before: str, after: str,
         f"  Resolved findings: {c['resolved_findings']}",
         f"  Info-tier (operational noise, ignored): {c['info']}",
         "",
+        # Honest scope limit: policy config lives in Neo4j (from device facts),
+        # not the diffed model — a firewall/ISDB rule change that trips no rule
+        # is not yet reflected here. Disclosed so the verdict isn't read as
+        # covering more than it does. (Diffable policy state: planned, s09.)
+        "Not yet covered: firewall-policy and Internet-Service (ISDB) changes "
+        "that produce no finding are not included in this verdict.",
         "For the full change list call diff_runs with the same two runs.",
     ]
     return "\n".join(lines)
