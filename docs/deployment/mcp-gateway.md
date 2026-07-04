@@ -1,76 +1,62 @@
-# Deploying NetCopilot behind an MCP gateway (least privilege in config)
+# Multi-client deployments — least privilege in config
 
 NetCopilot's MCP server exposes the **full read surface** — every tool, to any
 client that can reach the endpoint. That is the right default for a
 single-operator install. The moment several clients (a chat assistant, an
-audit bot, a dashboard, another team's agent) share one NetCopilot, you want
-three things the server deliberately does not do itself:
+audit bot, a dashboard, another team's agent) share one NetCopilot, three
+questions appear that the server deliberately does not answer itself:
 
-- **Per-client least privilege** — the audit bot needs `validate_change` and
-  `get_findings`; it does not need report generation or path tracing.
-- **One client-facing endpoint** — clients configure a single URL, whatever
-  happens behind it.
-- **One audit point** — a single place that sees every tool call.
+- **Who may call what?** The audit bot needs `validate_change` and
+  `get_findings`; it has no business generating reports or tracing paths.
+- **What do clients configure?** One URL, whatever happens behind it.
+- **Where is the audit trail?** One place that sees every tool call.
 
-An **MCP gateway** provides all three *in config, not code* — the same
-principle as NetCopilot's own constitution (Art. IV: least privilege in
-config). This guide uses [gridctl](https://github.com/gridctl/gridctl), an
-Apache-2.0 MCP gateway configured with one YAML file. Any MCP gateway with a
-per-server tool allow-list works the same way; the example stacks translate
-directly.
+The answer is an **MCP gateway** in front of NetCopilot, with a per-client
+tool allow-list — the same principle as NetCopilot's own constitution
+(Art. IV: *least privilege in config, not code*). Any MCP gateway with a tool
+allow-list implements this pattern; the examples below use
+[gridctl](https://github.com/gridctl/gridctl) (Apache-2.0, one-YAML
+configuration), which we validated end-to-end against NetCopilot.
 
-> **Status**: validated against gridctl `v0.1.0-beta.13` (2026-07-04).
-> gridctl is a young, fast-moving project — re-run the validation commands
-> below after upgrading it, and check the [compatibility](#compatibility)
-> section first.
+## Quick start (optional, one command)
 
-## Install gridctl
+The gateway is **opt-in and never part of the NetCopilot stack**: gridctl is
+a young project evolving quickly (beta releases), so it installs on demand,
+next to the stack, not inside it:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gridctl/gridctl/main/install.sh | sh
+./scripts/install-gateway.sh            # personas stack (see below)
+./scripts/install-gateway.sh full       # full read surface
 ```
 
-or download a release binary and verify its checksum:
+The script installs the latest gridctl release (via its official installer),
+applies the chosen example stack against your running NetCopilot, and
+**verifies the gateway live** — it fails loudly if the tool surface doesn't
+match expectations, so a future gateway release can never break you silently.
 
-```bash
-gh release download -R gridctl/gridctl -p 'gridctl_*_linux_amd64.tar.gz' -p checksums.txt
-sha256sum -c <(grep linux_amd64 checksums.txt) && tar xzf gridctl_*_linux_amd64.tar.gz
-```
+Your NetCopilot MCP endpoint defaults to `http://localhost:3002/mcp`; if you
+changed `MCP_PORT`, set `NETCOPILOT_MCP_URL` accordingly.
 
-Homebrew, source builds, and container-runtime notes:
-[gridctl installation guide](https://github.com/gridctl/gridctl/blob/main/docs/installation.md).
+## The two example stacks
 
-## Stack 1 — full read surface
+### Full read surface
 
-[`examples/gateway/full-read-surface.yaml`](../../examples/gateway/full-read-surface.yaml)
-fronts a running NetCopilot (`docker compose up`, MCP on `:3002` by default —
-edit the `url` if you changed `MCP_PORT`):
+[`examples/gateway/full-read-surface.yaml`](../../examples/gateway/full-read-surface.yaml) —
+every NetCopilot tool through one gateway endpoint
+(`http://localhost:8180/mcp`), namespaced by server name
+(`netcopilot__query_topology`, `netcopilot__validate_change`, …).
 
-```bash
-gridctl apply examples/gateway/full-read-surface.yaml
-# │ netcopilot │ mcp-server │ external  │ running │
-# Gateway running url=http://localhost:8180
-```
+### Personas — the allow-list at work
 
-Point any MCP client at `http://localhost:8180/mcp`. It sees every NetCopilot
-tool, namespaced by server name (`netcopilot__query_topology`,
-`netcopilot__validate_change`, …).
-
-## Stack 2 — personas (the allow-list at work)
-
-[`examples/gateway/personas.yaml`](../../examples/gateway/personas.yaml)
-defines two clients' views of the **same** NetCopilot:
+[`examples/gateway/personas.yaml`](../../examples/gateway/personas.yaml) —
+two clients' views of the **same** NetCopilot:
 
 - **change-audit** — may judge changes and read findings, nothing else:
   `validate_change`, `diff_runs`, `get_findings`.
 - **topology-viewer** — structure and paths only:
   `query_topology`, `get_device_detail`, `trace_path`.
 
-```bash
-gridctl apply examples/gateway/personas.yaml
-```
-
-The gateway now lists exactly six tools (measured):
+The gateway lists exactly six tools (measured):
 
 ```
 change-audit__diff_runs
@@ -81,56 +67,28 @@ topology-viewer__query_topology
 topology-viewer__trace_path
 ```
 
-An agent wired to the `change-audit` persona can gate a change pipeline —
-and *cannot* call anything else, because the tools simply are not there.
-Narrowing or widening a persona is a YAML edit (gridctl hot-reloads the
-allow-list), not a NetCopilot change.
+An agent wired to the `change-audit` persona can gate a change pipeline — and
+*cannot* call anything else, because the tools simply are not there. Narrowing
+or widening a persona is a YAML edit (hot-reloaded), not a NetCopilot change.
 
-## Validate your deployment
+## Notes & current limits
 
-With a stack applied, from the NetCopilot repo:
-
-```bash
-python - <<'EOF'
-import asyncio
-from fastmcp import Client
-
-async def main():
-    async with Client("http://localhost:8180/mcp") as c:
-        tools = await c.list_tools()
-        print(len(tools), "tools through the gateway")
-        for t in sorted(tools, key=lambda t: t.name)[:6]:
-            print(" ", t.name)
-
-asyncio.run(main())
-EOF
-```
-
-Expected: `26 tools` for the full stack, `6 tools` for personas. Tear down
-with `gridctl destroy <stack.yaml>`.
-
-## Compatibility
-
-Measured against gridctl `v0.1.0-beta.13` fronting NetCopilot v1.3.0
-(FastMCP streamable-HTTP):
-
-| Property | Through the gateway |
-|---|---|
-| Tool discovery + `tools:` allow-list | ✅ exact (26 exposed → 26 listed; 6 allowed → 6 listed) |
-| Tool descriptions + parameter schemas | ✅ intact |
-| Text content of results | ✅ intact |
-| Tool errors (`isError` + message) | ✅ preserved |
-| Tool names | ⚠️ namespaced `server__tool` (e.g. `netcopilot__trace_path`) — transparent for LLM clients, relevant if you hardcode tool names |
-| **MCP `structuredContent`** | ❌ **dropped** — NetCopilot results carry a machine-readable `{status, verdict}` as structured content; the gateway currently forwards only the text. Reported upstream with a fix: [gridctl#848](https://github.com/gridctl/gridctl/issues/848) / [PR gridctl#849](https://github.com/gridctl/gridctl/pull/849) |
-
-**What the last row means in practice:** LLM/chat clients are unaffected —
-they read the text, which is identical. But a *machine* consumer of the
-change-validation verdict (e.g. a pipeline parsing `verdict.result` instead
-of text) should connect to NetCopilot's MCP endpoint directly until the
-gateway forwards structured content — we've verified the linked fix restores
-full pass-through, so check whether your gridctl version includes it. The
-`netcopilot validate` CLI (exit codes 0/1/2) is unaffected — it never crosses
-the gateway.
+- **Beta pace.** gridctl releases frequently; the examples here were validated
+  against `v0.1.0-beta.13`. The installer's built-in verification re-checks on
+  every install — if something moves, you find out immediately, not silently.
+- **Namespaced names.** Clients see `server__tool` (e.g.
+  `netcopilot__trace_path`). Transparent for LLM clients; relevant if an
+  integration hardcodes tool names.
+- **Structured results travel direct-only for now.** NetCopilot results carry
+  a machine-readable `{status, verdict}` as MCP structured content in addition
+  to the text. Through the gateway, today, clients receive the text (which is
+  identical and complete); the structured part currently doesn't ride along —
+  an improvement that is in progress upstream. In practice: LLM/chat clients
+  are unaffected; a *machine* consumer of the change-validation verdict (a
+  pipeline parsing `verdict.result`) should connect to NetCopilot's endpoint
+  directly for now. The `netcopilot validate` CLI (exit codes 0/1/2) never
+  crosses the gateway and is unaffected.
+- **Platforms.** gridctl ships Linux and macOS binaries.
 
 ## When to skip the gateway
 
