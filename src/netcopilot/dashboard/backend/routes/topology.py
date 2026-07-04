@@ -21,7 +21,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from netcopilot.findings import device_from_finding, load_findings_enriched
+from netcopilot.findings import FindingsUnavailable, device_from_finding, load_findings_enriched
 from netcopilot.graph.client import get_driver, get_site_for_run, is_available
 
 logger = logging.getLogger(__name__)
@@ -1525,7 +1525,12 @@ def _load_findings_counts(run_id: str) -> tuple[Counter, set]:
     findings_per_device: Counter = Counter()
     critical_devices: set = set()
 
-    findings = load_findings_enriched(run_id) or []
+    try:
+        findings = load_findings_enriched(run_id)
+    except FindingsUnavailable:
+        # Topology-map badge counts; the map render has its own availability
+        # story, so degrade counts to empty rather than break the whole map.
+        findings = []
     for f in findings:
         device = device_from_finding(f)
         if device:

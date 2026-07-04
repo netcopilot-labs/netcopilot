@@ -8,7 +8,7 @@ import json
 import logging
 from pathlib import Path
 
-from netcopilot.findings import SEVERITY_ORDER, device_from_finding, load_findings_enriched
+from netcopilot.findings import SEVERITY_ORDER, FindingsUnavailable, device_from_finding, load_findings_enriched
 from netcopilot.graph.client import get_driver, is_available
 
 from netcopilot.mcp.result import ToolResult
@@ -259,10 +259,18 @@ async def get_device_detail(
 
     # ── Findings ─────────────────────────────────────────────────────
     if "findings" in requested:
-        all_findings = load_findings_enriched(run_id) or []
-        dev_findings = [f for f in all_findings if device_from_finding(f) == device]
-
-        lines.extend(["", f"Findings ({len(dev_findings)}):"])
+        try:
+            all_findings = load_findings_enriched(run_id)
+        except FindingsUnavailable:
+            all_findings = None
+        if all_findings is None:
+            # Ancillary section — don't render "Findings (0)" as if the device
+            # were clean when the store is simply unreachable.
+            lines.extend(["", "Findings: unavailable (findings store unreachable)"])
+            dev_findings = []
+        else:
+            dev_findings = [f for f in all_findings if device_from_finding(f) == device]
+            lines.extend(["", f"Findings ({len(dev_findings)}):"])
         if dev_findings:
             sev_order = SEVERITY_ORDER
             dev_findings.sort(key=lambda f: sev_order.get(f.get("severity", "info"), 5))

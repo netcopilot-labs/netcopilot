@@ -19,8 +19,8 @@ _SEV_WEIGHTS = {"critical": 5, "high": 4, "low": 2, "cis": 1, "info": 0}
 
 
 def _load_findings(run_id: str) -> list[dict]:
-    findings = load_findings_enriched(run_id)
-    return findings if findings is not None else []
+    # Propagates FindingsUnavailable — callers surface it honestly.
+    return load_findings_enriched(run_id)
 
 
 def _findings_by_device(findings: list[dict]) -> dict[str, list[dict]]:

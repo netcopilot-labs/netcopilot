@@ -16,6 +16,7 @@ import yaml
 from netcopilot.analysis.correlation_engine import area_patterns, blast_radius
 from netcopilot.analysis.remediation_loader import get_remediation
 from netcopilot.findings import (
+    FindingsUnavailable,
     device_from_finding,
     get_device_role,
     get_os_family,
@@ -64,9 +65,12 @@ async def analyze_findings(
     """Analyze a finding rule: priority ranking, remediation CLI, correlation insights."""
     run_id = context.get("run_id", "")
 
-    findings = load_findings_enriched(run_id)
+    try:
+        findings = load_findings_enriched(run_id)
+    except FindingsUnavailable as exc:
+        return ToolResult("error", f"Cannot read findings for run {run_id}: {exc}")
     if not findings:
-        return ToolResult("no_data", f"No findings data for run {run_id}.")
+        return ToolResult("no_data", f"No findings recorded for run {run_id}.")
 
     # Filter by rule_id — exclude acknowledged findings
     all_rule = [f for f in findings if f.get("rule_id") == rule_id]

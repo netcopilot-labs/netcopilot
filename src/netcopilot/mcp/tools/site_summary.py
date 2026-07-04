@@ -8,7 +8,7 @@ C1S5-US10.
 
 import logging
 
-from netcopilot.findings import device_from_finding, load_findings_enriched
+from netcopilot.findings import FindingsUnavailable, device_from_finding, load_findings_enriched
 from netcopilot.graph.client import get_driver, is_available
 
 from netcopilot.mcp.result import ToolResult
@@ -245,14 +245,19 @@ def _load_finding_counts(context: dict) -> dict[str, dict]:
     if not run_id:
         return counts
 
-    findings = load_findings_enriched(run_id) or []
+    try:
+        findings = load_findings_enriched(run_id)
+    except FindingsUnavailable:
+        # Findings are ancillary to the site summary; return no counts rather
+        # than fabricate zeros when the store is unreachable.
+        return counts
     for f in findings:
         d = device_from_finding(f)
         if not d:
             continue
         sev = f.get("severity", "info")
         if d not in counts:
-            counts[d] = {"total": 0, "critical": 0, "high": 0, "low": 0, "info": 0}
+            counts[d] = {"total": 0, "critical": 0, "high": 0, "low": 0, "cis": 0, "info": 0}
         counts[d]["total"] += 1
         if sev in counts[d]:
             counts[d][sev] += 1

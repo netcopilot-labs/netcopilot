@@ -18,7 +18,7 @@ from pathlib import Path
 
 from netcopilot.graph.client import get_driver, is_available
 from netcopilot.findings import resolve_device as _shared_resolve, suggest_devices, get_device_role, is_security_device, is_default_route
-from netcopilot.findings import load_findings_enriched, device_from_finding
+from netcopilot.findings import load_findings_enriched, device_from_finding, FindingsUnavailable
 
 from netcopilot.mcp.result import ToolResult
 
@@ -115,8 +115,15 @@ def _findings_on_path(path_devices: list[str], run_id: str) -> list[dict]:
     be reachable yet cross a device/link with an open problem. Returns compact
     ``{severity, title, device, finding_id}`` for HIGH/critical/medium findings
     on traversed devices, so a "reachable" verdict can carry its caveats.
+
+    The risks overlay is ancillary to the reachability verdict: if the findings
+    store is unreachable, return no risks (the trace still succeeds) rather than
+    failing the whole trace.
     """
-    findings = load_findings_enriched(run_id)
+    try:
+        findings = load_findings_enriched(run_id)
+    except FindingsUnavailable:
+        return []
     if not findings:
         return []
     on_path = set(path_devices)
