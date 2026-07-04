@@ -111,7 +111,28 @@ FORTIGATE_ENDPOINTS = [
     # Routing
     ("fortigate_static_route.json", "/api/v2/cmdb/router/static"),
     ("fortigate_routing.json", "/api/v2/monitor/router/ipv4"),
+    # Internet Service Database (ISDB) name→id catalog. Global FortiGuard data
+    # (identical across VDOMs) — left unscoped. Feeds policy ISDB-reference
+    # resolution; the id→ranges detail is fetched dynamically (see
+    # ``_resolve_isdb_services``) only for services policies actually reference.
+    ("fortigate_internet_service_name.json", "/api/v2/cmdb/firewall/internet-service-name"),
 ]
+
+# The monitor endpoint that resolves an ISDB service id to its IP-range entries.
+# Undocumented publicly but a stable API surface (present in Fortinet's own
+# ``fortios_monitor_fact`` Ansible module); verified live on FortiOS 7.0.19.
+_ISDB_DETAILS_PATH = "/api/v2/monitor/firewall/internet-service-details"
+# Entries per page for the paged detail fetch (verified: server honours count=500).
+_ISDB_PAGE_SIZE = 500
+# Safety cap on pages per service — large feeds (e.g. malicious-server lists)
+# can run to many thousands of ranges. Truncation is flagged, never silent.
+_ISDB_MAX_PAGES = int(os.environ.get("NETCOPILOT_ISDB_MAX_PAGES", "40"))
+# Policy fields that carry ISDB references (dst + src families).
+_ISDB_POLICY_FIELDS = (
+    "internet-service-name", "internet-service-custom", "internet-service-group",
+    "internet-service-src-name", "internet-service-src-custom", "internet-service-src-group",
+    "internet-service-id", "internet-service-src-id",
+)
 
 # Endpoints that return per-VDOM data and accept a ``?vdom=`` filter. When a
 # device declares a ``vdom``, these are scoped to it; global endpoints (HA,
@@ -151,6 +172,115 @@ def _determine_hostname(status_data: dict | None, fallback: str) -> str:
     except (AttributeError, TypeError):
         pass
     return fallback
+
+
+def _build_isdb_name_index(name_table: dict | None) -> dict[str, int]:
+    """Map ISDB service name → id from the ``internet-service-name`` catalog."""
+    index: dict[str, int] = {}
+    if not name_table:
+        return index
+    results = name_table.get("results")
+    if not isinstance(results, list):
+        return index
+    for entry in results:
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get("name")
+        sid = entry.get("internet-service-id")
+        if name and isinstance(sid, int):
+            index[name] = sid
+    return index
+
+
+def _extract_referenced_isdb(policies: dict | None, name_index: dict[str, int]) -> dict[int, str]:
+    """Collect the ISDB service ids (→ name) that any policy references.
+
+    Scans every policy's ISDB reference fields (dst + src families). References
+    by id are taken directly; references by name are resolved via the catalog
+    index. Returns ``{id: name}`` — only these services get their ranges
+    fetched, so collection cost stays proportional to what the config uses.
+    """
+    referenced: dict[int, str] = {}
+    if not policies:
+        return referenced
+    results = policies.get("results")
+    if not isinstance(results, list):
+        return referenced
+    id_to_name = {v: k for k, v in name_index.items()}
+    for policy in results:
+        if not isinstance(policy, dict):
+            continue
+        for field in _ISDB_POLICY_FIELDS:
+            for ref in policy.get(field, []) or []:
+                if not isinstance(ref, dict):
+                    continue
+                sid = ref.get("id")
+                name = ref.get("name")
+                if isinstance(sid, int):
+                    referenced[sid] = name or id_to_name.get(sid, str(sid))
+                elif name and name in name_index:
+                    referenced[name_index[name]] = name
+    return referenced
+
+
+def _fetch_isdb_ranges(client, base_url: str, service_id: int, name: str) -> dict | None:
+    """Resolve one ISDB service id to its IP ranges via the monitor endpoint.
+
+    Returns ``{"name", "total", "truncated", "ranges": [...]}`` or ``None`` when
+    the endpoint is unavailable (older FortiOS / restricted token profile) — the
+    caller degrades to names-only and logs it, never fabricates ranges.
+    """
+    try:
+        summary = _get_with_retry(
+            client, f"{base_url}{_ISDB_DETAILS_PATH}",
+            {"id": service_id, "summary_only": True},
+        )
+        summary.raise_for_status()
+        total = summary.json().get("results", {}).get("total", 0)
+    except (httpx.HTTPStatusError, httpx.RequestError, ValueError) as exc:
+        logger.warning("ISDB summary for id %s (%s) failed: %s", service_id, name, exc)
+        return None
+
+    ranges: list[str] = []
+    truncated = False
+    fetched = 0  # raw entry rows seen (before de-dup) — the coverage measure
+    for page in range(_ISDB_MAX_PAGES):
+        start = page * _ISDB_PAGE_SIZE
+        if start >= total:
+            break
+        try:
+            resp = _get_with_retry(
+                client, f"{base_url}{_ISDB_DETAILS_PATH}",
+                {"id": service_id, "start": start, "count": _ISDB_PAGE_SIZE},
+            )
+            resp.raise_for_status()
+            entries = resp.json().get("results", {}).get("entry", []) or []
+        except (httpx.HTTPStatusError, httpx.RequestError, ValueError) as exc:
+            logger.warning("ISDB page %d for id %s (%s) failed: %s", page, service_id, name, exc)
+            truncated = True
+            break
+        if not entries:
+            break
+        fetched += len(entries)
+        for e in entries:
+            ipr = e.get("ip_range") or {}
+            start_ip, end_ip = ipr.get("start_ip"), ipr.get("end_ip")
+            if not start_ip:
+                continue
+            ranges.append(start_ip if start_ip == end_ip else f"{start_ip}-{end_ip}")
+    else:
+        # Loop exhausted the page cap. Compare RAW rows fetched (not de-duped
+        # ranges) to total — de-dup legitimately shrinks the list below total.
+        if fetched < total:
+            truncated = True
+            logger.warning(
+                "ISDB service %s (%s): capped at %d pages (%d/%d rows)",
+                service_id, name, _ISDB_MAX_PAGES, fetched, total,
+            )
+
+    # De-dup across proto rows (TCP/UDP duplicate the same range), keep order.
+    ranges = list(dict.fromkeys(ranges))
+    return {"name": name, "total": total, "truncated": truncated, "ranges": ranges}
 
 
 class RestAdapter(CollectionStrategy):
@@ -248,6 +378,32 @@ class RestAdapter(CollectionStrategy):
                     "status": cmd_status,
                     "error": cmd_error,
                 })
+
+            # ── ISDB range resolution (referenced services only) ──────────
+            # The name catalog + policies are now collected; resolve the ISDB
+            # ids the policies reference to their IP ranges. Degrades to
+            # names-only (no ranges file) if the monitor endpoint is absent.
+            name_index = _build_isdb_name_index(collected.get("fortigate_internet_service_name.json"))
+            referenced = _extract_referenced_isdb(
+                collected.get("fortigate_firewall_policy.json"), name_index,
+            )
+            if referenced:
+                isdb_ranges: dict[str, Any] = {}
+                for sid, sname in sorted(referenced.items()):
+                    resolved = _fetch_isdb_ranges(client, base_url, sid, sname)
+                    if resolved is not None:
+                        isdb_ranges[str(sid)] = resolved
+                if isdb_ranges:
+                    collected["fortigate_isdb_ranges.json"] = isdb_ranges
+                    command_entries.append({
+                        "command": f"REST:GET {_ISDB_DETAILS_PATH} (x{len(isdb_ranges)} referenced services)",
+                        "output_file": None, "status": "success", "error": None,
+                    })
+                else:
+                    logger.warning(
+                        "ISDB: %d services referenced but none resolved "
+                        "(monitor endpoint unavailable) — names-only", len(referenced),
+                    )
         finally:
             client.close()
 
@@ -263,6 +419,13 @@ class RestAdapter(CollectionStrategy):
                 output_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
                 files_created.append(str(output_file))
                 command_entries[i]["output_file"] = str(output_file)
+
+        # Dynamic ISDB ranges file (not part of the static endpoint list).
+        isdb_data = collected.get("fortigate_isdb_ranges.json")
+        if isdb_data is not None:
+            isdb_file = host_path / "fortigate_isdb_ranges.json"
+            isdb_file.write_text(json.dumps(isdb_data, indent=2), encoding="utf-8")
+            files_created.append(str(isdb_file))
 
         # Success if any endpoint returned data — partial evidence is still useful.
         return CollectionResult(
