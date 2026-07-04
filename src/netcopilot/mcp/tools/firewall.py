@@ -60,6 +60,7 @@ async def get_firewall_policies(
             "p.srcaddr AS srcaddr, p.dstaddr AS dstaddr, "
             "p.dst_isdb AS dst_isdb, p.src_isdb AS src_isdb, "
             "p.service AS service, p.nat AS nat, "
+            "p.schedule AS schedule, p.logtraffic AS logtraffic, "
             "p.src_negate AS src_negate, p.dst_negate AS dst_negate, "
             "p.service_negate AS service_negate, "
             "p.device AS device, p.comments AS comments "
@@ -200,6 +201,13 @@ async def get_firewall_policies(
                 lines.append(f"    src: {srcaddr}{src_neg}")
                 lines.append(f"    dst: {dstaddr}{dst_neg}")
                 lines.append(f"    service: {svc}{svc_neg}")
+                # schedule != always → a rule shown [ACCEPT] is only time-boxed;
+                # logtraffic=disable → traffic passes with no audit trail.
+                sched = p.get("schedule") or ""
+                if sched and sched.lower() != "always":
+                    lines.append(f"    schedule: {sched} (only active on this schedule)")
+                if (p.get("logtraffic") or "").lower() == "disable":
+                    lines.append("    ⚠ logging: disabled (no audit trail for this traffic)")
             else:
                 # ACL entry
                 srcaddr = p.get("srcaddr", "any")
