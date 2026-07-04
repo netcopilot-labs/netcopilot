@@ -9,11 +9,66 @@ import json
 from netcopilot.graph.loader import (
     _load_arp_entries,
     _load_firewall_policies,
+    _load_isdb_services,
     _normalize_mac,
 )
+from netcopilot.parse.policy_resolver import extract_isdb_refs
 from test_graph_load_model import FakeDriver
 
 SITE, RUN = "dc", "r1"
+
+
+# ── S07-2: ISDB reference extraction + policy props + ISDBService nodes ───────
+
+def test_extract_isdb_refs_dst_and_src():
+    policy = {
+        "internet-service-name": [{"name": "SYNTH-Blocklist.Node"}, {"name": "SYNTH-Other.Svc"}],
+        "internet-service-src-name": [{"name": "SYNTH-Src.Svc"}],
+    }
+    refs = extract_isdb_refs(policy)
+    assert refs == {"dst": ["SYNTH-Blocklist.Node", "SYNTH-Other.Svc"], "src": ["SYNTH-Src.Svc"]}
+
+
+def test_extract_isdb_refs_none():
+    assert extract_isdb_refs({"dstaddr": [{"name": "web"}]}) == {"dst": [], "src": []}
+
+
+def test_load_firewall_policy_carries_isdb_props(tmp_path):
+    d = _facts(tmp_path, "fw-01")
+    (d / "fortigate_firewall_policy.json").write_text(json.dumps({"results": [
+        {"policyid": 30, "name": "block-blocklist", "status": "enable", "action": "deny",
+         "srcintf": [{"name": "port1"}], "dstintf": [{"name": "port2"}],
+         "srcaddr": [{"name": "all"}], "dstaddr": [],  # ISDB policy has empty dstaddr
+         "service": [{"name": "ALL"}],
+         "internet-service-name": [{"name": "SYNTH-Blocklist.Node"}]},
+    ]}))
+    driver = FakeDriver()
+    _load_firewall_policies(driver, tmp_path / "run", SITE, RUN)
+    pol = next(p["policies"] for c, p in driver.calls if "[:HAS_POLICY]" in c)[0]
+    assert pol["dst_isdb"] == "SYNTH-Blocklist.Node"
+    assert pol["src_isdb"] == ""
+
+
+def test_load_isdb_services(tmp_path):
+    d = _facts(tmp_path, "fw-01")
+    (d / "fortigate_isdb_ranges.json").write_text(json.dumps({
+        "990001": {"name": "SYNTH-Blocklist.Node", "total": 3, "truncated": False,
+                   "ranges": ["192.0.2.1", "198.51.100.0-198.51.100.255"]},
+    }))
+    driver = FakeDriver()
+    n = _load_isdb_services(driver, tmp_path / "run", SITE, RUN)
+    assert n == 1
+    svcs = next(p["services"] for c, p in driver.calls if "[:REFERENCES_ISDB]" in c)
+    svc = svcs[0]
+    assert svc["isdb_id"] == 990001
+    assert svc["name"] == "SYNTH-Blocklist.Node"
+    assert svc["ranges"] == ["192.0.2.1", "198.51.100.0-198.51.100.255"]
+    assert svc["device"] == "fw-01"
+
+
+def test_load_isdb_services_absent_file_zero(tmp_path):
+    _facts(tmp_path, "fw-01")  # device dir but no ranges file
+    assert _load_isdb_services(FakeDriver(), tmp_path / "run", SITE, RUN) == 0
 
 
 def test_normalize_mac():

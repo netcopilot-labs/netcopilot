@@ -224,10 +224,11 @@ TOOL_SCHEMAS: list[dict] = [
         "name": "trace_path",
         "description": (
             "Trace traffic hop-by-hop across L2 trunks, L3 routing, VRF boundaries, "
-            "firewalls, and BGP exits. ALWAYS use for 'how does traffic reach the "
-            "internet?', 'what path does X take?', 'does traffic cross the firewall?', "
-            "and '[service] has no internet' (use service= param — searches interface "
-            "descriptions, works on any network)."
+            "firewalls, ACLs, and BGP exits, and judge whether the flow is reachable "
+            "or blocked. ALWAYS use for 'how does traffic reach the internet?', 'what "
+            "path does X take?', 'does traffic cross the firewall?', 'does port N reach "
+            "Y?' (pass protocol=+dst_port=), and '[service] has no internet' (use "
+            "service= param — searches interface descriptions, works on any network)."
         ),
         "parameters": {
             "type": "object",
@@ -235,7 +236,11 @@ TOOL_SCHEMAS: list[dict] = [
                 "source_device": {"type": "string", "description": "Starting device name."},
                 "service": {"type": "string", "description": "Service/customer keyword to resolve to a source device + VRF."},
                 "destination": {"type": "string", "description": "Destination IP or 'internet' (default)."},
+                "src_ip": {"type": "string", "description": "Source IP of the flow (sharpens policy/ACL source matching; optional)."},
+                "protocol": {"type": "string", "description": "L4 protocol for policy/ACL matching: tcp, udp, or icmp (optional)."},
+                "dst_port": {"type": "integer", "description": "Destination port for policy/ACL matching (optional; needs protocol)."},
                 "vrf": {"type": "string", "description": "VRF to trace through (auto-picked if omitted)."},
+                "run_id": {"type": "string", "description": "Trace against a specific run (pre/post-change comparison); defaults to the current run."},
                 "max_hops": {"type": "integer", "description": "Max hops (default 10, capped at 20)."},
             },
             "required": [],

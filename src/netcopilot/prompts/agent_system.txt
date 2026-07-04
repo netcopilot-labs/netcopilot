@@ -302,9 +302,15 @@ ANTI-PATTERNS TO AVOID:
 - trace_path        → ALWAYS use for "how does traffic reach the internet?",
                       "what path does X take?", "does traffic cross the firewall?",
                       and "[customer/service] has no internet" (use service= param).
-                      Traces hop-by-hop across L2/L3/VRF/firewall/BGP boundaries.
+                      Traces hop-by-hop across L2/L3/VRF/firewall/ACL/BGP boundaries
+                      and returns a reachable/blocked/partial verdict.
                       Use service= for service-based trace — searches interface
                       descriptions for any keyword (works on any network).
+                      For a specific flow ("does port 443 reach 198.51.100.9?",
+                      "is TCP/22 blocked to X?"), pass protocol= and dst_port= so
+                      firewall/ACL policies are matched on the full 5-tuple, and
+                      src_ip= to sharpen source matching. Pass run_id= to trace a
+                      past run (pre/post-change path comparison).
                       IMPORTANT: When someone reports "X has no internet", call
                       trace_path(service="X") FIRST. This finds where X connects
                       and traces the full path. Do NOT scatter across many tools.

@@ -11,13 +11,63 @@ from netcopilot.parse.policy_resolver import (
     build_address_resolver,
     build_service_resolver,
     build_zone_map,
+    extract_isdb_refs,
     fg_dst_to_cidr,
+    ip_in_isdb_ranges,
     parse_genie_acl,
+    service_allows,
 )
 
 
 def _write(facts_dir, name, obj):
     (facts_dir / name).write_text(json.dumps(obj))
+
+
+# ── S07-3: shared 5-tuple matcher ────────────────────────────────────────────
+
+def test_service_allows_protocol_only_when_no_port():
+    # dst_port=None → protocol-level match; None protocol → IP-only (True).
+    assert service_allows(None, None, "TCP/443") is True
+    assert service_allows("tcp", None, "TCP/443") is True
+    assert service_allows("udp", None, "TCP/443") is False
+
+
+def test_service_allows_all_and_empty_permissive():
+    assert service_allows("tcp", 443, "ALL") is True
+    assert service_allows("tcp", 443, "") is True
+    assert service_allows("tcp", 443, "any") is True
+
+
+def test_service_allows_fortigate_grammar():
+    assert service_allows("tcp", 443, "TCP/443") is True
+    assert service_allows("tcp", 444, "TCP/443") is False
+    assert service_allows("tcp", 443, "TCP/443-445") is True
+    assert service_allows("tcp", 446, "TCP/443-445") is False
+    assert service_allows("tcp", 53, "TCP/443, UDP/53") is False  # 53 is UDP here
+    assert service_allows("udp", 53, "TCP/443, UDP/53") is True
+
+
+def test_service_allows_acl_grammar():
+    assert service_allows("tcp", 443, "tcp 443") is True
+    assert service_allows("tcp", 85, "tcp 80-90") is True
+    assert service_allows("tcp", 2000, "tcp gt 1024") is True
+    assert service_allows("tcp", 500, "tcp gt 1024") is False
+    assert service_allows("tcp", 79, "tcp lt 80") is True
+    # src-port spec is not a dst match
+    assert service_allows("tcp", 53, "tcp src 53") is False
+
+
+def test_service_allows_unparseable_is_permissive():
+    # Don't fabricate a block from a spec we can't parse.
+    assert service_allows("tcp", 443, "tcp weird-spec") is True
+
+
+def test_ip_in_isdb_ranges():
+    ranges = ["192.0.2.5", "198.51.100.0-198.51.100.255"]
+    assert ip_in_isdb_ranges("192.0.2.5", ranges) is True
+    assert ip_in_isdb_ranges("198.51.100.128", ranges) is True
+    assert ip_in_isdb_ranges("203.0.113.1", ranges) is False
+    assert ip_in_isdb_ranges("not-an-ip", ranges) is False
 
 
 def test_fg_dst_to_cidr():
