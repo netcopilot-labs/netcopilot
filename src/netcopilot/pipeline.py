@@ -18,6 +18,7 @@ adds the collect front-end. Both return a summary dict of per-stage counts.
 """
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 from pathlib import Path
@@ -104,6 +105,22 @@ def process_run(
     finding_count = rules_result.get("metadata", {}).get("total_findings", 0)
     log.info("Pipeline: rules run %s — %d finding(s)", run_id, finding_count)
     _emit("rules_complete", f"Rules: {finding_count} findings")
+
+    # S09-2: firewall-policy state as a diffable artifact, from the same shared
+    # builder the Neo4j loader uses. Written on both the load and --no-load
+    # paths (it's a model-side artifact, not Neo4j). diff_runs/validate_change
+    # read it so policy drift is visible — network_model.json (and thus the
+    # golden snapshots) does not carry policies, so build_model stays untouched.
+    from netcopilot.parse.policy_resolver import build_firewall_policies
+
+    policies = build_firewall_policies(Path(runs_dir) / run_id, site, run_id)
+    policies_dir = Path(runs_dir) / run_id / "policies"
+    policies_dir.mkdir(parents=True, exist_ok=True)
+    (policies_dir / "policies.json").write_text(
+        json.dumps({"policies": policies}, indent=2)
+    )
+    log.info("Pipeline: wrote %d firewall policies for run %s", len(policies), run_id)
+    _emit("policies_complete", f"Policies: {len(policies)} firewall rules")
 
     result: dict[str, Any] = {
         "run_id": run_id,

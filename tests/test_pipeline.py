@@ -80,9 +80,26 @@ def test_process_run_emits_progress_per_stage(tmp_path):
     process_run("pipe-run", site="dc", runs_dir=tmp_path, load=False,
                 progress=lambda stage, msg: events.append((stage, msg)))
     stages = [s for s, _ in events]
-    # parse/model/rules fire without load; load_complete only when load=True
-    assert stages == ["parse_complete", "model_complete", "rules_complete"]
+    # parse/model/rules/policies fire without load; load_complete only when load=True
+    assert stages == ["parse_complete", "model_complete", "rules_complete",
+                      "policies_complete"]
     assert all(isinstance(m, str) and m for _, m in events)
+
+
+def test_process_run_writes_policies_artifact_no_load(tmp_path):
+    # S09-2: policies/policies.json is written on the --no-load path and its
+    # content is exactly the shared builder's output. This synthetic run has no
+    # firewall facts, so the list is empty — the point is the write happens and
+    # the shape is {"policies": [...]}.
+    from netcopilot.parse.policy_resolver import build_firewall_policies
+
+    _build_collected_run(tmp_path)
+    process_run("pipe-run", site="dc", runs_dir=tmp_path, load=False)
+
+    artifact = tmp_path / "pipe-run" / "policies" / "policies.json"
+    assert artifact.exists()
+    doc = json.loads(artifact.read_text())
+    assert doc == {"policies": build_firewall_policies(tmp_path / "pipe-run", "dc", "pipe-run")}
 
 
 def test_process_run_with_load_invokes_loader(tmp_path):
