@@ -18,6 +18,7 @@ from pathlib import Path
 
 from netcopilot.graph.client import get_driver, is_available
 from netcopilot.findings import resolve_device as _shared_resolve, suggest_devices, get_device_role, is_security_device, is_default_route
+from netcopilot.findings import load_findings_enriched, device_from_finding
 
 from netcopilot.mcp.result import ToolResult
 
@@ -86,19 +87,77 @@ def _explain_bgp_selection(device: str, selected_peer: str, run_id: str) -> str 
         return None
 
 
+def _load_isdb_services_for(device: str, run_id: str) -> dict[str, dict]:
+    """ISDB services referenced by ``device``'s policies → ``{name: {ranges, truncated}}``."""
+    services: dict[str, dict] = {}
+    if not is_available():
+        return services
+    driver = get_driver()
+    with driver.session() as session:
+        result = session.run(
+            "MATCH (d:Device {run_id: $run_id})-[:REFERENCES_ISDB]->(s:ISDBService) "
+            "WHERE toLower(d.name) = toLower($device) "
+            "RETURN s.name AS name, s.ranges AS ranges, s.truncated AS truncated",
+            run_id=run_id, device=device,
+        )
+        for rec in result:
+            services[rec["name"]] = {
+                "ranges": rec["ranges"] or [],
+                "truncated": bool(rec["truncated"]),
+            }
+    return services
+
+
+def _findings_on_path(path_devices: list[str], run_id: str) -> list[dict]:
+    """Open findings on the devices a trace traversed (findings overlay).
+
+    Reuses the deterministic rule-engine findings (no new analysis): a path may
+    be reachable yet cross a device/link with an open problem. Returns compact
+    ``{severity, title, device, finding_id}`` for HIGH/critical/medium findings
+    on traversed devices, so a "reachable" verdict can carry its caveats.
+    """
+    findings = load_findings_enriched(run_id)
+    if not findings:
+        return []
+    on_path = set(path_devices)
+    risks: list[dict] = []
+    for f in findings:
+        sev = (f.get("severity") or "").lower()
+        if sev not in ("critical", "high", "medium"):
+            continue
+        dev = device_from_finding(f)
+        if dev not in on_path:
+            continue
+        risks.append({
+            "severity": sev,
+            "title": f.get("title") or f.get("rule_id") or "finding",
+            "device": dev,
+            "finding_id": f.get("finding_id") or f.get("evidence", {}).get("element_id", ""),
+        })
+    return risks
+
+
 def _check_firewall_policy(
     fw_device: str, src_ip: str, dst_ip: str, src_intf: str, dst_intf: str, run_id: str,
-) -> str | None:
-    """Check FirewallPolicy nodes for a matching policy at a firewall crossing.
+    protocol: str | None = None, dst_port: int | None = None,
+) -> dict | None:
+    """Check FirewallPolicy nodes for the policy governing a flow at a crossing.
 
-    Tries two match strategies:
-    1. IP-based: source/destination IPs against resolved srcaddr/dstaddr CIDRs
-    2. Interface-based: interface names against srcintf/dstintf (fallback)
+    Match strategies, in order: ISDB references (dst_isdb resolved to ranges),
+    resolved destination CIDRs, and interface-name fallback — all gated by the
+    5-tuple ``service`` check when ``protocol``/``dst_port`` are supplied. Names
+    the deciding policy and whether it permits/denies.
 
-    Returns a description string or None if no match or Neo4j unavailable.
+    Returns a dict ``{text, decision, policy, id, via}`` (decision ∈
+    permit/deny/unknown/no_policy) or ``None`` when Neo4j is unavailable or the
+    device has no policies. The three-state honesty ladder: a resolved ISDB or
+    address match yields permit/deny; an ISDB reference whose feed wasn't
+    resolved yields ``unknown`` with a manual-review note; only a genuine
+    absence of any matching policy yields ``no_policy``.
     """
     import ipaddress
     import json
+    from netcopilot.parse.policy_resolver import ip_in_isdb_ranges, service_allows
 
     if not is_available():
         return None
@@ -112,7 +171,7 @@ def _check_firewall_policy(
                 "RETURN p.policyid AS id, p.name AS name, p.action AS action, "
                 "p.srcintf AS srcintf, p.dstintf AS dstintf, "
                 "p.srcaddr AS srcaddr, p.dstaddr AS dstaddr, "
-                "p.service AS service, p.policy_type AS ptype "
+                "p.dst_isdb AS dst_isdb, p.service AS service, p.policy_type AS ptype "
                 "ORDER BY p.seq",
                 run_id=run_id, device=fw_device,
             )
@@ -121,68 +180,93 @@ def _check_firewall_policy(
         if not policies:
             return None
 
-        # Strategy 1: IP-based match — find first PERMIT policy matching dest IP
-        # Skip deny-all rules (like blacklists) that match on 0.0.0.0/0 without
-        # verifying source — we don't have the source IP of the actual traffic.
+        isdb_services = _load_isdb_services_for(fw_device, run_id)
+
+        def _decision(p, via, via_display=None):
+            action = (p.get("action") or "").lower()
+            decision = "deny" if action in ("deny", "drop") else "permit"
+            name = p.get("name") or f"id:{p.get('id', '?')}"
+            svc = p.get("service") or "ALL"
+            verb = "DENIES" if decision == "deny" else "PERMITS"
+            text = (f"Firewall policy: '{name}' (id:{p.get('id', '?')}) "
+                    f"{verb} traffic (match by {via_display or via}, service: {svc})")
+            return {"text": text, "decision": decision, "policy": name,
+                    "id": p.get("id"), "via": via}
+
         try:
             dst_addr = ipaddress.ip_address(dst_ip) if dst_ip and dst_ip != "0.0.0.0" else None
         except ValueError:
             dst_addr = None
 
+        # Ladder rung 1 — ISDB references. Remember an unresolved-feed candidate
+        # so it beats a false "no policy" but loses to a concrete match.
+        isdb_manual = None
+        if dst_addr:
+            for p in policies:
+                names = [n.strip() for n in (p.get("dst_isdb") or "").split(",") if n.strip()]
+                if not names:
+                    continue
+                if not service_allows(protocol, dst_port, p.get("service") or ""):
+                    continue
+                resolved_hit = any(
+                    ip_in_isdb_ranges(str(dst_addr), isdb_services.get(n, {}).get("ranges", []))
+                    for n in names
+                )
+                if resolved_hit:
+                    return _decision(p, "Internet-Service",
+                                     f"Internet-Service[{', '.join(names)}]")
+                have_ranges = any(isdb_services.get(n, {}).get("ranges") for n in names)
+                if not have_ranges and isdb_manual is None:
+                    nm = p.get("name") or f"id:{p.get('id', '?')}"
+                    isdb_manual = {
+                        "text": (f"Firewall policy '{nm}' matches via Internet-Service"
+                                 f"[{', '.join(names)}] — ISDB feed not resolved in this run "
+                                 f"(manual review)"),
+                        "decision": "unknown", "policy": nm, "id": p.get("id"), "via": "isdb-unresolved",
+                    }
+
+        # Ladder rung 2 — resolved destination CIDRs (service-gated).
         if dst_addr:
             for p in policies:
                 action = (p.get("action") or "").lower()
-                dstaddr_str = p.get("dstaddr", "") or ""
-
-                # Check specific destination CIDRs (skip 0.0.0.0/0 "any" on deny rules)
-                for cidr in dstaddr_str.replace(",", " ").split():
+                if not service_allows(protocol, dst_port, p.get("service") or ""):
+                    continue
+                for cidr in (p.get("dstaddr", "") or "").replace(",", " ").split():
                     cidr = cidr.strip()
                     if not cidr or "/" not in cidr:
                         continue
-                    # Skip "any" destination on deny rules — too broad without source check
-                    if cidr == "0.0.0.0/0" and action in ("deny",):
-                        continue
+                    if cidr == "0.0.0.0/0" and action in ("deny", "drop"):
+                        continue  # deny-any without a source check is too broad
                     try:
                         if dst_addr in ipaddress.ip_network(cidr, strict=False):
-                            act = action.upper()
-                            name = p.get("name") or f"id:{p.get('id', '?')}"
-                            svc = p.get("service") or "ALL"
-                            return (
-                                f"Firewall policy: '{name}' (id:{p.get('id', '?')}) "
-                                f"{act}S traffic (match by address, service: {svc})"
-                            )
+                            return _decision(p, "address")
                     except ValueError:
                         continue
 
-        # For default route traces (0.0.0.0/0), find first ACCEPT policy with dst "any"
+        # For default-route traces (internet), first ACCEPT policy with dst "any".
         permit_any = None
         for p in policies:
             action = (p.get("action") or "").lower()
-            dstaddr_str = p.get("dstaddr", "") or ""
-            if action in ("accept", "permit") and "0.0.0.0/0" in dstaddr_str:
-                name = p.get("name") or f"id:{p.get('id', '?')}"
-                svc = p.get("service") or "ALL"
-                permit_any = (
-                    f"Firewall policy: '{name}' (id:{p.get('id', '?')}) "
-                    f"PERMITS traffic (match by address, service: {svc})"
-                )
+            if (action in ("accept", "permit")
+                    and "0.0.0.0/0" in (p.get("dstaddr", "") or "")
+                    and service_allows(protocol, dst_port, p.get("service") or "")):
+                permit_any = _decision(p, "address")
                 break
 
-        # Strategy 2: Interface name substring match — prefer PERMIT (fallback)
+        # Ladder rung 3 — interface-name fallback (permit only).
         src_intf_lower = (src_intf or "").lower()
         dst_intf_lower = (dst_intf or "").lower()
         for p in policies:
             action = (p.get("action") or "").lower()
             if action not in ("accept", "permit"):
-                continue  # Skip deny rules in interface match — too imprecise
-            srcintf_json = p.get("srcintf") or "[]"
-            dstintf_json = p.get("dstintf") or "[]"
+                continue
+            if not service_allows(protocol, dst_port, p.get("service") or ""):
+                continue
             try:
-                src_intfs = json.loads(srcintf_json) if srcintf_json.startswith("[") else []
-                dst_intfs = json.loads(dstintf_json) if dstintf_json.startswith("[") else []
+                src_intfs = json.loads(p.get("srcintf") or "[]")
+                dst_intfs = json.loads(p.get("dstintf") or "[]")
             except (json.JSONDecodeError, TypeError):
                 continue
-
             src_match = any(
                 src_intf_lower in (i.get("name", "").lower()) or i.get("name", "") == "any"
                 for i in src_intfs
@@ -191,20 +275,16 @@ def _check_firewall_policy(
                 dst_intf_lower in (i.get("name", "").lower()) or i.get("name", "") == "any"
                 for i in dst_intfs
             ) if dst_intf_lower else True
-
             if src_match and dst_match:
-                name = p.get("name") or f"id:{p.get('id', '?')}"
-                svc = p.get("service") or "ALL"
-                return (
-                    f"Firewall policy: '{name}' (id:{p.get('id', '?')}) "
-                    f"PERMITS traffic (match by interface, verify manually, service: {svc})"
-                )
+                return _decision(p, "interface, verify manually")
 
-        # Return permit_any if found earlier, otherwise no match
         if permit_any:
             return permit_any
+        if isdb_manual:
+            return isdb_manual
 
-        return "⚠ No matching firewall policy found for this traffic flow"
+        return {"text": "⚠ No matching firewall policy found for this traffic flow",
+                "decision": "no_policy", "policy": None, "id": None, "via": None}
 
     except Exception as exc:
         log.debug("Firewall policy check failed for %s: %s", fw_device, exc)
@@ -233,6 +313,42 @@ def _build_ip_to_device(run_id: str) -> dict[str, str]:
 
 
 # Device resolution and suggestions now in agent.shared
+
+
+def _resolve_in_interface(next_device: str, next_hop: str, run_id: str) -> str | None:
+    """Best-effort: the interface on ``next_device`` that receives ``next_hop``.
+
+    Finds the interface whose configured subnet contains ``next_hop`` (the
+    address the current hop forwards to). Returns ``None`` when the model can't
+    resolve it — callers must treat that as an explicit unknown, never a match.
+    """
+    import ipaddress
+
+    if not next_device or not next_hop or not is_available():
+        return None
+    try:
+        target = ipaddress.ip_address(next_hop.split("/")[0])
+    except ValueError:
+        return None
+    driver = get_driver()
+    with driver.session() as session:
+        result = session.run(
+            "MATCH (d:Device {run_id: $run_id, name: $device})-[:HAS_INTERFACE]->(i:Interface) "
+            "WHERE i.ip IS NOT NULL "
+            "RETURN i.name AS name, i.ip AS ip",
+            run_id=run_id, device=next_device,
+        )
+        for rec in result:
+            ip = rec["ip"]
+            if "/" not in ip:
+                continue
+            try:
+                net = ipaddress.ip_network(ip, strict=False)
+            except ValueError:
+                continue
+            if target.version == net.version and target in net:
+                return rec["name"]
+    return None
 
 
 def _load_routes(device: str, data_dir: str | Path) -> dict[str, list[dict]]:
@@ -293,6 +409,50 @@ def _find_default_route(routes: list[dict]) -> dict | None:
     # Prefer lowest AD (ignore 0 which means unset)
     active.sort(key=lambda r: r.get("ad", 999) or 999)
     return active[0]
+
+
+def _find_route_to(routes: list[dict], dest_ip: str) -> dict | None:
+    """Longest-prefix-match route for ``dest_ip``; fall back to the default route.
+
+    Destination-aware selection: among routes whose prefix contains ``dest_ip``
+    (excluding the default, handled as the fallback), return the most specific
+    active one, breaking ties by lowest AD. When nothing more specific matches
+    — or ``dest_ip`` is the internet placeholder / not an address — delegate to
+    :func:`_find_default_route`, so external-destination traces are unchanged.
+    """
+    import ipaddress
+
+    if not dest_ip or dest_ip in ("0.0.0.0/0", "0.0.0.0/0.0.0.0", "::/0"):
+        return _find_default_route(routes)
+    try:
+        target = ipaddress.ip_address(dest_ip.split("/")[0])
+    except ValueError:
+        return _find_default_route(routes)
+
+    matches: list[tuple[int, dict]] = []
+    for r in routes:
+        prefix = r.get("prefix", "")
+        if not prefix or is_default_route(prefix):
+            continue
+        try:
+            net = ipaddress.ip_network(prefix, strict=False)
+        except ValueError:
+            continue
+        if target.version == net.version and target in net:
+            matches.append((net.prefixlen, r))
+
+    if not matches:
+        return _find_default_route(routes)
+
+    active = [(pl, r) for pl, r in matches if r.get("active", True) is not False]
+    if active:
+        active.sort(key=lambda x: (-x[0], x[1].get("ad", 999) or 999))
+        return active[0][1]
+    # All specific matches inactive — return the most specific, flagged.
+    matches.sort(key=lambda x: (-x[0], x[1].get("ad", 999) or 999))
+    best = dict(matches[0][1])
+    best["_inactive"] = True
+    return best
 
 
 def _pick_best_vrf(device_routes: dict[str, list[dict]]) -> str | None:
@@ -460,13 +620,28 @@ async def trace_path(
     source_device: str | None = None,
     service: str | None = None,
     destination: str = "internet",
+    src_ip: str | None = None,
+    protocol: str | None = None,
+    dst_port: int | None = None,
     vrf: str | None = None,
+    run_id: str | None = None,
     max_hops: int = 10,
     context: dict,
 ) -> ToolResult:
     """Trace network path from source to destination across L2/L3/VRF boundaries."""
-    run_id = context.get("run_id", "")
+    # ``run_id`` arg pins the trace to a specific run (pre/post-change
+    # comparison); otherwise use the context's current run.
+    run_id = run_id or context.get("run_id", "")
     data_dir = context.get("data_dir", "")
+    if run_id and data_dir:
+        # data_dir is <runs>/<run_id>; repoint it when a different run is pinned.
+        from pathlib import Path as _P
+        data_dir = str(_P(data_dir).parent / run_id)
+
+    # Capture the flow's L4 tuple before the walk loop — inside the loop
+    # ``protocol`` is reused for the per-hop *routing* protocol (ospf/bgp/...).
+    flow_protocol = protocol
+    flow_dst_port = dst_port
 
     lines = []
 
@@ -723,9 +898,24 @@ async def trace_path(
 
         role = get_device_role(current_device, run_id)
 
-        # Check for eBGP exit BEFORE loading routes
+        # Load routing table up front — needed both to decide whether an eBGP
+        # exit is the right move and to select the forwarding route.
+        device_routes = _load_routes(current_device, data_dir)
+        vrf_routes = device_routes.get(current_vrf, [])
+
+        # A concrete destination reachable by a more-specific (non-default)
+        # active route stays inside the collected topology — don't shortcut it
+        # out via eBGP. For an internet/external destination there is never a
+        # more-specific-than-default match, so the exit fires exactly as before.
+        specific_route = _find_route_to(vrf_routes, dest_ip) if vrf_routes else None
+        dest_is_internal = (
+            specific_route is not None
+            and not is_default_route(specific_route.get("prefix", ""))
+        )
+
+        # Check for eBGP exit (external destinations only)
         ebgp_peers = _get_bgp_exit(current_device, run_id)
-        if ebgp_peers:
+        if ebgp_peers and not dest_is_internal:
             lines.append(f"Hop {hop_num}: {current_device} [{current_vrf}] ({role})")
             transit_peers = [p for p in ebgp_peers if p.get("bgp_type") != "peering"]
             peering_peers = [p for p in ebgp_peers if p.get("bgp_type") == "peering"]
@@ -739,10 +929,6 @@ async def trace_path(
                     lines.append(f"    → {peer['peer']} AS{peer['local_as']}→AS{peer['remote_as']} ({peer.get('state', '?')}) [peering, {peer.get('prefix_count', '?')} prefixes]")
             hops.append({"device": current_device, "vrf": current_vrf, "type": "ebgp_exit", "role": role})
             break
-
-        # Load routing table
-        device_routes = _load_routes(current_device, data_dir)
-        vrf_routes = device_routes.get(current_vrf, [])
 
         # VRF not found — try L2 trunk FIRST (device L2-switches this VRF upstream)
         if not vrf_routes:
@@ -793,8 +979,8 @@ async def trace_path(
             lines.append(f"  ⚠ No routes in any VRF")
             break
 
-        # Find route to destination
-        default = _find_default_route(vrf_routes)
+        # Find route to destination (longest-prefix-match; default fallback)
+        default = _find_route_to(vrf_routes, dest_ip)
         if not default:
             # No default route — try L2 trunk as fallback
             l2_neighbor = _get_l2_trunk_neighbor(current_device, current_vrf, run_id, data_dir)
@@ -852,6 +1038,7 @@ async def trace_path(
         next_device = ip_to_device.get(next_hop, "")
 
         # Classify boundary
+        hop_policy = None
         if not next_device:
             boundary = "exits collection scope"
         elif next_device == current_device:
@@ -859,11 +1046,13 @@ async def trace_path(
         elif is_security_device(current_device, run_id) or is_security_device(next_device, run_id):
             fw_dev = current_device if is_security_device(current_device, run_id) else next_device
             policy_result = _check_firewall_policy(
-                fw_dev, next_hop, dest_ip, interface, "", run_id,
+                fw_dev, src_ip or next_hop, dest_ip, interface, "", run_id,
+                protocol=flow_protocol, dst_port=flow_dst_port,
             )
             boundary = "firewall crossing"
             if policy_result:
-                boundary += f" — {policy_result}"
+                boundary += f" — {policy_result['text']}"
+                hop_policy = policy_result
         else:
             boundary = f"L3 forwarding ({protocol})"
 
@@ -886,6 +1075,7 @@ async def trace_path(
             lines.append(f"  Note: {default['note']}")
         lines.append(f"  Boundary: {boundary}")
 
+        in_interface = _resolve_in_interface(next_device, next_hop, run_id) if next_device else None
         hops.append({
             "device": current_device,
             "vrf": current_vrf,
@@ -894,6 +1084,9 @@ async def trace_path(
             "protocol": protocol,
             "boundary": boundary,
             "role": role,
+            "out_interface": interface or None,
+            "in_interface": in_interface,
+            "policy": hop_policy,
         })
 
         # Move to next device
@@ -948,4 +1141,77 @@ async def trace_path(
         if h["device"] not in path_devices:
             path_devices.append(h["device"])
     highlight = {"devices": path_devices} if path_devices else {"device": source_device}
-    return ToolResult("ok", "\n".join(lines), highlight=highlight)
+
+    # ── Typed verdict (machine-readable reachability judgment) ───────────
+    verdict = _build_trace_verdict(
+        hops, path_devices, run_id, destination,
+        src_ip=src_ip, protocol=flow_protocol, dst_port=flow_dst_port,
+    )
+    return ToolResult("ok", "\n".join(lines), highlight=highlight, verdict=verdict)
+
+
+def _build_trace_verdict(
+    hops: list[dict], path_devices: list[str], run_id: str, destination: str,
+    *, src_ip: str | None, protocol: str | None, dst_port: int | None,
+) -> dict:
+    """Assemble the frozen-shape trace verdict from the walked hops.
+
+    ``result`` ∈ reachable/blocked/partial/unknown. ``reasons`` explain
+    partial/unknown outcomes and name any unevaluated or approximated checks —
+    never a clean-by-omission verdict. ``blocked_by`` names the denying
+    device+policy; ``risks`` carries open findings on the traversed path.
+    Evidence: run_id + device + policy/finding id per entry (Article VI).
+    """
+    reasons: list[str] = []
+    blocked_by = None
+    result = "unknown"
+
+    policies = [h["policy"] for h in hops if h.get("policy")]
+    deny = next((p for p in policies if p.get("decision") == "deny"), None)
+    unknown_pol = next((p for p in policies if p.get("decision") == "unknown"), None)
+    reached_exit = any(h.get("type") == "ebgp_exit" for h in hops)
+    last = hops[-1] if hops else None
+    external_dest = destination.lower() == "internet" or destination.startswith("0.0.0.0")
+
+    if deny:
+        result = "blocked"
+        blocked_by = {"device": deny.get("policy_device") or _hop_device_for_policy(hops, deny),
+                      "policy": deny.get("policy"), "id": deny.get("id")}
+        reasons.append(f"denied by policy '{deny.get('policy')}'")
+    elif not hops:
+        result = "unknown"
+        reasons.append("no hops could be evaluated (no routing data for source)")
+    elif reached_exit or (last and last.get("boundary") == "exits collection scope" and external_dest):
+        result = "reachable"
+    else:
+        result = "partial"
+        reasons.append("trace did not cleanly reach the destination (stalled mid-path)")
+
+    if unknown_pol and result != "blocked":
+        if result == "reachable":
+            result = "partial"
+        reasons.append(f"policy '{unknown_pol.get('policy')}' matched via an unresolved "
+                       f"Internet-Service feed (manual review)")
+
+    if src_ip is None and policies:
+        reasons.append("source IP not supplied — policy source-address matching not verified")
+
+    risks = _findings_on_path(path_devices, run_id)
+
+    return {
+        "result": result,
+        "reasons": reasons,
+        "hops": len(hops),
+        "blocked_by": blocked_by,
+        "risks": risks,
+        "run_id": run_id,
+    }
+
+
+def _hop_device_for_policy(hops: list[dict], policy: dict) -> str | None:
+    """Find the device whose hop carried ``policy`` (for blocked_by attribution)."""
+    for h in hops:
+        if h.get("policy") is policy:
+            # The firewall device is this hop's device or its next_device.
+            return h.get("device")
+    return None

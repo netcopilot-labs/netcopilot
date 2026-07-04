@@ -58,6 +58,7 @@ async def get_firewall_policies(
             "p.srcintf AS srcintf, p.dstintf AS dstintf, "
             "p.src_zones AS src_zones, p.dst_zones AS dst_zones, "
             "p.srcaddr AS srcaddr, p.dstaddr AS dstaddr, "
+            "p.dst_isdb AS dst_isdb, p.src_isdb AS src_isdb, "
             "p.service AS service, p.nat AS nat, "
             "p.src_negate AS src_negate, p.dst_negate AS dst_negate, "
             "p.service_negate AS service_negate, "
@@ -173,6 +174,11 @@ async def get_firewall_policies(
 
                 srcaddr = p.get("srcaddr", "any")
                 dstaddr = p.get("dstaddr", "any")
+                # ISDB (Internet Service) references show where dstaddr is empty.
+                if p.get("dst_isdb"):
+                    dstaddr = (f"{dstaddr}, " if dstaddr else "") + f"Internet-Service[{p['dst_isdb']}]"
+                if p.get("src_isdb"):
+                    srcaddr = (f"{srcaddr}, " if srcaddr else "") + f"Internet-Service[{p['src_isdb']}]"
                 svc = p.get("service", "ALL")
                 nat_str = " [NAT]" if p.get("nat") == "enable" else ""
                 status_str = " (disabled)" if status == "disable" else ""
