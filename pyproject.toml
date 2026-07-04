@@ -22,6 +22,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+# NetBox declared-state integration (ADR-0013) — opt-in: `pip install -e .[netbox]`.
+# Without it the NetBox adapter raises ImproperlyConfigured and the netbox tools
+# report unavailable; the YAML declared-state path needs nothing extra.
+netbox = ["pynetbox>=7.7"]
 # pyATS/Genie collection transport — the primary Cisco strategy. Heavy and
 # Linux/macOS only (no Windows wheels), so it is opt-in: `pip install -e .[pyats]`.
 # Without it the strategy chain falls back to NETCONF/RESTCONF/SSH.
