@@ -61,6 +61,15 @@ VOLATILE_FIELDS: frozenset[str] = frozenset(
         "collection_timestamp",
         "timestamp",
         "last_updated",
+        # --- loader plumbing carried on the firewall_policies artifact ---
+        # run_id differs every run by definition; seq is a FortiGate enumeration
+        # index (a config *reorder* shifts it for every following policy →
+        # drift spam). Neither is config: a security-relevant change lands in
+        # action/srcaddr/dstaddr/service/isdb/status/negate, all of which ARE
+        # diffed. run_id lives only in model_metadata today and seq on no other
+        # diffed entity, so excluding them globally is safe. (ADR-0011)
+        "run_id",
+        "seq",
         # --- pure traffic / message counters (bytes/packets/messages) ---
         "in_octets",
         "out_octets",
@@ -185,6 +194,21 @@ def _ospf_lsdb_key(l: dict[str, Any]) -> str:
     )
 
 
+def _firewall_policy_key(p: dict[str, Any]) -> str:
+    """Composite stable key for a firewall policy / ACL entry (S09).
+
+    FortiGate policies are identified by ``device:fw:policyid`` — ``policyid`` is
+    the config-stable identity (a reorder shifts ``seq`` but not ``policyid``).
+    Cisco ACL entries have no policyid, so they key on
+    ``device:acl:<acl_name>:<seq>`` — the ACE's evaluation slot within its named
+    ACL. Distinct prefixes keep the two policy families from colliding.
+    """
+    device = str(p.get("device", ""))
+    if p.get("policy_type") == "acl":
+        return f"{device}:acl:{p.get('name', '')}:{p.get('seq', '')}"
+    return f"{device}:fw:{p.get('policyid', '')}"
+
+
 #: entity_type -> callable(entity_dict) -> hashable stable key. The order of
 #: this dict is the deterministic order in which entity types are diffed.
 STABLE_KEYS: dict[str, Callable[[dict[str, Any]], str]] = {
@@ -195,6 +219,7 @@ STABLE_KEYS: dict[str, Callable[[dict[str, Any]], str]] = {
     "shared_services": _shared_service_key,
     "l2_domains": lambda x: str(x["id"]),
     "ospf_lsdb": _ospf_lsdb_key,
+    "firewall_policies": _firewall_policy_key,
 }
 
 #: The model collections the engine diffs, in deterministic order.
@@ -221,6 +246,7 @@ _ELEMENT_REF: dict[str, tuple[str | None, str | None]] = {
     "shared_services": (None, None),
     "l2_domains": (None, None),
     "ospf_lsdb": (None, None),
+    "firewall_policies": ("device", "device"),  # a policy halos its device node
 }
 
 

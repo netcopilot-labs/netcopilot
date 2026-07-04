@@ -13,7 +13,8 @@ from netcopilot.mcp.registry import TOOL_SCHEMAS, dispatch
 from netcopilot.mcp.tools.validate import validate_change
 
 
-def _write_run(runs_dir, run_id, site="lab1", devices=(), interfaces=(), findings=()):
+def _write_run(runs_dir, run_id, site="lab1", devices=(), interfaces=(), findings=(),
+               policies=None):
     run = runs_dir / run_id
     (run / "model").mkdir(parents=True)
     (run / "findings").mkdir(parents=True)
@@ -29,6 +30,17 @@ def _write_run(runs_dir, run_id, site="lab1", devices=(), interfaces=(), finding
     }
     (run / "model" / "network_model.json").write_text(json.dumps(model))
     (run / "findings" / "findings.json").write_text(json.dumps({"findings": list(findings)}))
+    if policies is not None:
+        (run / "policies").mkdir(parents=True)
+        (run / "policies" / "policies.json").write_text(json.dumps({"policies": list(policies)}))
+
+
+def _fw_policy(policyid, device, action):
+    return {"policyid": policyid, "seq": policyid, "name": f"pol-{policyid}",
+            "status": "enable", "action": action, "srcaddr": "0.0.0.0/0",
+            "dstaddr": "192.0.2.0/24", "service": "TCP/443", "dst_isdb": "",
+            "policy_type": "fortigate", "device": device, "site": "lab1",
+            "run_id": "ignored"}
 
 
 def _device(device_id, **kw):
@@ -119,6 +131,39 @@ def test_dispatch_routes_validate_change(runs):
         {"run_id": "2026-01-02_10-00-00"},
     ))
     assert out.status == "ok" and out.verdict is not None
+
+
+def test_policy_flip_out_of_scope_fails(tmp_path, monkeypatch):
+    # S09-4: a firewall-policy allow→deny flip on fw-01, with a scope that
+    # excludes fw-01, is the false-OK trap validate_change must FAIL.
+    monkeypatch.setenv("RUNS_DIR", str(tmp_path))
+    _write_run(tmp_path, "2026-03-01_10-00-00", devices=[_device("fw-01"), _device("sw-b")],
+               policies=[_fw_policy(1, "fw-01", "accept")])
+    _write_run(tmp_path, "2026-03-02_10-00-00", devices=[_device("fw-01"), _device("sw-b")],
+               policies=[_fw_policy(1, "fw-01", "deny")])
+    out = _call(run_before="2026-03-01_10-00-00", run_after="2026-03-02_10-00-00",
+                scope_devices=["sw-b"])
+    assert out.verdict["result"] == "fail"
+    assert out.verdict["reasons"][0]["code"] == "out_of_scope_change"
+    assert "fw-01" in out.text
+
+
+def test_policy_flip_in_scope_passes(tmp_path, monkeypatch):
+    monkeypatch.setenv("RUNS_DIR", str(tmp_path))
+    _write_run(tmp_path, "2026-03-01_10-00-00", devices=[_device("fw-01")],
+               policies=[_fw_policy(1, "fw-01", "accept")])
+    _write_run(tmp_path, "2026-03-02_10-00-00", devices=[_device("fw-01")],
+               policies=[_fw_policy(1, "fw-01", "deny")])
+    out = _call(run_before="2026-03-01_10-00-00", run_after="2026-03-02_10-00-00",
+                scope_devices=["fw-01"])
+    assert out.verdict["result"] == "pass"
+    assert out.verdict["counts"]["drift_total"] == 1
+    assert out.verdict["counts"]["in_scope"] == 1
+
+
+def test_s08_disclosure_is_gone(runs):
+    out = _call(run_before="2026-01-01_10-00-00", run_after="2026-01-02_10-00-00")
+    assert "Not yet covered" not in out.text
 
 
 def test_verdict_structured_shape(runs):

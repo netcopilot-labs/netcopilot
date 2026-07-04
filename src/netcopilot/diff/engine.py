@@ -111,6 +111,21 @@ def load_run(run_id: str, runs_dir: str | Path = "runs") -> RunData:
     findings_doc = json.loads(findings_path.read_text(encoding="utf-8"))
     findings = findings_doc.get("findings", []) if isinstance(findings_doc, dict) else findings_doc
 
+    # S09-3: firewall policies live in a separate artifact (not in
+    # network_model.json — keeping build_model + the golden snapshots untouched).
+    # Inject them into the model dict in memory so compute_diff sees
+    # `firewall_policies` as just another diffable entity type. Absent artifact
+    # (a run predating the feature) → empty on that side, so a first-time run
+    # diffs as before with no false "all policies removed".
+    policies_path = run_dir / "policies" / "policies.json"
+    if policies_path.is_file():
+        policies_doc = json.loads(policies_path.read_text(encoding="utf-8"))
+        model["firewall_policies"] = (
+            policies_doc.get("policies", []) if isinstance(policies_doc, dict) else policies_doc
+        )
+    else:
+        model["firewall_policies"] = []
+
     return RunData(run_id=str(run_id), site=_run_site(model), model=model, findings=findings)
 
 

@@ -14,7 +14,10 @@ Functions:
 
 import ipaddress
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 _ISDB_DST_FIELDS = ("internet-service-name", "internet-service-custom", "internet-service-group")
@@ -750,3 +753,150 @@ def parse_route_policy_bindings(facts_dir):
                 continue
 
     return rm_bindings, pl_refs
+
+
+def build_firewall_policies(run_dir: Path, site: str, run_id: str) -> list[dict]:
+    """Build the firewall-policy property dicts for a run — one shared source of
+    truth for both the Neo4j loader (UNWIND into :FirewallPolicy nodes) and the
+    ``policies.json`` pipeline artifact (diffable firewall-policy state).
+
+    Reads FortiGate policy files (with address/service/zone resolution) and
+    Cisco ACL files for every device under ``run_dir/facts``. Pure function of
+    the facts — no Neo4j, no network I/O. None-valued properties are stripped
+    (Neo4j doesn't store nulls; the artifact stays clean too).
+
+    Returns:
+        One dict per FortiGate policy / Cisco ACE, device-attributed. Empty when
+        there is no ``facts`` dir or no policies at all.
+    """
+    def _strip_none(props: dict) -> dict:
+        return {k: v for k, v in props.items() if v is not None}
+
+    facts_dir = run_dir / "facts"
+    if not facts_dir.is_dir():
+        return []
+
+    policy_params: list[dict] = []
+
+    for device_dir in sorted(facts_dir.iterdir()):
+        if not device_dir.is_dir():
+            continue
+        device = device_dir.name
+
+        # ── FortiGate policies ─────────────────────────────────────
+        fg_policy_path = device_dir / "fortigate_firewall_policy.json"
+        if fg_policy_path.exists():
+            try:
+                zone_map = build_zone_map(device_dir)
+                addr_resolver = build_address_resolver(device_dir)
+                svc_resolver = build_service_resolver(device_dir)
+
+                data = json.loads(fg_policy_path.read_text())
+                for idx, policy in enumerate(data.get("results", []), 1):
+                    # Resolve source/dest interfaces with zones
+                    srcintf = [
+                        {"name": i.get("name", ""), "zone": zone_map.get(i.get("name", ""), "")}
+                        for i in policy.get("srcintf", [])
+                    ]
+                    dstintf = [
+                        {"name": i.get("name", ""), "zone": zone_map.get(i.get("name", ""), "")}
+                        for i in policy.get("dstintf", [])
+                    ]
+                    # Resolve addresses
+                    srcaddr = ", ".join(
+                        addr_resolver.get(a.get("name", ""), a.get("name", ""))
+                        for a in policy.get("srcaddr", [])
+                    )
+                    dstaddr = ", ".join(
+                        addr_resolver.get(a.get("name", ""), a.get("name", ""))
+                        for a in policy.get("dstaddr", [])
+                    )
+                    # Resolve services
+                    services = []
+                    for s in policy.get("service", []):
+                        sname = s.get("name", "")
+                        resolved = svc_resolver.get(sname, sname)
+                        services.append(str(resolved) if resolved else sname)
+                    service_str = ", ".join(services)
+
+                    # Extract zone names for easy Cypher filtering
+                    src_zones = [i["zone"] for i in srcintf if i["zone"]]
+                    dst_zones = [i["zone"] for i in dstintf if i["zone"]]
+
+                    # ISDB (Internet Service Database) references — otherwise
+                    # invisible (an ISDB policy has an empty dstaddr).
+                    isdb = extract_isdb_refs(policy)
+
+                    policy_params.append(_strip_none({
+                        "policyid": policy.get("policyid", 0),
+                        "seq": idx,
+                        "name": policy.get("name", ""),
+                        "status": policy.get("status", ""),
+                        "action": policy.get("action", ""),
+                        "srcintf": json.dumps(srcintf),
+                        "dstintf": json.dumps(dstintf),
+                        "src_zones": src_zones,
+                        "dst_zones": dst_zones,
+                        "srcaddr": srcaddr,
+                        "dstaddr": dstaddr,
+                        "service": service_str,
+                        "dst_isdb": ", ".join(isdb["dst"]),
+                        "src_isdb": ", ".join(isdb["src"]),
+                        # SF-NEGATE-1: an enabled *-negate inverts the policy
+                        # (match everything EXCEPT the listed addr/service).
+                        # Captured so it can't silently invert meaning downstream.
+                        "src_negate": policy.get("srcaddr-negate", "") == "enable",
+                        "dst_negate": policy.get("dstaddr-negate", "") == "enable",
+                        "service_negate": policy.get("service-negate", "") == "enable",
+                        "nat": policy.get("nat", ""),
+                        "schedule": policy.get("schedule", ""),
+                        "logtraffic": policy.get("logtraffic", ""),
+                        "comments": policy.get("comments", ""),
+                        "policy_type": "fortigate",
+                        "device": device,
+                        "site": site,
+                        "run_id": run_id,
+                    }))
+            except (json.JSONDecodeError, OSError) as exc:
+                logger.warning("Failed to parse FortiGate policies for %s: %s", device, exc)
+
+        # ── Cisco ACLs ─────────────────────────────────────────────
+        acl_path = device_dir / "genie_acl.json"
+        if acl_path.exists():
+            # Compute interface bindings once per device and persist applied_to,
+            # so query tools can't infer "not applied" from an empty/absent field.
+            acl_bindings = parse_acl_interface_bindings(device_dir)
+            try:
+                data = json.loads(acl_path.read_text())
+                acls = parse_genie_acl(data)
+                for acl in acls:
+                    applied_to = [
+                        f"{b.get('interface','?')} {b.get('direction','?')}"
+                        + (f" (vrf {b['vrf']})" if b.get("vrf") else "")
+                        for b in acl_bindings.get(acl["name"], [])
+                    ]
+                    for ace in acl.get("aces", []):
+                        policy_params.append(_strip_none({
+                            "policyid": ace.get("seq", 0),
+                            # seq = ACE evaluation order; mirrors the FortiGate
+                            # block's seq so get_firewall_policies' ORDER BY
+                            # p.device, p.seq is deterministic for ACL nodes too
+                            # (without it ACL nodes have seq=NULL → scan order).
+                            "seq": ace.get("seq", 0),
+                            "name": acl["name"],
+                            "status": "enable",
+                            "action": ace.get("action", ""),
+                            "srcaddr": ace.get("source", "any"),
+                            "dstaddr": ace.get("destination", "any"),
+                            "service": f"{ace.get('protocol', '')} {ace.get('l4_ports', '')}".strip() or "any",
+                            "policy_type": "acl",
+                            "acl_type": acl.get("type", ""),
+                            "applied_to": applied_to,
+                            "device": device,
+                            "site": site,
+                            "run_id": run_id,
+                        }))
+            except (json.JSONDecodeError, OSError) as exc:
+                logger.warning("Failed to parse Cisco ACLs for %s: %s", device, exc)
+
+    return policy_params
