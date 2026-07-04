@@ -5,6 +5,7 @@ import TopologyMap from './components/TopologyMap.jsx'
 import DeviceDetail from './components/DeviceDetail.jsx'
 import FindingsPage from './components/FindingsPage.jsx'
 import DriftPanel from './components/DriftPanel.jsx'
+import ReconcilePage from './components/ReconcilePage.jsx'  // s12, ADR-0014
 import { extractDevices } from './components/FindingsPanel.jsx'
 import ReportPanel from './components/ReportPanel.jsx'
 import AgentChatPanel from './components/AgentChatPanel.jsx'
@@ -619,6 +620,7 @@ function AppContent() {
   const isTopologyTab = TOPOLOGY_MODES.has(leftPanelMode)
   const isFindingsTab = leftPanelMode === 'findings'
   const isReportTab = leftPanelMode === 'report'
+  const isReconcileTab = leftPanelMode === 'reconcile'  // s12, ADR-0014
 
   // 2026-05-18 — Audit + Report force the topology view to Physical via real
   // state mutation (equivalent to clicking the Physical view button on
@@ -798,6 +800,18 @@ function AppContent() {
             }
           >
             Audit
+          </button>
+          {/* s12 (ADR-0014): Reconcile tab — NetBox staging + approve + audit */}
+          <button
+            onClick={() => { setLeftPanelMode('reconcile'); setSelectedDevice(null); setSelectedLink(null) }}
+            className="px-3 py-1.5 rounded text-sm font-medium transition-colors"
+            style={
+              leftPanelMode === 'reconcile'
+                ? { background: '#1D9E75', color: '#FFFFFF' }
+                : { background: 'transparent', color: '#64748B' }
+            }
+          >
+            Reconcile
           </button>
           <button
             onClick={() => { setLeftPanelMode('report'); setSelectedDevice(null); setSelectedLink(null) }}
@@ -1130,7 +1144,44 @@ function AppContent() {
       )}
 
       {/* ── Main content ── */}
-      {(
+      {isReconcileTab ? (
+        <div
+          className="flex-1 overflow-hidden flex"
+          style={{ padding: 8, gap: 0 }}
+        >
+          {/* s12 (ADR-0014): Reconcile takes the LEFT+CENTER area entirely
+              so the operator has room for the filter sidebar + pending table
+              + history panel. Agent chat stays on the right. */}
+          <div
+            className="flex-1 overflow-hidden flex flex-col"
+            style={{
+              background: 'white',
+              borderRadius: 8,
+              border: '1px solid #E5E7EB',
+              minWidth: 0,
+            }}
+          >
+            <ReconcilePage selectedRun={selectedRun} />
+          </div>
+
+          <DragHandle side="right" onDrag={handleAgentDrag} raw />
+
+          {/* Right panel — Agent Chat (same as other tabs) */}
+          <div
+            className="overflow-hidden flex flex-col shrink-0"
+            style={{
+              width: agentPanelWidth,
+              minWidth: 260,
+              maxWidth: 460,
+              background: 'white',
+              borderRadius: 8,
+              border: '1px solid #E5E7EB',
+            }}
+          >
+            <AgentChatPanel />
+          </div>
+        </div>
+      ) : (
         <div
           className="flex-1 overflow-hidden flex"
           style={{ padding: 8, gap: 0 }}
