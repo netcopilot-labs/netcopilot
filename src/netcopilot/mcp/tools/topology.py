@@ -65,7 +65,10 @@ async def query_topology(
                 devices = devices[:5]
                 log.info("Device filter '%s' too broad (%d matches), limited to 5", device_filter, len(devices))
 
-        if not devices and not external:
+        # A device_filter that matched no managed device must not fall through
+        # to an empty "Matching devices: 0" ok just because external peers
+        # exist (they aren't filter matches). Handle the miss honestly.
+        if not devices and (device_filter or not external):
             # Not a device — check if it's a service/customer name
             if device_filter:
                 svc_result = session.run(

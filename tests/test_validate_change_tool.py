@@ -124,7 +124,9 @@ def test_dispatch_routes_validate_change(runs):
 def test_verdict_structured_shape(runs):
     out = _call(run_before="2026-01-01_10-00-00", run_after="2026-01-02_10-00-00",
                 scope_devices=["sw-a"])
-    assert set(out.verdict) == {"result", "reasons", "counts"}
+    # S08-6: the tool adds unknown_scope (declared-scope typos) to the engine
+    # verdict's {result, reasons, counts}.
+    assert set(out.verdict) == {"result", "reasons", "counts", "unknown_scope"}
     assert set(out.verdict["counts"]) >= {"drift_total", "in_scope", "out_of_scope",
                                           "unattributed", "new_findings",
                                           "resolved_findings", "info"}

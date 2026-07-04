@@ -95,9 +95,10 @@ def test_findings_404_for_unknown_run():
     assert client.get("/api/findings/nonexistent-run").status_code == 404
 
 
-def test_analyze_404_when_no_findings():
-    # No Neo4j → load_findings_enriched returns None → "no findings" → 404.
-    assert client.get("/api/analyze/r1/SOME_RULE").status_code == 404
+def test_analyze_503_when_findings_store_unavailable():
+    # S08-0: Neo4j down is not "no findings for this rule" (a false 404) — it is
+    # an honest 503 "findings store unavailable".
+    assert client.get("/api/analyze/r1/SOME_RULE").status_code == 503
 
 
 def test_agent_models_endpoint():

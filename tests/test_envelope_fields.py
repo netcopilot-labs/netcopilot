@@ -155,9 +155,23 @@ def test_blast_radius_verdict_and_highlight(monkeypatch):
     ])
     res = asyncio.run(analysis.blast_radius(device="core-x", member=1,
                                             context={"run_id": "r"}))
-    assert res.verdict == {"risk_level": "HIGH", "score": 60}
-    assert res.highlight == {"device": "core-x", "failedMember": 1}
+    # S08-2: verdict + highlight now carry the affected-neighbour / internet
+    # impact the tool already computes (0 here — no neighbour links).
+    assert res.verdict == {"risk_level": "HIGH", "score": 60,
+                           "affected_neighbors": 0, "internet_impact": 0}
+    assert res.highlight == {"device": "core-x", "affected": [], "failedMember": 1}
     assert "Blast radius — core-x" in res.text
+
+
+def test_blast_radius_discloses_ignored_scope(monkeypatch):
+    # S08-2: interface/max_hops are not modelled — passing them must be disclosed,
+    # not silently ignored (over-stating the analysis scope).
+    monkeypatch.setattr(analysis, "is_available", lambda: True)
+    monkeypatch.setattr(analysis, "get_driver", lambda: _FakeDriver([[{"name": "core-x"}], []]))
+    monkeypatch.setattr(analysis, "_blast_radius", lambda run_id: [])
+    res = asyncio.run(analysis.blast_radius(device="core-x", interface="Gi0/1",
+                                            context={"run_id": "r"}))
+    assert "not applied" in res.text and "interface=Gi0/1" in res.text
 
 
 # ── highlight (get_device_detail canonical name) ─────────────────────────────

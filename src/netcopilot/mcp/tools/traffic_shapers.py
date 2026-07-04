@@ -73,7 +73,10 @@ async def get_traffic_shapers(
             "i.qos_input_policy_name AS in_policy, i.qos_input_cir_bps AS in_cir, "
             "i.qos_output_policy_name AS out_policy, i.qos_output_cir_bps AS out_cir, "
             "i.qos_output_queue_drops AS out_drops, "
-            "i.qos_input_exceed_bytes AS in_exceed "
+            "i.qos_input_exceed_bytes AS in_exceed, "
+            "i.qos_input_type AS in_type, i.qos_output_type AS out_type, "
+            "i.qos_input_exceed_action AS in_exceed_action, "
+            "i.qos_output_exceed_action AS out_exceed_action "
             "ORDER BY d.name, i.name",
             **params,
         )
@@ -179,13 +182,16 @@ def _format_detail(records: list[dict], devices: dict[str, list[dict]]) -> str:
 
             lines.append(f"  {intf}{desc_str}{flag}")
 
-            # Input policy
+            # Input policy — `type` distinguishes policer (drops/remarks) from
+            # shaper (queues); `exceed_action` says what happens over the rate.
             in_pol = r.get("in_policy")
             if in_pol:
                 in_cir = _format_bps(r.get("in_cir"))
                 in_exceed = r.get("in_exceed")
                 exceed_str = f", exceed: {in_exceed} bytes" if in_exceed else ""
-                lines.append(f"    IN:  {in_pol} @ {in_cir}{exceed_str}")
+                type_str = f" [{r['in_type']}]" if r.get("in_type") else ""
+                action_str = f", exceed-action: {r['in_exceed_action']}" if r.get("in_exceed_action") else ""
+                lines.append(f"    IN:  {in_pol}{type_str} @ {in_cir}{exceed_str}{action_str}")
 
             # Output policy
             out_pol = r.get("out_policy")
@@ -193,7 +199,9 @@ def _format_detail(records: list[dict], devices: dict[str, list[dict]]) -> str:
                 out_cir = _format_bps(r.get("out_cir"))
                 out_drops = r.get("out_drops")
                 drops_str = f", drops: {out_drops}" if out_drops else ""
-                lines.append(f"    OUT: {out_pol} @ {out_cir}{drops_str}")
+                type_str = f" [{r['out_type']}]" if r.get("out_type") else ""
+                action_str = f", exceed-action: {r['out_exceed_action']}" if r.get("out_exceed_action") else ""
+                lines.append(f"    OUT: {out_pol}{type_str} @ {out_cir}{drops_str}{action_str}")
 
         if truncated:
             lines.append(f"  ... and {truncated} more (use policy_name filter to narrow)")

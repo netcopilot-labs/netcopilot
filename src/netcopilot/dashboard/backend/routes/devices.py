@@ -13,7 +13,7 @@ from pathlib import Path
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
-from netcopilot.findings import load_findings_enriched
+from netcopilot.findings import FindingsUnavailable, load_findings_enriched
 from netcopilot.model.interface_taxonomy import is_virtual_interface
 from netcopilot.graph.client import get_driver, is_available
 
@@ -461,7 +461,13 @@ def _load_device_findings(run_id: str, hostname: str) -> list[dict]:
     shared _devices_from_element_id parser, so device attribution stays
     consistent with the loader.
     """
-    all_findings = load_findings_enriched(run_id) or []
+    try:
+        all_findings = load_findings_enriched(run_id)
+    except FindingsUnavailable:
+        # Ancillary per-device findings aggregate; the device-detail response
+        # has its own availability handling, so degrade to empty here rather
+        # than fail the whole device view.
+        all_findings = []
 
     device_findings = []
     for f in all_findings:

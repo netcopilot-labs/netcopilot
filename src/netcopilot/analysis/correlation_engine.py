@@ -52,9 +52,12 @@ _SEV_WEIGHTS = {"critical": 5, "high": 4, "low": 2, "cis": 1, "info": 0}
 
 
 def _load_findings(run_id: str) -> list[dict]:
-    """Load findings via the canonical Neo4j-first loader (acknowledgement-enriched)."""
-    findings = load_findings_enriched(run_id)
-    return findings if findings is not None else []
+    """Load findings via the canonical Neo4j-first loader (acknowledgement-enriched).
+
+    Propagates :class:`FindingsUnavailable` — callers must surface "couldn't
+    reach the findings store" honestly rather than treat it as "no findings".
+    """
+    return load_findings_enriched(run_id)
 
 
 # device_from_finding is the canonical element_id parser shared with the loader.

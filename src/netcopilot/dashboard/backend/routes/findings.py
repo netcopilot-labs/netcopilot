@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from netcopilot.findings import load_findings_enriched
+from netcopilot.findings import FindingsUnavailable, load_findings_enriched
 from ..data_loader import load_summary, run_exists
 from netcopilot.graph.client import get_driver, get_site_for_run, is_available
 
@@ -120,12 +120,11 @@ def get_findings(run_id: str):
     # MCP tool. Aligns with 's "Neo4j is source of truth, JSON
     # is backup" framing. The helper handles DEVICE_UNREACHABLE
     # synthesis + basic acknowledgement enrichment internally.
-    findings = load_findings_enriched(run_id)
-    if findings is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"findings.json not found for run '{run_id}'",
-        )
+    try:
+        findings = load_findings_enriched(run_id)
+    except FindingsUnavailable as exc:
+        # Honest: the findings store is unreachable — not a 404 "not found".
+        raise HTTPException(status_code=503, detail=f"Findings store unavailable: {exc}")
 
     # Enrich with full acknowledgement details (timestamp + by). The
     # canonical loader already set `acknowledged` + `acknowledged_reason`

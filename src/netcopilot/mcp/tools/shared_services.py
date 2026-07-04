@@ -36,7 +36,9 @@ async def get_shared_services(
 
     # ── IP lookup mode: find which interface/device/VLAN owns an IP ──
     if ip:
-        return ToolResult("ok", await _lookup_ip(ip, run_id, driver))
+        # _lookup_ip returns its own status (a no-match is no_data, a bad IP is
+        # error) — don't wrap every outcome as ok.
+        return await _lookup_ip(ip, run_id, driver)
 
     # Resolve device name if provided
     if device:
@@ -197,7 +199,7 @@ async def get_shared_services(
     return ToolResult("ok", "\n".join(lines))
 
 
-async def _lookup_ip(ip: str, run_id: str, driver) -> str:
+async def _lookup_ip(ip: str, run_id: str, driver) -> ToolResult:
     """Find which device, interface, and VLAN owns an IP address.
 
     Two strategies:
@@ -237,13 +239,13 @@ async def _lookup_ip(ip: str, run_id: str, driver) -> str:
                 if m.get("description"):
                     parts.append(f"— {m['description']}")
                 lines.append(" ".join(parts))
-            return "\n".join(lines)
+            return ToolResult("ok", "\n".join(lines))
 
         # 2. Subnet match — find interfaces whose subnet contains this IP
         try:
             target = ipaddress.ip_address(ip)
         except ValueError:
-            return f"Invalid IP address: {ip}"
+            return ToolResult("error", f"Invalid IP address: {ip}")
 
         # Query interfaces with IP and prefix_length (CIDR may be in ip field or separate)
         result = session.run(
@@ -297,7 +299,7 @@ async def _lookup_ip(ip: str, run_id: str, driver) -> str:
                 lines.append(" ".join(parts))
             lines.append("")
             lines.append(f"The IP {ip} is a peer/host in this subnet, reachable via these interfaces.")
-            return "\n".join(lines)
+            return ToolResult("ok", "\n".join(lines))
 
         # 3. ARP fallback — check ArpEntry nodes for IP seen on device interfaces
         result = session.run(
@@ -321,6 +323,6 @@ async def _lookup_ip(ip: str, run_id: str, driver) -> str:
                 lines.append(" ".join(parts))
             lines.append("")
             lines.append(f"This IP belongs to a host/endpoint reachable via these devices.")
-            return "\n".join(lines)
+            return ToolResult("ok", "\n".join(lines))
 
-        return f"No interface or ARP entry found matching IP {ip} in any device."
+        return ToolResult("no_data", f"No interface or ARP entry found matching IP {ip} in any device.")

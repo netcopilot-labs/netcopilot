@@ -8,7 +8,7 @@ C1S5-US10.
 
 import logging
 
-from netcopilot.findings import device_from_finding, load_findings_enriched
+from netcopilot.findings import FindingsUnavailable, device_from_finding, load_findings_enriched
 from netcopilot.graph.client import get_driver, is_available
 
 from netcopilot.mcp.result import ToolResult
@@ -31,14 +31,20 @@ async def get_site_summary(
 
     # ── 1. Devices by building ──────────────────────────────────────
     with driver.session() as session:
+        # Include uncollected MANAGED devices in the roster (marked below): an
+        # operational summary that hides down/uncollected devices is a
+        # false-clean. `d.role IS NOT NULL` keeps managed devices (role comes
+        # from inventory, present even if collection failed) while excluding
+        # external BGP-peer placeholder nodes (no role/building), which are not
+        # site inventory — mirrors query_topology's managed/external split.
         if building:
             result = session.run(
                 """
                 MATCH (d:Device {run_id: $run_id})
-                WHERE d.collected = true
-                  AND toLower(d.building) = toLower($building)
+                WHERE d.role IS NOT NULL AND toLower(d.building) = toLower($building)
                 RETURN d.name AS name, d.role AS role, d.building AS building,
-                       d.os_type AS os_type, d.cluster_size AS cluster_size
+                       d.os_type AS os_type, d.cluster_size AS cluster_size,
+                       d.collected AS collected
                 ORDER BY d.role, d.name
                 """,
                 run_id=run_id, building=building,
@@ -47,14 +53,18 @@ async def get_site_summary(
             result = session.run(
                 """
                 MATCH (d:Device {run_id: $run_id})
-                WHERE d.collected = true
+                WHERE d.role IS NOT NULL
                 RETURN d.name AS name, d.role AS role, d.building AS building,
-                       d.os_type AS os_type, d.cluster_size AS cluster_size
+                       d.os_type AS os_type, d.cluster_size AS cluster_size,
+                       d.collected AS collected
                 ORDER BY d.building, d.role, d.name
                 """,
                 run_id=run_id,
             )
-        devices = [dict(r) for r in result]
+        # Defense-in-depth (matches query_topology's managed/external split):
+        # only role-bearing managed devices are site inventory; external
+        # BGP-peer placeholder nodes (no role) are never roster entries.
+        devices = [dict(r) for r in result if r["role"] is not None]
 
     if not devices:
         if building:
@@ -144,14 +154,21 @@ async def get_site_summary(
         for d in devs:
             by_role.setdefault(d["role"] or "unknown", []).append(d)
 
+        uncollected = [d for d in devs if d.get("collected") is False]
         lines.append("")
-        lines.append("Devices:")
+        header = "Devices:"
+        if uncollected:
+            header += f"  ({len(uncollected)} not collected — marked ⚠)"
+        lines.append(header)
         for role, role_devs in sorted(by_role.items()):
             for d in role_devs:
                 cluster_tag = ""
                 if d.get("cluster_size") and d["cluster_size"] > 1:
                     cluster_tag = f" [{d['cluster_size']}-member HA]"
-                lines.append(f"  {d['name']} — {role} ({d.get('os_type', '?')}){cluster_tag}")
+                # Uncollected devices belong in the roster, flagged — hiding
+                # them would make an unreachable device read as absent.
+                uncollected_tag = " ⚠ NOT COLLECTED" if d.get("collected") is False else ""
+                lines.append(f"  {d['name']} — {role} ({d.get('os_type', '?')}){cluster_tag}{uncollected_tag}")
 
         # Redundancy summary
         ha_devices = [d for d in devs if d.get("cluster_size") and d["cluster_size"] > 1]
@@ -245,14 +262,19 @@ def _load_finding_counts(context: dict) -> dict[str, dict]:
     if not run_id:
         return counts
 
-    findings = load_findings_enriched(run_id) or []
+    try:
+        findings = load_findings_enriched(run_id)
+    except FindingsUnavailable:
+        # Findings are ancillary to the site summary; return no counts rather
+        # than fabricate zeros when the store is unreachable.
+        return counts
     for f in findings:
         d = device_from_finding(f)
         if not d:
             continue
         sev = f.get("severity", "info")
         if d not in counts:
-            counts[d] = {"total": 0, "critical": 0, "high": 0, "low": 0, "info": 0}
+            counts[d] = {"total": 0, "critical": 0, "high": 0, "low": 0, "cis": 0, "info": 0}
         counts[d]["total"] += 1
         if sev in counts[d]:
             counts[d][sev] += 1

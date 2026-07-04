@@ -65,7 +65,8 @@ async def get_security_posture(
             role = rec["role"] or ""
     else:
         # Network-wide overview
-        return ToolResult("ok", await _network_overview(run_id, data_dir, driver))
+        text, verdict = await _network_overview(run_id, data_dir, driver)
+        return ToolResult("ok", text, verdict=verdict)
 
     # Per-device security posture — try Neo4j SecurityConfig first.
     neo4j_result = _posture_from_neo4j(device, role, os_type, run_id, driver)
@@ -73,11 +74,20 @@ async def get_security_posture(
         return ToolResult("ok", neo4j_result)
 
     # Fallback to disk read (runs without SecurityConfig nodes).
+    if not data_dir:
+        return ToolResult("no_data",
+                          f"Security posture for '{device}' needs run data — no data directory configured.")
     facts_dir = Path(data_dir) / "facts" / device
     if os_type == "fortios":
-        return ToolResult("ok", _fortigate_posture(device, role, facts_dir))
+        text = _fortigate_posture(device, role, facts_dir)
     else:
-        return ToolResult("ok", _cisco_posture(device, role, os_type, facts_dir))
+        text = _cisco_posture(device, role, os_type, facts_dir)
+    # A missing file / parse failure is not an "ok" posture — say so honestly.
+    if text.startswith("No security configuration data") or text.startswith("No security data"):
+        return ToolResult("no_data", text)
+    if text.startswith("Failed to parse"):
+        return ToolResult("error", text)
+    return ToolResult("ok", text)
 
 
 def _posture_from_neo4j(device: str, role: str, os_type: str, run_id: str, driver) -> str | None:
@@ -505,7 +515,7 @@ def _fortigate_posture(device: str, role: str, facts_dir: Path) -> str:
     return "\n".join(lines)
 
 
-async def _network_overview(run_id: str, data_dir: str, driver) -> str:
+async def _network_overview(run_id: str, data_dir: str, driver) -> tuple[str, dict]:
     """Network-wide security overview from Neo4j SecurityConfig nodes."""
     lines = ["Security posture — Network overview", ""]
 
@@ -613,10 +623,28 @@ async def _network_overview(run_id: str, data_dir: str, driver) -> str:
     if tacacs_key_missing:
         lines.append(f"⚠ TACACS key missing ({len(tacacs_key_missing)}): {', '.join(tacacs_key_missing)}")
 
-    if not aaa_missing and not snmp_v2 and not ntp_no_auth and not no_logging:
+    no_gaps = (not aaa_missing and not snmp_v2 and not ntp_no_auth
+               and not no_logging and not tacacs_key_missing)
+    if no_gaps and no_data:
+        # Honest: don't paint the network clean when some devices were never
+        # collected — their posture is simply unknown.
+        lines.append(f"✓ No gaps on the {analyzed} analyzed device(s) — but "
+                     f"{len(no_data)} device(s) had no security data collected "
+                     f"(posture unknown): {', '.join(no_data)}")
+    elif no_gaps:
         lines.append("✓ No critical security gaps detected")
 
     lines.append("")
     lines.append("Use get_security_posture(device=\"<name>\") for per-device detail.")
 
-    return "\n".join(lines)
+    # Machine-readable posture: fail on any hard gap, warn on uncollected
+    # devices (posture unknown) or missing banners, pass otherwise.
+    gaps = {
+        "aaa_missing": len(aaa_missing), "snmp_v2": len(snmp_v2),
+        "ntp_no_auth": len(ntp_no_auth), "no_logging": len(no_logging),
+        "no_banner": len(no_banner), "tacacs_key_missing": len(tacacs_key_missing),
+        "uncollected": len(no_data),
+    }
+    hard = aaa_missing or snmp_v2 or ntp_no_auth or no_logging or tacacs_key_missing
+    posture = "fail" if hard else ("warn" if (no_data or no_banner) else "pass")
+    return "\n".join(lines), {"posture": posture, "gaps": gaps}

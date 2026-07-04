@@ -6,7 +6,7 @@ Uses the remediation loader to interpolate CLI templates from the rule catalog.
 import logging
 
 from netcopilot.analysis.remediation_loader import _load_catalog, get_remediation
-from netcopilot.findings import get_os_family, load_findings_enriched
+from netcopilot.findings import FindingsUnavailable, get_os_family, load_findings_enriched
 
 from netcopilot.mcp.result import ToolResult
 
@@ -63,8 +63,15 @@ async def explain_finding(
         if isinstance(refs, list):
             lines.append(f"  References: {', '.join(refs[:3])}")
 
-    # Get active findings via the canonical Neo4j-first loader.
-    all_findings = load_findings_enriched(run_id) or []
+    # Get active findings via the canonical Neo4j-first loader. Findings are
+    # ancillary here (the rule explanation is the point) — if the store is
+    # unreachable, say so rather than imply the rule is inactive.
+    findings_unavailable = False
+    try:
+        all_findings = load_findings_enriched(run_id)
+    except FindingsUnavailable:
+        all_findings = []
+        findings_unavailable = True
     active_findings = [f for f in all_findings if f.get("rule_id") == rule_id]
     if device:
         active_for_device = [
@@ -75,7 +82,10 @@ async def explain_finding(
     else:
         active_for_device = active_findings
 
-    if active_for_device:
+    if findings_unavailable:
+        lines.extend(["", "Active in this run: unknown — the findings store is "
+                          "unavailable, so active occurrences could not be checked."])
+    elif active_for_device:
         lines.extend(["", f"Active in this run ({len(active_for_device)} finding(s)):"])
         for f in active_for_device[:5]:
             eid = f.get("evidence", {}).get("element_id", "?")

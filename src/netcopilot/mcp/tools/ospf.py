@@ -51,10 +51,14 @@ async def get_ospf_detail(
             else:
                 return ToolResult("not_found", f"Device '{device}' not found.")
 
-        # Load genie_ospf.json
+        # Load genie_ospf.json. Distinguish "no run data directory" from
+        # "device runs no OSPF" — both previously read as "No OSPF data".
+        if not data_dir:
+            return ToolResult("no_data",
+                              f"OSPF detail for '{device}' needs run data — no data directory configured.")
         ospf_path = Path(data_dir) / "facts" / device / "genie_ospf.json"
         if not ospf_path.exists():
-            return ToolResult("no_data", f"No OSPF data for device '{device}'.")
+            return ToolResult("no_data", f"No OSPF data collected for device '{device}'.")
 
         try:
             data = json.loads(ospf_path.read_text())
@@ -156,7 +160,7 @@ async def get_ospf_detail(
             adjs = [dict(r) for r in result]
 
         if not members and not adjs:
-            lines.append(f"No devices found in OSPF area {area}.")
+            return ToolResult("no_data", f"No devices found in OSPF area {area}.")
         else:
             # Group both members and adjacencies by VRF, then render per-VRF.
             vrfs = sorted({m["vrf"] for m in members} | {a["vrf"] for a in adjs})
@@ -196,7 +200,7 @@ async def get_ospf_detail(
             areas = [dict(r) for r in result]
 
         if not areas:
-            lines.append("No OSPF areas found.")
+            return ToolResult("no_data", "No OSPF areas found in this run.")
         else:
             lines.append(f"Total areas: {len(areas)}")
             lines.append("")

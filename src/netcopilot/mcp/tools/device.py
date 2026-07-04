@@ -8,7 +8,7 @@ import json
 import logging
 from pathlib import Path
 
-from netcopilot.findings import SEVERITY_ORDER, device_from_finding, load_findings_enriched
+from netcopilot.findings import SEVERITY_ORDER, FindingsUnavailable, device_from_finding, load_findings_enriched
 from netcopilot.graph.client import get_driver, is_available
 
 from netcopilot.mcp.result import ToolResult
@@ -238,31 +238,44 @@ async def get_device_detail(
                 lines.append("  No OSPF adjacencies.")
 
     # ── Routing (from facts) ─────────────────────────────────────────
-    if "routing" in requested and data_dir:
-        routing_path = Path(data_dir) / "facts" / device / "genie_routing.json"
-        if routing_path.exists():
-            try:
-                routing_data = json.loads(routing_path.read_text())
-                vrfs = routing_data.get("vrf", routing_data)
-                lines.extend(["", "Routing:"])
-                for vrf_name, vrf_data in vrfs.items():
-                    af = vrf_data.get("address_family", {})
-                    for af_name, af_data in af.items():
-                        routes = af_data.get("routes", {})
-                        lines.append(
-                            f"  VRF {vrf_name} ({af_name}): {len(routes)} routes"
-                        )
-            except (json.JSONDecodeError, OSError):
-                lines.extend(["", "Routing: data unavailable"])
+    # A requested section must always speak — a silent skip when data_dir is
+    # unset conflates "not configured" with "couldn't look".
+    if "routing" in requested:
+        if not data_dir:
+            lines.extend(["", "Routing: not available (no run data directory)"])
         else:
-            lines.extend(["", "Routing: no routing data collected"])
+            routing_path = Path(data_dir) / "facts" / device / "genie_routing.json"
+            if routing_path.exists():
+                try:
+                    routing_data = json.loads(routing_path.read_text())
+                    vrfs = routing_data.get("vrf", routing_data)
+                    lines.extend(["", "Routing:"])
+                    for vrf_name, vrf_data in vrfs.items():
+                        af = vrf_data.get("address_family", {})
+                        for af_name, af_data in af.items():
+                            routes = af_data.get("routes", {})
+                            lines.append(
+                                f"  VRF {vrf_name} ({af_name}): {len(routes)} routes"
+                            )
+                except (json.JSONDecodeError, OSError):
+                    lines.extend(["", "Routing: data unavailable"])
+            else:
+                lines.extend(["", "Routing: no routing data collected"])
 
     # ── Findings ─────────────────────────────────────────────────────
     if "findings" in requested:
-        all_findings = load_findings_enriched(run_id) or []
-        dev_findings = [f for f in all_findings if device_from_finding(f) == device]
-
-        lines.extend(["", f"Findings ({len(dev_findings)}):"])
+        try:
+            all_findings = load_findings_enriched(run_id)
+        except FindingsUnavailable:
+            all_findings = None
+        if all_findings is None:
+            # Ancillary section — don't render "Findings (0)" as if the device
+            # were clean when the store is simply unreachable.
+            lines.extend(["", "Findings: unavailable (findings store unreachable)"])
+            dev_findings = []
+        else:
+            dev_findings = [f for f in all_findings if device_from_finding(f) == device]
+            lines.extend(["", f"Findings ({len(dev_findings)}):"])
         if dev_findings:
             sev_order = SEVERITY_ORDER
             dev_findings.sort(key=lambda f: sev_order.get(f.get("severity", "info"), 5))
@@ -277,15 +290,20 @@ async def get_device_detail(
             lines.append("  No findings for this device.")
 
     # ── Security ─────────────────────────────────────────────────────
-    if "security" in requested and data_dir:
-        sec_path = Path(data_dir) / "facts" / device / "security_config.json"
-        if sec_path.exists():
-            try:
-                sec_data = json.loads(sec_path.read_text())
-                lines.extend(["", "Security config:"])
-                for key, val in list(sec_data.items())[:10]:
-                    lines.append(f"  {key}: {val}")
-            except (json.JSONDecodeError, OSError):
-                lines.extend(["", "Security: data unavailable"])
+    if "security" in requested:
+        if not data_dir:
+            lines.extend(["", "Security config: not available (no run data directory)"])
+        else:
+            sec_path = Path(data_dir) / "facts" / device / "security_config.json"
+            if sec_path.exists():
+                try:
+                    sec_data = json.loads(sec_path.read_text())
+                    lines.extend(["", "Security config:"])
+                    for key, val in list(sec_data.items())[:10]:
+                        lines.append(f"  {key}: {val}")
+                except (json.JSONDecodeError, OSError):
+                    lines.extend(["", "Security: data unavailable"])
+            else:
+                lines.extend(["", "Security config: no security data collected"])
 
     return ToolResult("ok", "\n".join(lines), highlight={"device": device})

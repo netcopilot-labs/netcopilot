@@ -4,6 +4,7 @@ import logging
 
 from netcopilot.findings import (
     SEVERITY_ORDER,
+    FindingsUnavailable,
     device_from_finding,
     load_findings_enriched,
 )
@@ -43,10 +44,13 @@ async def get_findings(
 ) -> ToolResult:
     """Get deterministic rule-engine findings with optional filters."""
     run_id = context.get("run_id", "")
-    findings = load_findings_enriched(run_id)
+    try:
+        findings = load_findings_enriched(run_id)
+    except FindingsUnavailable as exc:
+        return ToolResult("error", f"Cannot read findings for run {run_id}: {exc}")
 
-    if findings is None:
-        return ToolResult("no_data", f"No findings data found for run {run_id}.")
+    if not findings:
+        return ToolResult("no_data", f"No findings recorded for run {run_id}.")
 
     # Apply filters
     filtered = findings
@@ -203,4 +207,13 @@ async def get_findings(
     if truncated:
         lines.append(f"[Showing {limit} of {total} — add filters to narrow results]")
 
-    return ToolResult("ok", "\n".join(lines))
+    # Machine-readable severity summary — the dashboard banner / an orchestrator
+    # gate can act on this without prose-scraping.
+    verdict = {
+        "total": total,
+        "by_severity": dict(sev_counts),
+        "critical": sev_counts.get("critical", 0),
+        "high": sev_counts.get("high", 0),
+        "acknowledged": acked_count,
+    }
+    return ToolResult("ok", "\n".join(lines), verdict=verdict)

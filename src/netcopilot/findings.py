@@ -278,14 +278,29 @@ def _strip_deprecated_rules(findings: list[dict] | None) -> list[dict] | None:
     return [f for f in findings if f.get("rule_id") not in DEPRECATED_RULE_IDS]
 
 
-def load_findings_enriched(run_id: str) -> list[dict] | None:
+class FindingsUnavailable(Exception):
+    """The findings store could not be reached or queried.
+
+    Distinct from "the run genuinely has no findings" (an empty list). Callers
+    MUST NOT conflate the two: rendering "0 findings" when the graph is down is
+    a false-clean. Tools whose primary job is findings should surface this as
+    ``status="error"``; tools where findings are ancillary should note the gap
+    and continue, never present an empty findings section as truth.
+    """
+
+
+def load_findings_enriched(run_id: str) -> list[dict]:
     """Load Finding nodes for a run from Neo4j, with acknowledgement enrichment.
 
     Retired-rule findings (``DEPRECATED_RULE_IDS``) are filtered out.
-    Returns None if Neo4j is unavailable, [] if the run has no findings.
+
+    Returns the findings list (``[]`` when the run genuinely has none). Raises
+    :class:`FindingsUnavailable` when Neo4j is unavailable or the query fails —
+    an honest, distinguishable signal so no caller can mistake "couldn't check"
+    for "nothing found".
     """
     if not is_available():
-        return None
+        raise FindingsUnavailable("Neo4j is unavailable")
     try:
         site = get_site_for_run(run_id)
         with get_driver().session() as session:
@@ -306,4 +321,4 @@ def load_findings_enriched(run_id: str) -> list[dict] | None:
             return _strip_deprecated_rules(findings)
     except Exception as exc:
         log.warning("Neo4j findings query failed: %s", exc)
-        return None
+        raise FindingsUnavailable(str(exc)) from exc

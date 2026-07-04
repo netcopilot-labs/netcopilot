@@ -124,7 +124,11 @@ async def get_routing_table(
                     via += f" ({nh_dev})"
                 out = f" {intf}" if intf else ""
                 meta = f" [AD:{ad}/M:{metric}]" if ad else ""
-                lines.append(f"    {r.get('prefix', '?')}{via}{out}{meta}")
+                # An inactive/backup route must not read identically to an
+                # installed one; the note explains synthesis (e.g. BGP full-table).
+                inactive = " ⚠ INACTIVE" if r.get("active") is False else ""
+                note = f" — {r['note']}" if r.get("note") else ""
+                lines.append(f"    {r.get('prefix', '?')}{via}{out}{meta}{inactive}{note}")
             if len(p_routes) > 20:
                 lines.append(f"    ... and {len(p_routes) - 20} more")
         lines.append("")

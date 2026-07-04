@@ -18,7 +18,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
-from netcopilot.findings import device_from_finding
+from netcopilot.findings import FindingsUnavailable, device_from_finding
 from netcopilot.analysis.correlation_engine import (
     _findings_by_device,
     _load_findings,
@@ -78,7 +78,11 @@ def _os_type_to_os_family(os_type: str) -> str:
 @router.get("/api/analyze/{run_id}/{rule_id}")
 async def analyze_rule(run_id: str, rule_id: str):
     """Return deterministic analysis for a specific rule across all devices."""
-    findings = _load_findings(run_id)
+    try:
+        findings = _load_findings(run_id)
+    except FindingsUnavailable as exc:
+        # Honest: the findings store is unreachable — not a 404 "no findings".
+        raise HTTPException(status_code=503, detail=f"Findings store unavailable: {exc}")
     if not findings:
         raise HTTPException(status_code=404, detail=f"No findings for run {run_id}")
 
