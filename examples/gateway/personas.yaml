@@ -1,0 +1,30 @@
+# NetCopilot behind an MCP gateway — least privilege in config.
+#
+# Two "personas" over the SAME NetCopilot server, each seeing only the tools
+# its job needs. The allow-list lives in this file, not in code: changing what
+# a client may call is a config edit, and the gateway is the audit point.
+#
+#   gridctl apply examples/gateway/personas.yaml
+#
+# A client connected to the gateway sees the union, namespaced by persona:
+#   change-audit__validate_change, topology-viewer__query_topology, ...
+# Point different clients at different personas by giving each stack its own
+# gateway, or use one gateway and rely on the namespacing.
+#
+# NetCopilot's MCP endpoint defaults to :3002 (docker compose). If you changed
+# MCP_PORT in .env, edit the urls below to match.
+version: "1"
+name: netcopilot-personas
+
+mcp-servers:
+  # A change-validation bot: may judge changes and read findings — nothing else.
+  - name: change-audit
+    url: http://localhost:3002/mcp
+    transport: http
+    tools: ["validate_change", "diff_runs", "get_findings"]
+
+  # A read-only topology viewer: structure and paths — no findings, no reports.
+  - name: topology-viewer
+    url: http://localhost:3002/mcp
+    transport: http
+    tools: ["query_topology", "get_device_detail", "trace_path"]

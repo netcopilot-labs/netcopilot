@@ -1,0 +1,19 @@
+# NetCopilot behind an MCP gateway — full read surface.
+#
+# Exposes every NetCopilot tool through one gridctl endpoint. The gateway adds
+# a single client-facing URL and an audit point; NetCopilot itself stays
+# read-only (context, never actuation — see CONSTITUTION.md).
+#
+#   gridctl apply examples/gateway/full-read-surface.yaml
+#   → gateway at http://localhost:8180/mcp
+#
+# NetCopilot's MCP endpoint defaults to :3002 (docker compose). If you changed
+# MCP_PORT in .env, edit the url below to match.
+version: "1"
+name: netcopilot-gateway
+
+mcp-servers:
+  - name: netcopilot
+    url: http://localhost:3002/mcp
+    transport: http
+    # No `tools:` list = every tool the server exposes (the full read surface).
