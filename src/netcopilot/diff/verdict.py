@@ -63,6 +63,7 @@ _DEVICE_FIELDS: dict[str, Any] = {
     "shared_services": lambda e: list(e.get("members") or []),
     "l2_domains": lambda e: list(e.get("member_devices") or []),
     "ospf_lsdb": lambda e: [],
+    "firewall_policies": lambda e: [e.get("device")],  # a policy is owned by one device
 }
 
 VERDICT_LEVELS = ("pass", "warn", "fail")
