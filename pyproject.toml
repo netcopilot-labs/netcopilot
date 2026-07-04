@@ -1,6 +1,6 @@
 [project]
 name = "netcopilot"
-version = "1.3.0"
+version = "1.4.0"
 description = "Network Context Intelligence — a deterministic, verifiable model of a multi-vendor network, exposed over MCP."
 readme = "README.md"
 requires-python = ">=3.11"
