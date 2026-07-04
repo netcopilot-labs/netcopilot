@@ -658,7 +658,9 @@ function AppContent() {
     setDiffError(null)
     setDiffFocus(null)
     const qs = diffAgainst ? `?against=${encodeURIComponent(diffAgainst)}` : ''
-    fetch(`/api/diff/${encodeURIComponent(selectedRun)}${qs}`)
+    // S05-4: /api/validate is a superset of /api/diff — the same tiered diff
+    // payload plus a `verdict` key the DriftPanel renders as a banner.
+    fetch(`/api/validate/${encodeURIComponent(selectedRun)}${qs}`)
       .then((r) =>
         r.ok ? r.json() : r.json().then((e) => Promise.reject(new Error(e.detail || `HTTP ${r.status}`)))
       )

@@ -3,7 +3,7 @@
 > Source-of-truth for humans, LLMs, and agents.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.0-informational.svg)](https://github.com/netcopilot-labs/netcopilot/releases)
+[![Version](https://img.shields.io/badge/version-1.3.0-informational.svg)](https://github.com/netcopilot-labs/netcopilot/releases)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 <p align="center">
@@ -38,7 +38,7 @@ evidence-backed model — organized by what you're trying to do. *(Or just ask i
 "what can you do?")*
 
 - 🔍 **Explore** — devices, links, topology, per-device detail; VLANs / subnets / OSPF areas / BGP ASNs / IP lookups.
-- 🔥 **Troubleshoot** — active findings & compliance violations, why they matter and how to fix them, priority ranking, systemic multi-device issues, and **what changed between two runs (drift)**.
+- 🔥 **Troubleshoot** — active findings & compliance violations, why they matter and how to fix them, priority ranking, systemic multi-device issues, **what changed between two runs (drift)**, and **change validation**: a deterministic pass/warn/fail verdict on whether only the intended devices changed (CLI exit codes make it a pipeline gate).
 - 🛣 **Trace** — hop-by-hop path tracing, blast radius ("what breaks if X fails"), SPOF / HA status, routing tables, OSPF detail.
 - 🛡 **Security** — AAA / SSH / SNMP / NTP / logging posture, firewall rules & ACLs, QoS shaping.
 - 📚 **Vendor docs** — Cisco IOS-XE / IOS-XR / FortiOS CLI reference + conceptual networking knowledge (works with no network loaded).

@@ -19,7 +19,7 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 
-from .routes import agent_chat, analyze, devices, diff, findings, legend, reports, routing, runs, runs_trigger, topology
+from .routes import agent_chat, analyze, devices, diff, findings, legend, reports, routing, runs, runs_trigger, topology, validate
 
 # ── HTTP Basic Auth ───────────────────────────────────────────────────────────
 
@@ -65,7 +65,7 @@ def _require_auth(credentials: HTTPBasicCredentials | None = Depends(_security))
 app = FastAPI(
     title="NetCopilot Dashboard",
     description="Web dashboard for NetCopilot — Network Context Intelligence",
-    version="1.2.0",
+    version="1.3.0",
 )
 
 
@@ -136,6 +136,7 @@ app.include_router(devices.router, dependencies=_AUTH)
 app.include_router(routing.router, dependencies=_AUTH)
 app.include_router(findings.router, dependencies=_AUTH)
 app.include_router(diff.router, dependencies=_AUTH)
+app.include_router(validate.router, dependencies=_AUTH)
 app.include_router(analyze.router, dependencies=_AUTH)
 app.include_router(agent_chat.router, dependencies=_AUTH)
 app.include_router(reports.router, dependencies=_AUTH)
