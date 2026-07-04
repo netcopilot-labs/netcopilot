@@ -184,6 +184,15 @@ def build_model(run_id: str, runs_base: str = "runs") -> dict[str, Any]:
     _enrich_interfaces_qos(interfaces, facts_dirs)
 
     # -------------------------------------------------------------------------
+    # Step 4c2: Enrich with L2 edge-security (S10, ADR-0012)
+    # -------------------------------------------------------------------------
+    # port_security/bpduguard/protected per interface + dhcp_snooping/
+    # bpduguard_default per device, from security_config.l2_security. Fields
+    # emit ONLY when present, so a network without L2-security is unchanged
+    # (golden snapshots stay byte-identical).
+    _enrich_l2_security(interfaces, devices, facts_dirs)
+
+    # -------------------------------------------------------------------------
     # Step 4d: Enrich interfaces with switchport data (Sprint 19B, ADR-191)
     # -------------------------------------------------------------------------
     # Parse running_config.txt for switchport mode, access VLAN, trunk VLANs,
@@ -1462,6 +1471,69 @@ def _enrich_interfaces_qos(
         "QoS enrichment: %d devices with QoS, %d interfaces enriched",
         devices_with_qos, interfaces_with_qos,
     )
+
+
+def _enrich_l2_security(
+    interfaces: list[dict[str, Any]],
+    devices: list[dict[str, Any]],
+    facts_dirs: dict[str, Path],
+) -> None:
+    """
+    Enrich interfaces + devices with L2 edge-security (S10, ADR-0012).
+
+    Reads ``security_config.json``'s ``l2_security`` section per device and maps:
+      - per interface: ``port_security`` (dict), ``bpduguard`` (True), ``protected``
+        (True) — matched on the interface's genie name (same key as QoS)
+      - per device: ``dhcp_snooping`` (dict), ``bpduguard_default`` (True)
+
+    **Emit-when-present**: a field is added only when the feature is configured.
+    An interface/device without L2-security is left untouched, so a network that
+    runs none (e.g. the demo golden) produces a byte-identical model. Modifies in
+    place; devices without the fact are skipped (no error).
+    """
+    import json as _json
+
+    devices_by_id = {d.get("device_id", ""): d for d in devices}
+    intfs_by_device: dict[str, list[dict[str, Any]]] = {}
+    for intf in interfaces:
+        intfs_by_device.setdefault(intf.get("device_id", ""), []).append(intf)
+
+    devices_with_l2sec = 0
+    for hostname, facts_dir in facts_dirs.items():
+        sc_path = facts_dir / "security_config.json"
+        if not sc_path.exists():
+            continue
+        try:
+            l2 = _json.loads(sc_path.read_text(encoding="utf-8")).get("l2_security", {})
+        except (_json.JSONDecodeError, OSError) as exc:
+            logger.warning("L2-security enrichment: bad security_config for %s: %s", hostname, exc)
+            continue
+        if not l2:
+            continue
+        devices_with_l2sec += 1
+
+        # Device-level: DHCP-snooping summary + global bpduguard default.
+        dev = devices_by_id.get(hostname)
+        if dev is not None:
+            if l2.get("dhcp_snooping"):
+                dev["dhcp_snooping"] = l2["dhcp_snooping"]
+            if l2.get("bpduguard", {}).get("global_default"):
+                dev["bpduguard_default"] = True
+
+        # Interface-level: port-security / bpduguard / protected.
+        port_sec = l2.get("port_security", {})
+        bpdu_ifaces = set(l2.get("bpduguard", {}).get("interfaces", []))
+        protected = set(l2.get("protected", []))
+        for intf in intfs_by_device.get(hostname, []):
+            gname = intf.get("_genie_name", intf.get("name", ""))
+            if gname in port_sec:
+                intf["port_security"] = port_sec[gname]
+            if gname in bpdu_ifaces:
+                intf["bpduguard"] = True
+            if gname in protected:
+                intf["protected"] = True
+
+    logger.info("L2-security enrichment: %d device(s) with L2-security", devices_with_l2sec)
 
 
 # -------------------------------------------------------------------------
