@@ -73,11 +73,20 @@ async def get_security_posture(
         return ToolResult("ok", neo4j_result)
 
     # Fallback to disk read (runs without SecurityConfig nodes).
+    if not data_dir:
+        return ToolResult("no_data",
+                          f"Security posture for '{device}' needs run data — no data directory configured.")
     facts_dir = Path(data_dir) / "facts" / device
     if os_type == "fortios":
-        return ToolResult("ok", _fortigate_posture(device, role, facts_dir))
+        text = _fortigate_posture(device, role, facts_dir)
     else:
-        return ToolResult("ok", _cisco_posture(device, role, os_type, facts_dir))
+        text = _cisco_posture(device, role, os_type, facts_dir)
+    # A missing file / parse failure is not an "ok" posture — say so honestly.
+    if text.startswith("No security configuration data") or text.startswith("No security data"):
+        return ToolResult("no_data", text)
+    if text.startswith("Failed to parse"):
+        return ToolResult("error", text)
+    return ToolResult("ok", text)
 
 
 def _posture_from_neo4j(device: str, role: str, os_type: str, run_id: str, driver) -> str | None:
