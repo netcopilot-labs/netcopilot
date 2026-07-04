@@ -281,6 +281,80 @@ def _cmd_neo4j(args: argparse.Namespace) -> None:
             raise SystemExit(1)
 
 
+def _cmd_netbox(args: argparse.Namespace) -> None:
+    """NetBox declared-state workflow: bootstrap → pending → approve/reject → history.
+
+    Writes are gated by NETBOX_WRITE_ENABLED (Constitution Art. I) — approve
+    fails with a clear message unless the deployment opted in.
+    """
+    from .declared_state import staging
+
+    if args.netbox_command == "bootstrap":
+        from .declared_state import bootstrap
+        result = bootstrap.run(args.run_id, inventory_path=args.inventory)
+        print(result.format_summary())
+        for w in result.warnings:
+            print(f"  warning: {w}", file=sys.stderr)
+
+    elif args.netbox_command == "pending":
+        rows = staging.list_pending(source=args.source, object_type=args.object_type)
+        if not rows:
+            print("No pending NetBox writes.")
+            return
+        for r in rows:
+            payload = r.get("payload") or {}
+            name = payload.get("name") or payload.get("slug") or payload.get("dedup_key") or ""
+            print(f"  [{r.get('priority', '?'):>3}] {r.get('netbox_object_type', '?'):<16} "
+                  f"{name:<32} source={r.get('source', '?')} id={r.get('id', '?')}")
+        print(f"{len(rows)} candidate(s) pending.")
+
+    elif args.netbox_command == "approve":
+        if args.all:
+            summary = staging.approve_bulk(source=args.source, object_type=args.object_type)
+            print(f"written: {summary['written']}  auto-resolved: {summary['auto_resolved']}  "
+                  f"failed: {summary['failed']}  ({summary['duration_ms']} ms)")
+            if summary["aborted"]:
+                print(f"ABORTED: {summary['abort_reason']}", file=sys.stderr)
+                raise SystemExit(2)
+            raise SystemExit(1 if summary["failed"] else 0)
+        result = staging.approve(args.candidate_id)
+        if result is None:
+            print(f"Candidate {args.candidate_id} is no longer pending.", file=sys.stderr)
+            raise SystemExit(1)
+        print(f"{result['outcome']}: HTTP {result['api_response_status']} "
+              f"netbox_id={result['netbox_object_id']} audit={result['audit_id']}")
+        raise SystemExit(0 if result["outcome"] in ("success", "auto_resolved") else 1)
+
+    elif args.netbox_command == "reject":
+        if args.all:
+            summary = staging.reject_bulk(source=args.source, object_type=args.object_type)
+            print(f"rejected: {summary['rejected']}  not found: {summary['not_found']}")
+            return
+        ok = staging.reject(args.candidate_id)
+        if not ok:
+            print(f"Candidate {args.candidate_id} not found.", file=sys.stderr)
+            raise SystemExit(1)
+        print(f"Rejected {args.candidate_id} (audit row written).")
+
+    elif args.netbox_command == "history":
+        from .graph.client import get_driver
+        with get_driver().session() as session:
+            rows = [dict(rec["w"]) for rec in session.run(
+                "MATCH (w:NetBoxWrite) RETURN w ORDER BY w.timestamp DESC LIMIT $n",
+                n=args.limit,
+            )]
+        if not rows:
+            print("No NetBox writes recorded.")
+            return
+        for w in rows:
+            status = w.get("api_response_status")
+            outcome = ("REJECTED" if w.get("source") == "manual_reject"
+                       else f"OK {status}" if status and 200 <= status < 300
+                       else f"FAILED {status}")
+            print(f"  {w.get('timestamp', '?')[:19]}  {outcome:<10} "
+                  f"{w.get('netbox_object_type', '?'):<16} {w.get('dedup_key', '')}")
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(prog="netcopilot", description=__doc__.splitlines()[0])
@@ -331,6 +405,28 @@ def main() -> None:
     del_p.add_argument("run_id", help="run identifier to delete")
     del_p.add_argument("--site", default=None, help="restrict deletion to this site")
     neo4j_p.set_defaults(func=_cmd_neo4j)
+
+    nb_p = sub.add_parser("netbox", help="NetBox declared-state workflow (bootstrap / pending / approve / reject / history)")
+    nb_sub = nb_p.add_subparsers(dest="netbox_command", required=True)
+    nb_boot = nb_sub.add_parser("bootstrap", help="stage NetBox candidates from an inventory + collected run")
+    nb_boot.add_argument("run_id", help="run identifier (directory under RUNS_DIR)")
+    nb_boot.add_argument("--inventory", required=True, help="path to the inventory YAML the run came from")
+    nb_pend = nb_sub.add_parser("pending", help="list staged candidates awaiting approval")
+    nb_pend.add_argument("--source", default=None)
+    nb_pend.add_argument("--object-type", dest="object_type", default=None)
+    nb_appr = nb_sub.add_parser("approve", help="approve staged candidate(s) — writes to NetBox (requires NETBOX_WRITE_ENABLED=true)")
+    nb_appr.add_argument("candidate_id", nargs="?", default=None, help="one candidate id (omit with --all)")
+    nb_appr.add_argument("--all", action="store_true", help="approve all pending (topological order)")
+    nb_appr.add_argument("--source", default=None)
+    nb_appr.add_argument("--object-type", dest="object_type", default=None)
+    nb_rej = nb_sub.add_parser("reject", help="reject staged candidate(s) — audit row, no NetBox call")
+    nb_rej.add_argument("candidate_id", nargs="?", default=None)
+    nb_rej.add_argument("--all", action="store_true")
+    nb_rej.add_argument("--source", default=None)
+    nb_rej.add_argument("--object-type", dest="object_type", default=None)
+    nb_hist = nb_sub.add_parser("history", help="show the NetBox write audit log (newest first)")
+    nb_hist.add_argument("--limit", type=int, default=20)
+    nb_p.set_defaults(func=_cmd_netbox)
 
     args = parser.parse_args(sys.argv[1:])
     args.func(args)

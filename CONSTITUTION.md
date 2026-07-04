@@ -11,6 +11,16 @@ devices. Collection is read-only on every transport. Any capability that would
 actuate — apply config, restart services, modify state — is out of scope by
 definition, not by omission.
 
+**Documentation-plane writes.** NetCopilot may write to a *documentation
+system it is explicitly configured for* (e.g. a NetBox instance designated as
+the deployment's declared-state source) — never to network devices. Every such
+write is **staged** as a reviewable candidate, **approved by a human per
+write** (no auto-approval), **audited** append-only with before/after state,
+and **non-destructive** (creates and updates; never deletes). Write capability
+is opt-in configuration (`NETBOX_WRITE_ENABLED=false` by default — Article IV);
+absent it, NetCopilot is a pure reader. The network itself remains untouchable —
+this article's first sentence is unchanged.
+
 ## Article II — Determinism over cleverness
 
 Deterministic systems produce truth; AI explains it — never the other way
@@ -47,8 +57,9 @@ what the code measurably does.
 
 ---
 
-**How this is enforced today:** read-only collection adapters and MCP tools
-(Article I); the deterministic rules engine and run-to-run diff (Article II);
-explicit unavailable/not-found/no-data tool responses (Article III);
-env-driven, least-privilege configuration (Article IV); catalog `eval`
-validation, the test suite, and golden snapshots (Articles V–VI).
+**How this is enforced today:** read-only collection adapters and MCP tools,
+plus the `NETBOX_WRITE_ENABLED=false`-by-default gate on every documentation-
+plane write path (Article I); the deterministic rules engine and run-to-run
+diff (Article II); explicit unavailable/not-found/no-data tool responses
+(Article III); env-driven, least-privilege configuration (Article IV); catalog
+`eval` validation, the test suite, and golden snapshots (Articles V–VI).
