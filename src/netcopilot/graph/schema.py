@@ -28,6 +28,7 @@ FINDING = "Finding"
 SECURITY_CONFIG = "SecurityConfig"
 ROUTE_POLICY = "RoutePolicy"
 PREFIX_SET_ENTRY = "PrefixSetEntry"
+ISDB_SERVICE = "ISDBService"   # FortiGate Internet Service (ISDB) referenced by a policy
 
 # User UI state (kept out of run-data; not deleted by run cleanup)
 LAYOUT_POSITION = "LayoutPosition"   # saved node positions per view: (site, view, node_id)
@@ -62,6 +63,7 @@ HAS_ROUTE_POLICY = "HAS_ROUTE_POLICY"     # Device → RoutePolicy
 HAS_PREFIX_ENTRY = "HAS_PREFIX_ENTRY"     # Device → PrefixSetEntry
 HAS_FINDING = "HAS_FINDING"               # Device → Finding
 HAS_SECURITY_CONFIG = "HAS_SECURITY_CONFIG"  # Device → SecurityConfig
+REFERENCES_ISDB = "REFERENCES_ISDB"       # Device → ISDBService
 
 
 # Mapping from model link_type → Neo4j relationship type
@@ -107,6 +109,7 @@ INDEX_DEFINITIONS = [
     (ARP_ENTRY, ["site", "run_id", "device"], "idx_arp_entry_site_run"),
     (FINDING, ["site", "run_id", "device"], "idx_finding_site_run_device"),
     (SECURITY_CONFIG, ["site", "run_id", "device"], "idx_secconfig_site_run"),
+    (ISDB_SERVICE, ["site", "run_id", "device"], "idx_isdb_service_site_run"),
     (LAYOUT_POSITION, ["site", "view", "node_id"], "idx_layout_position"),
     (ACKNOWLEDGEMENT, ["site", "finding_id"], "idx_acknowledgement"),
     (ANNOTATION, ["run_id", "finding_id"], "idx_annotation"),

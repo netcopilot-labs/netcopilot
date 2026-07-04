@@ -41,11 +41,13 @@ from .schema import (
     HAS_SECURITY_CONFIG,
     HAS_VLAN,
     INTERFACE,
+    ISDB_SERVICE,
     LINK_RELATIONSHIP_MAP,
     MEMBER_OF,
     OSPF_LSA,
     PHYSICAL_CABLE,
     PREFIX_SET_ENTRY,
+    REFERENCES_ISDB,
     ROUTE,
     ROUTE_POLICY,
     ROUTING_ADJACENCY,
@@ -205,6 +207,7 @@ def load_model(
     # Firewall policies (FortiGate policy resolution + Cisco ACLs) and ARP entries.
     counts["firewall_policies"] = _load_firewall_policies(driver, run_dir, site, run_id)
     counts["arp_entries"] = _load_arp_entries(driver, run_dir, site, run_id)
+    counts["isdb_services"] = _load_isdb_services(driver, run_dir, site, run_id)
     # Route-policies + prefix-sets, security configs, and VRFs (as SharedServices).
     rp_count, pse_count = _load_route_policies_and_prefix_sets(driver, run_dir, site, run_id)
     counts["route_policies"] = rp_count
@@ -2660,6 +2663,74 @@ def _load_arp_entries(
     return len(arp_params)
 
 
+def _load_isdb_services(
+    driver,
+    run_dir: Path,
+    site: str,
+    run_id: str,
+) -> int:
+    """Load resolved FortiGate ISDB services as ISDBService nodes.
+
+    Reads ``fortigate_isdb_ranges.json`` (written by the REST collector for the
+    services policies reference) and materialises one ISDBService node per
+    service, linked to its device. ``ranges`` are ``"start-end"`` / single-IP
+    strings; ``truncated`` flags a feed the collector page-capped. Absent file
+    (older run, or the monitor endpoint was unavailable) → nothing loaded, which
+    the path tracer reports honestly rather than as "no policy".
+
+    Returns:
+        Number of ISDBService nodes created.
+    """
+    facts_dir = run_dir / "facts"
+    if not facts_dir.is_dir():
+        return 0
+
+    svc_params: list[dict[str, Any]] = []
+
+    for device_dir in sorted(facts_dir.iterdir()):
+        if not device_dir.is_dir():
+            continue
+        device = device_dir.name
+        isdb_path = device_dir / "fortigate_isdb_ranges.json"
+        if not isdb_path.exists():
+            continue
+        try:
+            data = json.loads(isdb_path.read_text())
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning("Failed to parse ISDB ranges for %s: %s", device, exc)
+            continue
+        for sid, svc in data.items():
+            if not isinstance(svc, dict):
+                continue
+            svc_params.append({
+                "isdb_id": int(sid) if str(sid).isdigit() else sid,
+                "name": svc.get("name", ""),
+                "total": svc.get("total", 0),
+                "truncated": bool(svc.get("truncated", False)),
+                "ranges": svc.get("ranges", []),
+                "device": device,
+                "site": site,
+                "run_id": run_id,
+            })
+
+    if not svc_params:
+        return 0
+
+    with driver.session() as session:
+        session.run(
+            f"""
+            UNWIND $services AS s
+            MATCH (d:{DEVICE} {{run_id: s.run_id, name: s.device}})
+            CREATE (d)-[:{REFERENCES_ISDB}]->(svc:{ISDB_SERVICE})
+            SET svc = s
+            """,
+            services=svc_params,
+        )
+
+    logger.info("Neo4j: created %d ISDBService nodes", len(svc_params))
+    return len(svc_params)
+
+
 
 def _load_firewall_policies(
     driver,
@@ -2681,7 +2752,7 @@ def _load_firewall_policies(
     """
     from netcopilot.parse.policy_resolver import (
         build_zone_map, build_address_resolver,
-        build_service_resolver, parse_genie_acl,
+        build_service_resolver, parse_genie_acl, extract_isdb_refs,
     )
 
     facts_dir = run_dir / "facts"
@@ -2735,6 +2806,10 @@ def _load_firewall_policies(
                     src_zones = [i["zone"] for i in srcintf if i["zone"]]
                     dst_zones = [i["zone"] for i in dstintf if i["zone"]]
 
+                    # ISDB (Internet Service Database) references — otherwise
+                    # invisible (an ISDB policy has an empty dstaddr).
+                    isdb = extract_isdb_refs(policy)
+
                     policy_params.append(_clean_properties({
                         "policyid": policy.get("policyid", 0),
                         "seq": idx,
@@ -2748,6 +2823,8 @@ def _load_firewall_policies(
                         "srcaddr": srcaddr,
                         "dstaddr": dstaddr,
                         "service": service_str,
+                        "dst_isdb": ", ".join(isdb["dst"]),
+                        "src_isdb": ", ".join(isdb["src"]),
                         # SF-NEGATE-1: an enabled *-negate inverts the policy
                         # (match everything EXCEPT the listed addr/service).
                         # Captured so it can't silently invert meaning downstream.

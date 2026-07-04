@@ -17,6 +17,121 @@ import json
 from pathlib import Path
 
 
+_ISDB_DST_FIELDS = ("internet-service-name", "internet-service-custom", "internet-service-group")
+_ISDB_SRC_FIELDS = (
+    "internet-service-src-name", "internet-service-src-custom", "internet-service-src-group",
+)
+
+
+def extract_isdb_refs(policy: dict) -> dict:
+    """Extract the ISDB service names a FortiGate policy references.
+
+    Returns ``{"dst": [names], "src": [names]}`` — the Internet Service Database
+    references on the destination and source sides. Empty lists when the policy
+    uses none. These names are otherwise invisible (an ISDB policy's ``dstaddr``
+    is empty), so a path check that ignored them would report "no policy" for a
+    policy that exists.
+    """
+    def _names(fields):
+        out = []
+        for field in fields:
+            for ref in policy.get(field, []) or []:
+                if isinstance(ref, dict) and ref.get("name"):
+                    out.append(ref["name"])
+        return out
+
+    return {"dst": _names(_ISDB_DST_FIELDS), "src": _names(_ISDB_SRC_FIELDS)}
+
+
+def service_allows(protocol: str | None, dst_port: int | None, service_str: str) -> bool:
+    """Does a policy/ACE ``service`` string permit ``(protocol, dst_port)``?
+
+    The shared 5-tuple service check, lenient across both grammars this codebase
+    produces: FortiGate resolved services (``"TCP/443"``, ``"TCP/443-445"``,
+    ``"ICMP"``, ``"ALL"``) and Cisco ACE services (``"tcp 443"``, ``"tcp 80-90"``,
+    ``"tcp gt 1024"``, ``"ip"``, ``""``).
+
+    Returns ``True`` when the flow is allowed by the service (including the
+    permissive/unknown cases — ``ALL``/``any``/``ip``/empty, or a token whose
+    port spec can't be parsed), so this never *invents* a block. When
+    ``dst_port`` is ``None`` the check degrades to protocol-only; when
+    ``protocol`` is also ``None`` it returns ``True`` (caller wanted IP-only).
+    """
+    if protocol is None:
+        return True
+    if not service_str:
+        return True
+    proto = protocol.lower()
+
+    for raw in service_str.split(","):
+        token = raw.strip()
+        if not token:
+            continue
+        low = token.lower()
+        if low in ("all", "any", "ip"):
+            return True
+        # Split proto from the port spec: "TCP/443" or "tcp 443" / "tcp gt 1024".
+        if "/" in token:
+            tproto, _, spec = token.partition("/")
+        else:
+            parts = token.split(None, 1)
+            tproto, spec = parts[0], (parts[1] if len(parts) > 1 else "")
+        tproto = tproto.strip().lower()
+        if tproto in ("all", "any", "ip"):
+            return True
+        if tproto != proto:
+            continue
+        # Proto matches. Without a dst_port, proto-level match is enough.
+        if dst_port is None or not spec:
+            return True
+        if _port_spec_matches(spec.strip().lower(), dst_port):
+            return True
+    return False
+
+
+def _port_spec_matches(spec: str, port: int) -> bool:
+    """Match a single port spec token (``"443"``, ``"80-90"``, ``"gt 1024"``,
+    ``"lt 80"``, ``"src 53"``) against ``port``.
+
+    ``src …`` is a source-port spec — irrelevant to a destination-port check,
+    so it never matches here. Unparseable specs return ``True`` (permissive:
+    don't fabricate a block from a spec we don't understand)."""
+    try:
+        if spec.startswith("src"):
+            return False
+        if spec.startswith("gt "):
+            return port > int(spec[3:])
+        if spec.startswith("lt "):
+            return port < int(spec[3:])
+        if "-" in spec:
+            lo, hi = spec.split("-", 1)
+            return int(lo) <= port <= int(hi)
+        return int(spec) == port
+    except (ValueError, TypeError):
+        return True
+
+
+def ip_in_isdb_ranges(ip: str, ranges: list[str]) -> bool:
+    """Is ``ip`` within any ISDB range (``"start-end"`` or single-IP strings)?"""
+    import ipaddress
+
+    try:
+        target = ipaddress.ip_address(ip.split("/")[0])
+    except ValueError:
+        return False
+    for r in ranges or []:
+        try:
+            if "-" in r:
+                lo, hi = r.split("-", 1)
+                if ipaddress.ip_address(lo) <= target <= ipaddress.ip_address(hi):
+                    return True
+            elif ipaddress.ip_address(r) == target:
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 def fg_dst_to_cidr(dst: str) -> str:
     """Convert FortiGate ``IP MASK`` to CIDR.
 
