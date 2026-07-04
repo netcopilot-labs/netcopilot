@@ -1242,10 +1242,21 @@ def get_security_policies(
 
     prefix_lists.sort(key=lambda p: (len(p.get("referenced_by", [])) == 0, p["name"]))
 
+    # L2 edge-security summary (S10, ADR-0012) — DHCP-snooping / port-security /
+    # BPDU-guard / protected, from security_config.l2_security. {} when absent.
+    l2_security = {}
+    sec_path = facts_dir / "security_config.json"
+    if sec_path.exists():
+        try:
+            l2_security = json.loads(sec_path.read_text()).get("l2_security", {})
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning("Failed to parse %s: %s", sec_path, e)
+
     return {
         "hostname": hostname,
         "run_id": run_id,
         "acls": acls,
         "route_maps": route_maps,
         "prefix_lists": prefix_lists,
+        "l2_security": l2_security,
     }
