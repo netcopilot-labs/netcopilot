@@ -39,6 +39,7 @@ _CAT_TRACE = "trace"
 _CAT_SECURITY = "security"
 _CAT_VENDOR_DOCS = "vendor_docs"
 _CAT_REPORTS = "reports"
+_CAT_DECLARED = "declared"
 _CAT_ABOUT = "about"
 _CAT_OTHER = "other"
 
@@ -56,6 +57,11 @@ _TOOL_CATEGORIES: dict[str, str] = {
     "get_systemic_patterns":     _CAT_TROUBLESHOOT,
     "diff_runs":                 _CAT_TROUBLESHOOT,
     "validate_change":           _CAT_TROUBLESHOOT,
+    # 📋 DECLARED STATE (NetBox)
+    "get_netbox_device":            _CAT_DECLARED,
+    "get_netbox_site":              _CAT_DECLARED,
+    "list_netbox_pending_writes":   _CAT_DECLARED,
+    "get_netbox_write_history":     _CAT_DECLARED,
     # 🛣 TRACE TRAFFIC AND IMPACT
     "trace_path":                _CAT_TRACE,
     "blast_radius":              _CAT_TRACE,
@@ -83,6 +89,7 @@ _CATEGORIES_ORDER = [
     _CAT_TROUBLESHOOT,
     _CAT_TRACE,
     _CAT_SECURITY,
+    _CAT_DECLARED,
     _CAT_VENDOR_DOCS,
     _CAT_REPORTS,
     _CAT_ABOUT,
@@ -148,6 +155,19 @@ _CATEGORY_RENDER: dict[str, dict] = {
         "examples": [
             "Is the security posture acceptable on the core router?",
             "Show me the firewall rules on fw-01",
+        ],
+    },
+    _CAT_DECLARED: {
+        "header": "📋 DECLARED STATE (NETBOX)",
+        "subtitle": "What should the network look like — and what's queued to document?",
+        "bullets": [
+            "Devices and sites as documented in NetBox (the intended state)",
+            "Pending writes you can approve via the CLI",
+            "NetBox write history including failures and rejections",
+        ],
+        "examples": [
+            "What does NetBox say about core-rtr-01?",
+            "What did NetCopilot last write to NetBox?",
         ],
     },
     _CAT_VENDOR_DOCS: {

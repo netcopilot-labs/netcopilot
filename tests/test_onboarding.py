@@ -10,9 +10,9 @@ from netcopilot.mcp import registry
 from netcopilot.mcp.tools import onboarding
 from netcopilot.prompts import load_about, load_dashboard_guide
 
+# s11 (ADR-0013) reinstated the 4 NetBox tools; only Catalyst Center stays out.
 EXCLUDED = {
-    "query_catalyst_center", "get_netbox_device", "get_netbox_site",
-    "list_netbox_pending_writes", "get_netbox_write_history",
+    "query_catalyst_center",
 }
 
 
@@ -37,10 +37,11 @@ def test_list_capabilities_renders_categories():
     out = asyncio.run(onboarding.list_capabilities(context={})).text
     for header in ["EXPLORE THE NETWORK", "TROUBLESHOOT PROBLEMS",
                    "TRACE TRAFFIC AND IMPACT", "SECURITY AND POLICIES",
+                   "DECLARED STATE (NETBOX)",
                    "LOOK UP VENDOR DOCUMENTATION", "ABOUT NETCOPILOT"]:
         assert header in out
-    # no leftover EXTERNAL / DECLARED STATE categories from the source
-    assert "EXTERNAL SYSTEMS" not in out and "DECLARED STATE" not in out
+    # no leftover EXTERNAL SYSTEMS category from the source
+    assert "EXTERNAL SYSTEMS" not in out
 
 
 def test_every_registered_tool_is_categorized():

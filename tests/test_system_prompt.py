@@ -7,21 +7,21 @@ an explicit guard test in addition to the denylist scan.
 from netcopilot.orchestrator import SYSTEM_PROMPT
 from netcopilot.prompts import load_system_prompt
 
-# The 5 tools excluded from the OSS build (Catalyst Center + 4 NetBox).
+# Tools excluded from the OSS build. History: the 4 NetBox tools were on this
+# list from extraction until s11 (ADR-0013) reinstated NetBox as the
+# declared-state layer — they are now required, see OSS_TOOLS.
 EXCLUDED_TOOLS = [
     "query_catalyst_center",
-    "get_netbox_device",
-    "get_netbox_site",
-    "list_netbox_pending_writes",
-    "get_netbox_write_history",
 ]
 
-# A sample of the 24 OSS tools that must have routing rules.
+# A sample of the OSS tools that must have routing rules (incl. the s11
+# NetBox declared-state tools).
 OSS_TOOLS = [
     "get_device_detail", "query_topology", "get_findings", "blast_radius",
     "explain_finding", "get_routing_table", "get_firewall_policies",
     "get_security_policies", "lookup_vendor_docs", "generate_report",
     "trace_path", "list_capabilities",
+    "get_netbox_device", "list_netbox_pending_writes", "get_netbox_write_history",
 ]
 
 
@@ -34,9 +34,9 @@ def test_prompt_loads_and_is_cached():
 def test_no_excluded_tools_referenced():
     for tool in EXCLUDED_TOOLS:
         assert tool not in SYSTEM_PROMPT, f"excluded tool '{tool}' leaked into the prompt"
-    # No NetBox / Catalyst Center prose either.
+    # No Catalyst Center prose (NetBox prose is expected since s11).
     low = SYSTEM_PROMPT.lower()
-    assert "netbox" not in low and "catalyst center" not in low
+    assert "catalyst center" not in low
 
 
 def test_all_sampled_oss_tools_present():

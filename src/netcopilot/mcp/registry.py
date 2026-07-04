@@ -21,6 +21,7 @@ from .tools import (
     findings,
     firewall,
     neighborhood,
+    netbox,
     onboarding,
     ospf,
     path_tracer,
@@ -541,6 +542,80 @@ TOOL_SCHEMAS: list[dict] = [
             "required": [],
         },
     },
+    {
+        "name": "get_netbox_device",
+        "description": (
+            "Look up one device in NetBox — the DECLARED state (what the network "
+            "should look like), not the collected state. Returns name, management "
+            "IP, role, platform, site, status as documented in NetBox. Use for "
+            "'what does NetBox say about X', 'is X documented', declared-vs-actual "
+            "questions. For the collected/observed state use get_device_detail."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Exact device name as documented in NetBox."},
+            },
+            "required": ["name"],
+        },
+    },
+    {
+        "name": "get_netbox_site",
+        "description": (
+            "Look up one site in NetBox (declared state) by its slug. Returns the "
+            "site's name and NetBox id. Use for 'what sites are documented', "
+            "site-level declared-state questions."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "slug": {"type": "string", "description": "Site slug (lowercase identifier)."},
+            },
+            "required": ["slug"],
+        },
+    },
+    {
+        "name": "list_netbox_pending_writes",
+        "description": (
+            "List STAGED NetBox write candidates awaiting human approval — things "
+            "NetCopilot proposes to document in NetBox but has NOT written yet. "
+            "Use for 'what's queued for NetBox', 'pending writes', 'what would the "
+            "bootstrap change'. For what was actually WRITTEN use "
+            "get_netbox_write_history."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "source": {"type": "string", "description": "Filter: bootstrap | excel_import | drift | manual."},
+                "object_type": {"type": "string", "description": "Filter: device | interface | site | manufacturer | platform | cluster | virtual_chassis | inventory_item."},
+                "min_priority": {"type": "integer", "description": "Only candidates with priority >= this (1-100)."},
+                "limit": {"type": "integer", "description": "Max rows to show (default 25)."},
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "get_netbox_write_history",
+        "description": (
+            "Query the append-only audit log of NetBox writes — what NetCopilot "
+            "actually wrote (or failed to write, or the operator rejected), when, "
+            "and NetBox's response. Use for 'what did NetCopilot write to NetBox', "
+            "'show failed NetBox writes', 'when was X documented'. For candidates "
+            "still awaiting approval use list_netbox_pending_writes."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "source": {"type": "string", "description": "Filter: bootstrap | excel_import | drift | manual | manual_reject."},
+                "object_type": {"type": "string", "description": "Filter by NetBox object type."},
+                "device": {"type": "string", "description": "Substring match on the written object's natural key."},
+                "success_only": {"type": "boolean", "description": "Only 2xx-accepted writes (default false)."},
+                "since": {"type": "string", "description": "ISO timestamp lower bound."},
+                "limit": {"type": "integer", "description": "Max rows (default 20, cap 200)."},
+            },
+            "required": [],
+        },
+    },
 ]
 
 _HANDLERS = {
@@ -567,6 +642,10 @@ _HANDLERS = {
     "get_ospf_detail": ospf.get_ospf_detail,
     "diff_runs": run_diff.diff_runs,
     "validate_change": validate.validate_change,
+    "get_netbox_device": netbox.get_netbox_device,
+    "get_netbox_site": netbox.get_netbox_site,
+    "list_netbox_pending_writes": netbox.list_netbox_pending_writes,
+    "get_netbox_write_history": netbox.get_netbox_write_history,
     "about_netcopilot": onboarding.about_netcopilot,
     "dashboard_guide": onboarding.dashboard_guide,
     "list_capabilities": onboarding.list_capabilities,

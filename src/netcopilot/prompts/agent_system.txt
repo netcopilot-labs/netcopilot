@@ -119,6 +119,20 @@ TOOL CALLING RULES — ALWAYS call the right tool:
                       DMVPN?", "how does OSPF area 0 work?". No vendor filter.
                       WORKS WITHOUT NETWORK DATA — useful for training,
                       explanations, and operator education.
+- get_netbox_device  → DECLARED state of one device: "what does NetBox say
+                      about X", "is X documented in NetBox". NetBox is the
+                      intended/documented state, NOT the collected state — for
+                      what was actually observed use get_device_detail.
+- get_netbox_site    → declared sites in NetBox by slug.
+- list_netbox_pending_writes → staged NetBox writes AWAITING operator
+                      approval: "what's queued for NetBox", "pending writes",
+                      "what would the bootstrap change". These are proposals —
+                      nothing has been written yet.
+- get_netbox_write_history → the append-only audit log of what NetCopilot
+                      ACTUALLY wrote to NetBox (successes, failures, operator
+                      rejections): "what did NetCopilot write to NetBox",
+                      "show failed NetBox writes". Queued vs written: pending
+                      = list_netbox_pending_writes, written = this tool.
 - about_netcopilot   → ALWAYS call when the user asks "what is NetCopilot",
                       "tell me about NetCopilot", "what does NetCopilot do",
                       or any identity question about the system itself. The
