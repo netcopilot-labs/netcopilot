@@ -2910,8 +2910,10 @@ function SecurityPoliciesTab({ hostname, selectedRun }) {
   const acls = data?.acls || []
   const routeMaps = data?.route_maps || []
   const prefixLists = data?.prefix_lists || []
+  const l2 = data?.l2_security || {}
+  const hasL2 = Object.keys(l2).length > 0
 
-  if (acls.length === 0 && routeMaps.length === 0 && prefixLists.length === 0) {
+  if (acls.length === 0 && routeMaps.length === 0 && prefixLists.length === 0 && !hasL2) {
     return <div className="p-4 text-xs text-gray-400">No security configuration data for this device</div>
   }
 
@@ -2935,6 +2937,33 @@ function SecurityPoliciesTab({ hostname, selectedRun }) {
           placeholder="Search by name..." className="text-xs border rounded px-1.5 py-1 w-full"
           style={{ borderColor: '#D1D5DB' }} />
       </div>
+
+      {/* L2 Edge Security (S10) */}
+      {hasL2 && (
+        <div className="border-b" style={{ borderColor: '#E5E7EB' }}>
+          <div className="px-3 py-1.5" style={{ background: '#F1F5F9' }}>
+            <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">L2 Edge Security</span>
+          </div>
+          <div className="px-3 py-2 text-xs text-gray-700 space-y-1">
+            <div>
+              <span className="font-semibold">DHCP snooping:</span>{' '}
+              {l2.dhcp_snooping
+                ? <span style={{ color: l2.dhcp_snooping.enabled ? '#059669' : '#DC2626' }}>
+                    {l2.dhcp_snooping.enabled ? 'enabled' : 'disabled'}
+                    {(l2.dhcp_snooping.vlans || []).length > 0 && ` · VLANs ${l2.dhcp_snooping.vlans.join(',')}`}
+                    {(l2.dhcp_snooping.trust_interfaces || []).length > 0 && ` · trust: ${l2.dhcp_snooping.trust_interfaces.join(', ')}`}
+                  </span>
+                : <span className="text-gray-400">not configured</span>}
+            </div>
+            <div><span className="font-semibold">Port-security:</span> {Object.keys(l2.port_security || {}).length} interface(s)</div>
+            <div>
+              <span className="font-semibold">BPDU-guard:</span> {(l2.bpduguard?.interfaces || []).length} interface(s)
+              {l2.bpduguard?.global_default && <span className="text-gray-500"> + global default</span>}
+            </div>
+            <div><span className="font-semibold">Protected ports:</span> {(l2.protected || []).length}</div>
+          </div>
+        </div>
+      )}
 
       {/* ACLs Section */}
       {filteredAcls.length > 0 && (

@@ -139,7 +139,9 @@ async def get_device_detail(
                 "RETURN i.name AS name, i.status AS status, "
                 "i.speed AS speed, i.ip AS ip, i.description AS description, "
                 "i.access_vlan AS vlan, i.vrf AS vrf, "
-                "i.port_channel_int AS lag_parent, i.port_channel_members AS lag_members "
+                "i.port_channel_int AS lag_parent, i.port_channel_members AS lag_members, "
+                "i.port_security_enabled AS port_security, i.bpduguard AS bpduguard, "
+                "i.protected AS protected "
                 "ORDER BY i.name",
                 run_id=run_id, name=device,
             )
@@ -159,8 +161,15 @@ async def get_device_detail(
                         lag = f" member-of:{i['lag_parent']}"
                     elif i.get("lag_members"):
                         lag = f" members:[{i['lag_members']}]"
+                    # L2 edge-security markers (S10) — only shown when present.
+                    l2 = [tag for tag, on in (
+                        ("port-sec", i.get("port_security")),
+                        ("bpduguard", i.get("bpduguard")),
+                        ("protected", i.get("protected")),
+                    ) if on]
+                    l2_str = f" [{' '.join(l2)}]" if l2 else ""
                     lines.append(
-                        f"  {i['name']:<30} {status:<6}{speed}{ip_str}{vlan}{vrf}{lag}{desc}"
+                        f"  {i['name']:<30} {status:<6}{speed}{ip_str}{vlan}{vrf}{lag}{l2_str}{desc}"
                     )
             else:
                 lines.append("  No interface data in graph.")
@@ -300,7 +309,27 @@ async def get_device_detail(
                     sec_data = json.loads(sec_path.read_text())
                     lines.extend(["", "Security config:"])
                     for key, val in list(sec_data.items())[:10]:
+                        if key == "l2_security":
+                            continue  # rendered as a dedicated block below
                         lines.append(f"  {key}: {val}")
+                    # L2 edge-security summary (S10) — readable, not a raw dump.
+                    l2 = sec_data.get("l2_security") or {}
+                    if l2:
+                        lines.append("  L2 edge-security:")
+                        snoop = l2.get("dhcp_snooping")
+                        if snoop:
+                            vlans = ",".join(str(v) for v in snoop.get("vlans", [])) or "none"
+                            trust = ", ".join(snoop.get("trust_interfaces", [])) or "none"
+                            state = "enabled" if snoop.get("enabled") else "disabled"
+                            lines.append(f"    DHCP snooping: {state} (VLANs: {vlans}; trust: {trust})")
+                        else:
+                            lines.append("    DHCP snooping: not configured")
+                        ps = l2.get("port_security", {})
+                        lines.append(f"    Port-security: {len(ps)} interface(s)")
+                        bg = l2.get("bpduguard", {})
+                        extra = " + global default" if bg.get("global_default") else ""
+                        lines.append(f"    BPDU-guard: {len(bg.get('interfaces', []))} interface(s){extra}")
+                        lines.append(f"    Protected ports: {len(l2.get('protected', []))}")
                 except (json.JSONDecodeError, OSError):
                     lines.extend(["", "Security: data unavailable"])
             else:

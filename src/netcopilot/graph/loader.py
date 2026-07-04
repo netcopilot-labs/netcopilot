@@ -377,6 +377,12 @@ def _load_devices(
         # Collected = has platform or version (device was reachable during collection)
         props["collected"] = bool(props.get("platform") or props.get("os_version"))
 
+        # L2 edge-security (S10) — DHCP-snooping summary + global BPDU-guard default
+        for k, v in _flatten_dhcp_snooping(device.get("dhcp_snooping")).items():
+            props[k] = v
+        if device.get("bpduguard_default"):
+            props["bpduguard_default"] = True
+
         device_params.append(props)
 
     # -------------------------------------------------------------------------
@@ -442,6 +448,10 @@ def _load_interfaces(
         # qos dict into prefixed properties per direction.
         qos_props = _flatten_qos(iface.get("qos"))
 
+        # L2 edge-security (S10) — flatten port_security; bpduguard/protected
+        # are booleans, stored directly (absent → stripped by _clean_properties).
+        l2sec_props = _flatten_port_security(iface.get("port_security"))
+
         props = _clean_properties({
             "interface_id": iface.get("interface_id"),
             "name": iface.get("name"),
@@ -468,6 +478,9 @@ def _load_interfaces(
             "trunk_vlans": iface.get("trunk_vlans"),
             "native_vlan": iface.get("native_vlan"),
             "vrf": iface.get("vrf"),
+            # L2 edge-security (S10) — booleans stored directly
+            "bpduguard": iface.get("bpduguard"),
+            "protected": iface.get("protected"),
             # FortiGate interface hierarchy
             "vdom": iface.get("vdom"),
             "vlanid": iface.get("vlanid"),
@@ -476,6 +489,7 @@ def _load_interfaces(
             "site": site,
             "run_id": run_id,
             **qos_props,
+            **l2sec_props,
         })
         iface_params.append(props)
 
@@ -1253,6 +1267,34 @@ _QOS_FIELDS = (
     "exceed_packets", "exceed_bytes", "exceed_action",
     "queue_drops", "queue_depth",
 )
+
+
+def _flatten_port_security(ps: dict[str, Any] | None) -> dict[str, Any]:
+    """Flatten the per-interface port_security dict to scalar Neo4j props (S10).
+
+    ``{"enabled": True, "maximum": 3, "violation": "restrict"}`` →
+    ``port_security_enabled/_maximum/_violation`` — all scalars, Neo4j-safe.
+    Empty/absent → {} (no props, so an interface without port-security is clean).
+    """
+    if not ps:
+        return {}
+    return {f"port_security_{k}": v for k, v in ps.items() if v is not None}
+
+
+def _flatten_dhcp_snooping(ds: dict[str, Any] | None) -> dict[str, Any]:
+    """Flatten the per-device dhcp_snooping dict to Neo4j props (S10).
+
+    ``enabled`` → ``dhcp_snooping_enabled`` (bool); ``vlans`` (list[int]) and
+    ``trust_interfaces`` (list[str]) are Neo4j-safe arrays. Absent → {}.
+    """
+    if not ds:
+        return {}
+    out: dict[str, Any] = {"dhcp_snooping_enabled": ds.get("enabled")}
+    if ds.get("vlans"):
+        out["dhcp_snooping_vlans"] = ds["vlans"]
+    if ds.get("trust_interfaces"):
+        out["dhcp_snooping_trust_interfaces"] = ds["trust_interfaces"]
+    return out
 
 
 def _flatten_qos(qos: dict[str, Any] | None) -> dict[str, Any]:

@@ -10,7 +10,7 @@ show-command (``show switch stack-ports summary``) whose Genie parser fails on
 valid C9300 output. Same pure text-in/dict-out contract.
 
 Output files produced:
-    facts/<hostname>/security_config.json     ← 15 CIS-relevant sections
+    facts/<hostname>/security_config.json     ← 16 CIS-relevant sections
     facts/<hostname>/parsed_management.json   ← management IP, SSH settings
     facts/<hostname>/parsed_route_policy.json ← route-map definitions
     facts/<hostname>/parsed_prefix_list.json  ← prefix-list entries
@@ -34,7 +34,8 @@ Architecture:
             │         ├── _parse_domain_lookup()
             │         ├── _parse_password_policy()
             │         ├── _parse_tacacs_radius()
-            │         └── _parse_ip_source_routing()
+            │         ├── _parse_ip_source_routing()
+            │         └── _parse_l2_security()
             │
             ├──► parse_management()       → parsed_management.json
             ├──► parse_route_policies()   → parsed_route_policy.json
@@ -45,7 +46,7 @@ Design Principles:
     - IOS XE / IOS XR dual coverage: each section includes patterns for both
       OS families where syntax differs (SSH, VTY, HTTP, logging, ACL keywords)
     - Graceful degradation: unrecognised config returns {}; never raises
-    - _parser_coverage metadata: tracks which of the 15 sections yielded data
+    - _parser_coverage metadata: tracks which of the 16 sections yielded data
     - Section "parsed" = at least one truthy or boolean value found
     - Section "empty"  = no matching config lines detected
 
@@ -590,6 +591,104 @@ def _parse_ip_source_routing(text: str) -> dict:
     return result
 
 
+# Matches an "interface X" header and its indented body (up to the next
+# non-indented line). group(1) = interface name, group(2) = body.
+_INTERFACE_BLOCK_RE = re.compile(r"^interface (\S+)[^\n]*\n((?:[ \t]+[^\n]*\n?)*)", re.MULTILINE)
+
+
+def _expand_vlan_list(spec: str) -> list[int]:
+    """Expand an IOS VLAN spec ("10", "10,20", "30-33") into an int list."""
+    vlans: list[int] = []
+    for part in spec.split(","):
+        part = part.strip()
+        if "-" in part:
+            lo, _, hi = part.partition("-")
+            if lo.isdigit() and hi.isdigit():
+                vlans.extend(range(int(lo), int(hi) + 1))
+        elif part.isdigit():
+            vlans.append(int(part))
+    return vlans
+
+
+def _parse_l2_security(text: str) -> dict:
+    """
+    Extract L2 access-layer security posture (IOS-XE switches).
+
+    Four host-facing access-port features (S10, verified on real IOS-XE switches):
+      - DHCP snooping: global enable, snooped VLANs, trust interfaces
+      - port-security: per-interface enable / maximum / violation / aging
+      - BPDU-guard: per-interface enable + global 'portfast bpduguard default'
+      - switchport protected: per-interface
+
+    IOS-XR routers / FortiGate have none of these → returns {} (the section is
+    then reported 'empty', never fabricated). storm-control is intentionally
+    excluded — 0 interfaces run per-interface policing on the real networks.
+    """
+    result: dict[str, Any] = {}
+
+    # ── DHCP snooping (global) ───────────────────────────────────────────
+    snoop_enabled = bool(re.search(r"^ip dhcp snooping\s*$", text, re.MULTILINE))
+    snoop_vlans: list[int] = []
+    for m in re.finditer(r"^ip dhcp snooping vlan (\S+)", text, re.MULTILINE):
+        snoop_vlans.extend(_expand_vlan_list(m.group(1)))
+    bpduguard_default = bool(
+        re.search(r"^spanning-tree portfast bpduguard default\b", text, re.MULTILINE)
+    )
+
+    # ── per-interface features ───────────────────────────────────────────
+    port_security: dict[str, Any] = {}
+    trust_ifaces: list[str] = []
+    bpduguard_ifaces: list[str] = []
+    protected_ifaces: list[str] = []
+
+    for m in _INTERFACE_BLOCK_RE.finditer(text):
+        ifname, body = m.group(1), m.group(2)
+
+        if re.search(r"^\s+ip dhcp snooping trust\b", body, re.MULTILINE):
+            trust_ifaces.append(ifname)
+
+        if re.search(r"^\s+switchport port-security\b", body, re.MULTILINE):
+            ps: dict[str, Any] = {
+                "enabled": bool(re.search(r"^\s+switchport port-security\s*$", body, re.MULTILINE)),
+            }
+            mm = re.search(r"^\s+switchport port-security maximum (\d+)", body, re.MULTILINE)
+            if mm:
+                ps["maximum"] = int(mm.group(1))
+            mm = re.search(r"^\s+switchport port-security violation (\S+)", body, re.MULTILINE)
+            if mm:
+                ps["violation"] = mm.group(1)
+            mm = re.search(r"^\s+switchport port-security aging time (\d+)", body, re.MULTILINE)
+            if mm:
+                ps["aging_time"] = int(mm.group(1))
+            port_security[ifname] = ps
+
+        if re.search(r"^\s+spanning-tree bpduguard enable\b", body, re.MULTILINE):
+            bpduguard_ifaces.append(ifname)
+
+        if re.search(r"^\s+switchport protected\b", body, re.MULTILINE):
+            protected_ifaces.append(ifname)
+
+    # Assemble — include only sub-sections that yielded data.
+    if snoop_enabled or snoop_vlans or trust_ifaces:
+        dhcp: dict[str, Any] = {"enabled": snoop_enabled}
+        if snoop_vlans:
+            dhcp["vlans"] = sorted(set(snoop_vlans))
+        if trust_ifaces:
+            dhcp["trust_interfaces"] = trust_ifaces
+        result["dhcp_snooping"] = dhcp
+    if port_security:
+        result["port_security"] = port_security
+    if bpduguard_ifaces or bpduguard_default:
+        result["bpduguard"] = {
+            "global_default": bpduguard_default,
+            "interfaces": bpduguard_ifaces,
+        }
+    if protected_ifaces:
+        result["protected"] = protected_ifaces
+
+    return result
+
+
 # -------------------------------------------------------------------------
 # Ordered section registry
 # -------------------------------------------------------------------------
@@ -616,6 +715,7 @@ _SECURITY_SECTIONS: list[tuple[str, Any]] = [
     ("password_policy",  _parse_password_policy),   # OS-aware
     ("tacacs_radius",    _parse_tacacs_radius),
     ("ip_source_routing", _parse_ip_source_routing),
+    ("l2_security",      _parse_l2_security),        # S10: DHCP-snoop/port-sec/bpduguard/protected
 ]
 
 # Sections whose parsers need the os_family argument
@@ -628,7 +728,7 @@ _OS_AWARE_SECTIONS = {"cdp_lldp", "password_policy"}
 
 def parse_security_config(running_config: str, os_family: str = "ios-xe") -> dict:
     """
-    Parse running config text into 15 CIS-relevant security sections.
+    Parse running config text into 16 CIS-relevant security sections.
 
     Calls each section parser in _SECURITY_SECTIONS order, then appends
     a _parser_coverage metadata block showing which sections yielded data.
@@ -642,13 +742,13 @@ def parse_security_config(running_config: str, os_family: str = "ios-xe") -> dic
             (security passwords vs aaa password-policy section).
 
     Returns:
-        Dict with 15 section keys plus '_parser_coverage'. Example structure:
+        Dict with 16 section keys plus '_parser_coverage'. Example structure:
         {
             "aaa":   {"authentication_login_default": "group AAA-GROUP local", ...},
             "ssh":   {"version": 2, "timeout": 60, ...},
             ...
             "_parser_coverage": {
-                "sections_attempted": 15,
+                "sections_attempted": 16,
                 "sections_parsed":    12,
                 "sections_empty":      3,
                 "sections_detail":    {"aaa": "parsed", "snmp": "empty", ...}

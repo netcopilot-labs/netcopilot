@@ -20936,3 +20936,45 @@
       ! Missing routes on {device_b}:
       !   ip route {prefix} {mask} {next_hop}
       ! Verify this is not intentional (e.g., primary/backup routing design).
+- rule_id: L2SEC_DHCP_TRUST_ON_ACCESS
+  severity: high
+  category: security
+  protocol: ios_xe
+  tier: surface
+  description: DHCP-snooping trust is set on a host-facing access port — a trust-boundary violation that would trust a rogue DHCP server. S10 (ADR-0012).
+  genie_source: null
+- rule_id: L2SEC_PORT_SECURITY_WEAK_VIOLATION
+  severity: low
+  category: security
+  protocol: ios_xe
+  tier: surface
+  description: port-security violation-mode 'protect' silently drops offending frames (no log, no err-disable) — restrict or shutdown is stronger. S10 (ADR-0012).
+  genie_source: null
+- rule_id: L2SEC_ACCESS_VLAN_NOT_SNOOPED
+  severity: low
+  category: security
+  protocol: ios_xe
+  tier: surface
+  description: A user access VLAN (≥2 host ports) is not in the DHCP-snooping VLAN list while snooping is enabled — hosts on it are unprotected. S10 (ADR-0012).
+  genie_source: null
+- rule_id: L2SEC_NO_DHCP_SNOOPING
+  severity: low
+  category: security
+  protocol: ios_xe
+  tier: surface
+  description: A switch with host-facing access ports has DHCP snooping globally disabled — no rogue-DHCP protection. S10 (ADR-0012).
+  genie_source: null
+- rule_id: L2SEC_ACCESS_PORTS_NO_PORT_SECURITY
+  severity: info
+  category: security
+  protocol: ios_xe
+  tier: surface
+  description: Host-facing access ports lack port-security — no MAC-flooding / rogue-host limit (aggregated per device). S10 (ADR-0012).
+  genie_source: null
+- rule_id: L2SEC_ACCESS_PORTS_NO_BPDUGUARD
+  severity: info
+  category: security
+  protocol: ios_xe
+  tier: surface
+  description: Host-facing access ports lack BPDU-guard and no global 'portfast bpduguard default' — a rogue switch could hijack STP (aggregated per device). S10 (ADR-0012).
+  genie_source: null
