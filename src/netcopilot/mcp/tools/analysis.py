@@ -68,13 +68,42 @@ async def blast_radius(
 
     risk = device_insights[0].get("risk_score", 0) if device_insights else 0
     risk_level = "HIGH" if risk > 50 else "MODERATE" if risk > 20 else "LOW"
-    highlight = {"device": device}
+
+    # Affected neighbours + internet impact — already computed for the text;
+    # surface them in the machine-readable verdict + the map highlight (the
+    # blast area), not just the failed node.
+    affected = sorted({n["neighbor"] for n in all_links})
+    transit_losses = sorted({
+        n["neighbor"] for n in all_links if n.get("bgp_type") == "transit"
+    })
+
+    highlight = {"device": device, "affected": affected}
     if member is not None:
         highlight["failedMember"] = member
+
+    text = _analyze_full_failure(device, all_links, device_insights)
+    # This analysis models a full device failure. Interface-level and
+    # multi-hop scoping are not modelled — say so rather than let a scoped
+    # request read as if it were honoured.
+    if interface is not None or max_hops != 3:
+        scoped = []
+        if interface is not None:
+            scoped.append(f"interface={interface}")
+        if max_hops != 3:
+            scoped.append(f"max_hops={max_hops}")
+        text = (f"Note: {', '.join(scoped)} not applied — blast_radius models a "
+                f"full device failure (interface/hop scoping is not yet "
+                f"supported).\n\n") + text
+
     return ToolResult(
         "ok",
-        _analyze_full_failure(device, all_links, device_insights),
-        verdict={"risk_level": risk_level, "score": risk},
+        text,
+        verdict={
+            "risk_level": risk_level,
+            "score": risk,
+            "affected_neighbors": len(affected),
+            "internet_impact": len(transit_losses),
+        },
         highlight=highlight,
     )
 
