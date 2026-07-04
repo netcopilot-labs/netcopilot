@@ -103,7 +103,7 @@ def test_security_config_iosxe_sections():
     assert sec["vty_lines"]["transport_input"] == "ssh"
     assert sec["vty_lines"]["exec_timeout_minutes"] == 10
     cov = sec["_parser_coverage"]
-    assert cov["sections_attempted"] == 15
+    assert cov["sections_attempted"] == 16      # S10 added l2_security
     assert cov["sections_parsed"] >= 12
 
 
@@ -129,7 +129,7 @@ def test_os_family_normalisation_accepts_both_spellings():
 
 def test_security_config_empty_returns_coverage():
     sec = parse_security_config("", os_family="ios-xe")
-    assert sec["_parser_coverage"]["sections_attempted"] == 15
+    assert sec["_parser_coverage"]["sections_attempted"] == 16   # S10 added l2_security
     # booleans count as 'parsed' (we made a determination); empty lists do not
 
 
