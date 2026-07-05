@@ -1437,6 +1437,41 @@ def _bootstrap_ipam(yaml_devices, model, run_id, pending_index, result, *, netbo
 _CABLE_CONFIDENCES = {"high", "very_high"}
 
 
+def _end_cable_media(sfp_pid: str | None, media_type: str | None) -> str | None:
+    """NetBox cable type implied by one end's transceiver PID / media type."""
+    pid = (sfp_pid or "").upper()
+    if pid:
+        if "AOC" in pid:
+            return "aoc"
+        if "DAC" in pid or re.search(r"CU[0-9]M", pid):
+            return "dac-passive"
+        if re.search(r"(^|[^A-Z])(SR|CSR|SX)", pid):
+            return "mmf"
+        if re.search(r"(^|[^A-Z])(LR|ER|ZR|LH|LX)", pid):
+            return "smf"
+        if "BASE-T" in pid or pid.startswith("GLC-T"):
+            return "cat6"
+        # Unknown PID → fall through to the media_type hint
+    media = (media_type or "").lower()
+    if media.startswith("copper"):
+        return "cat6"
+    if media == "fiber-aoc":
+        return "aoc"
+    if media in ("fiber-sr", "fiber-mm"):
+        return "mmf"
+    if media == "fiber-lr":
+        return "smf"
+    return None  # generic "fiber"/absent → don't guess
+
+
+def _cable_type_for(a_media: str | None, b_media: str | None) -> str | None:
+    """Combine both ends' implied media: agree → type; one known → it;
+    conflict → None (a mismatched pair is a finding, not documentation)."""
+    if a_media and b_media:
+        return a_media if a_media == b_media else None
+    return a_media or b_media
+
+
 def _cable_dedup_key(a: tuple[str, str], b: tuple[str, str]) -> str:
     ends = sorted([f"{a[0]}:{a[1]}", f"{b[0]}:{b[1]}"])
     return f"{ends[0]}--{ends[1]}"
@@ -1511,6 +1546,12 @@ def _bootstrap_cables(yaml_devices, model, run_id, pending_index, result, *, net
 
     lag_ends = _lag_interfaces(yaml_devices, run_id)
 
+    iface_media = {
+        (i.get("device_id"), canonicalize(i.get("name") or "")):
+            _end_cable_media(i.get("sfp_pid"), i.get("media_type"))
+        for i in model.get("interfaces", [])
+    }
+
     # NetBox enforces one cable per interface. The model can carry several
     # high-confidence links claiming the same end (FDB-derived mgmt links are
     # transitive) — keep the best-confidence claim deterministically, warn
@@ -1573,14 +1614,21 @@ def _bootstrap_cables(yaml_devices, model, run_id, pending_index, result, *, net
             continue
 
         claimed_in_wave[a] = claimed_in_wave[b] = dedup
+        cable_type = _cable_type_for(
+            iface_media.get((a_dev, canonicalize(a_short))),
+            iface_media.get((b_dev, canonicalize(b_short))),
+        )
+        payload = {
+            "status": "connected",
+            "dedup_key": dedup,
+            "_resolve_a_device": a[0], "_resolve_a_interface": a[1],
+            "_resolve_b_device": b[0], "_resolve_b_interface": b[1],
+        }
+        if cable_type:
+            payload["type"] = cable_type
         stage_candidate(
             source="bootstrap", object_type="cable",
-            payload={
-                "status": "connected",
-                "dedup_key": dedup,
-                "_resolve_a_device": a[0], "_resolve_a_interface": a[1],
-                "_resolve_b_device": b[0], "_resolve_b_interface": b[1],
-            },
+            payload=payload,
             reason=(f"physical link {link.get('link_id')} "
                     f"(discovery: {link.get('discovery_method')}, "
                     f"confidence: {link.get('confidence')})"),

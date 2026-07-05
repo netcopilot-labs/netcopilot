@@ -514,3 +514,18 @@ def test_cable_guard_lag_endpoint(env):
     result = bootstrap.run("demo-run", inventory_path=tmp_path / "lab.yaml")
     assert [c for c in staged if c["object_type"] == "cable"] == []
     assert any("is a LAG" in w for w in result.warnings)
+
+
+def test_cable_type_derived_from_ends():
+    e = bootstrap._end_cable_media
+    assert e("QSFP-100G-AOC5M", None) == "aoc"
+    assert e("SFP-10/25G-CSR-S", None) == "mmf"
+    assert e("SFP-10G-LR", None) == "smf"
+    assert e("GLC-LH-SMD", None) == "smf"
+    assert e(None, "copper") == "cat6"
+    assert e(None, "fiber") is None          # generic fiber → don't guess
+    assert e("WEIRD-OEM-123", "fiber-lr") == "smf"  # unknown PID → media hint
+    c = bootstrap._cable_type_for
+    assert c("mmf", "mmf") == "mmf"
+    assert c("mmf", None) == "mmf"
+    assert c("mmf", "smf") is None           # mismatched pair = a finding, not doc
