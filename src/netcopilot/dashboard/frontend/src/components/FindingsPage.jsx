@@ -76,6 +76,33 @@ export default function FindingsPage({
   setHideLabExpected,
 }) {
   const { sevColors, severityOrder } = useLegend()
+
+  // s13 (ADR-0015): INTENT_* drift findings whose observed value can be staged
+  // as a NetBox update candidate via POST /api/reconcile/stage_from_finding.
+  const CORRECTABLE_INTENT = new Set([
+    'INTENT_SERIAL_DRIFT', 'INTENT_PLATFORM_DRIFT', 'INTENT_SITE_DRIFT',
+    'INTENT_INTERFACE_ATTR_DRIFT',
+  ])
+  const [stageToast, setStageToast] = useState(null)
+  const stageFromFinding = async (findingId) => {
+    try {
+      const res = await fetch('/api/reconcile/stage_from_finding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ finding_id: findingId, run_id: selectedRun }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.detail?.error?.message || `HTTP ${res.status}`)
+      setStageToast({
+        kind: 'success',
+        message: `Staged ${body.staged} candidate(s)` +
+          (body.skipped ? ` (${body.skipped} already pending)` : '') +
+          ' — review in the Reconcile tab.',
+      })
+    } catch (e) {
+      setStageToast({ kind: 'error', message: `Stage failed: ${e.message}` })
+    }
+  }
   const { sendMessage, isStreaming } = useAgent()
   const [expandedRules, setExpandedRules] = useState(new Set())
   const [ackDialog, setAckDialog] = useState(null) // {findingIds: [...]}
@@ -401,6 +428,17 @@ export default function FindingsPage({
                       )}
                     </p>
                   </button>
+                  {/* s13: stage the NetBox correction for correctable drift findings */}
+                  {!isAckedSection && CORRECTABLE_INTENT.has(group.ruleId) && (
+                    <button
+                      onClick={() => stageFromFinding(f.finding_id)}
+                      className="px-1.5 py-0.5 mr-1 rounded text-white transition-colors shrink-0"
+                      title="Stage the observed value as a NetBox update candidate (approved in the Reconcile tab)"
+                      style={{ fontSize: 10, background: '#6366F1' }}
+                    >
+                      Update NetBox
+                    </button>
+                  )}
                   {/* Per-finding ack/un-ack */}
                   {!f.acknowledged ? (
                     <button
@@ -503,6 +541,20 @@ export default function FindingsPage({
 
   return (
     <div className="flex flex-col h-full">
+      {/* s13: stage-from-finding result toast */}
+      {stageToast && (
+        <div
+          className="shrink-0 px-3 py-2 text-xs flex items-center justify-between"
+          style={{
+            background: stageToast.kind === 'error' ? '#FEF2F2' : '#F0FDF4',
+            borderBottom: '1px solid #E5E7EB',
+            color: stageToast.kind === 'error' ? '#991B1B' : '#166534',
+          }}
+        >
+          <span>{stageToast.message}</span>
+          <button onClick={() => setStageToast(null)} className="underline ml-2">dismiss</button>
+        </div>
+      )}
       {/* Acknowledge dialog */}
       {ackDialog && (
         <AckDialog

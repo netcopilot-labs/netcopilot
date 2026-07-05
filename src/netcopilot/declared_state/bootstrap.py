@@ -143,11 +143,21 @@ def run(run_id: str, inventory_path: str | Path) -> BootstrapResult:
         netbox_devices = {d["name"] for d in netbox_adapter.get_devices()}
         netbox_sites = {s["slug"] for s in netbox_adapter.get_sites()}
         netbox_clusters = {c["name"] for c in netbox_adapter.get_clusters()}
+        # s13 fix: these were pending-only deduped, so re-running bootstrap
+        # against a populated NetBox re-staged every already-documented
+        # object (harmless — approve auto-resolves — but pure queue noise).
+        netbox_manufacturers = {m["name"] for m in netbox_adapter.get_manufacturers()}
+        netbox_platforms = {p["slug"] for p in netbox_adapter.get_platforms()}
+        netbox_vcs = {v["name"] for v in netbox_adapter.get_virtual_chassis()}
     except Exception as exc:
         log.warning("NetBoxAdapter unavailable, dedup will use staged-only: %s", exc)
+        netbox_adapter = None
         netbox_devices = set()
         netbox_sites = set()
         netbox_clusters = set()
+        netbox_manufacturers = set()
+        netbox_platforms = set()
+        netbox_vcs = set()
 
     result = BootstrapResult()
 
@@ -191,13 +201,13 @@ def run(run_id: str, inventory_path: str | Path) -> BootstrapResult:
     _bootstrap_clusters(yaml_devices, netbox_clusters, pending_index, result)
 
     # ── VirtualChassis (Cisco stacks only) ───────────────────────────────────
-    _bootstrap_virtual_chassis(yaml_devices, run_id, pending_index, result)
+    _bootstrap_virtual_chassis(yaml_devices, run_id, pending_index, result, netbox_vcs=netbox_vcs)
 
     # ── Manufacturers ────────────────────────────────────────────────────────
-    _bootstrap_manufacturers(yaml_devices, pending_index, result)
+    _bootstrap_manufacturers(yaml_devices, pending_index, result, netbox_manufacturers=netbox_manufacturers)
 
     # ── Platforms ────────────────────────────────────────────────────────────
-    _bootstrap_platforms(yaml_devices, pending_index, result)
+    _bootstrap_platforms(yaml_devices, pending_index, result, netbox_platforms=netbox_platforms)
 
     # ── Devices (Per-physical-device model: per-physical-member expansion for stacks + HA) ─────
     _bootstrap_devices(
@@ -207,14 +217,14 @@ def run(run_id: str, inventory_path: str | Path) -> BootstrapResult:
     )
 
     # ── Interfaces (Per-physical-device model: attributed per-member for stacks) ───────────────
-    _bootstrap_interfaces(yaml_devices, run_id, pending_index, result)
+    _bootstrap_interfaces(yaml_devices, run_id, pending_index, result, netbox_adapter=netbox_adapter)
 
     # ── Inventory items (transceivers / SFPs) ────────────────────────────────
     # Cisco: parsed from raw/<host>/show_inventory.txt via the existing
     #   _parse_inventory_transceivers() helper in model_builder.
     # Fortinet: parsed from facts/<host>/fortigate_interface_transceivers.json.
     # Per-physical-device model: SFPs attributed per-member via _attribute_interface_to_position.
-    _bootstrap_inventory_items(yaml_devices, run_id, pending_index, result)
+    _bootstrap_inventory_items(yaml_devices, run_id, pending_index, result, netbox_adapter=netbox_adapter)
 
     log.info(
         "Bootstrap done. new=%s skipped=%s warnings=%d",
@@ -252,7 +262,7 @@ def _bootstrap_sites(yaml_devices, netbox_sites, pending_index, result):
         result.new["site"] = result.new.get("site", 0) + 1
 
 
-def _bootstrap_manufacturers(yaml_devices, pending_index, result):
+def _bootstrap_manufacturers(yaml_devices, pending_index, result, *, netbox_manufacturers=frozenset()):
     seen: set[str] = set()
     for dev in yaml_devices:
         os_name = normalize_os(dev.get("os") or "")
@@ -266,7 +276,7 @@ def _bootstrap_manufacturers(yaml_devices, pending_index, result):
             continue
         seen.add(manufacturer)
 
-        if _already_pending(pending_index, "manufacturer", manufacturer):
+        if manufacturer in netbox_manufacturers or _already_pending(pending_index, "manufacturer", manufacturer):
             result.skipped["manufacturer"] = result.skipped.get("manufacturer", 0) + 1
             continue
 
@@ -280,7 +290,7 @@ def _bootstrap_manufacturers(yaml_devices, pending_index, result):
         result.new["manufacturer"] = result.new.get("manufacturer", 0) + 1
 
 
-def _bootstrap_platforms(yaml_devices, pending_index, result):
+def _bootstrap_platforms(yaml_devices, pending_index, result, *, netbox_platforms=frozenset()):
     seen: set[str] = set()
     for dev in yaml_devices:
         os_name = normalize_os(dev.get("os") or "")
@@ -292,7 +302,7 @@ def _bootstrap_platforms(yaml_devices, pending_index, result):
             continue
         seen.add(slug)
 
-        if _already_pending(pending_index, "platform", slug):
+        if slug in netbox_platforms or _already_pending(pending_index, "platform", slug):
             result.skipped["platform"] = result.skipped.get("platform", 0) + 1
             continue
 
@@ -365,7 +375,7 @@ def _bootstrap_clusters(yaml_devices, netbox_clusters, pending_index, result):
         result.new["cluster"] = result.new.get("cluster", 0) + 1
 
 
-def _bootstrap_virtual_chassis(yaml_devices, run_id, pending_index, result):
+def _bootstrap_virtual_chassis(yaml_devices, run_id, pending_index, result, *, netbox_vcs=frozenset()):
     """Stage one :NetBoxPendingWrite per Cisco stack (ADR-0013 per-physical-device model).
 
     A Cisco stack is a YAML inventory entry with os=iosxe/iosxr AND
@@ -391,7 +401,7 @@ def _bootstrap_virtual_chassis(yaml_devices, run_id, pending_index, result):
             continue
         seen.add(name)
 
-        if _already_pending(pending_index, "virtual_chassis", name):
+        if name in netbox_vcs or _already_pending(pending_index, "virtual_chassis", name):
             result.skipped["virtual_chassis"] = result.skipped.get("virtual_chassis", 0) + 1
             continue
 
@@ -556,13 +566,15 @@ def _bootstrap_devices(
 _INTERFACE_NAME_KEY_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9/.-]*$")
 
 
-def _bootstrap_interfaces(yaml_devices, run_id, pending_index, result):
+def _bootstrap_interfaces(yaml_devices, run_id, pending_index, result, *, netbox_adapter=None):
     facts_dir = _runs_dir() / run_id / "facts"
     if not facts_dir.is_dir():
         result.warnings.append(
             f"run_id={run_id!r}: facts dir not found at {facts_dir}; skipping all interface candidates"
         )
         return
+
+    _nb_iface_cache: dict[str, set[str]] = {}
 
     for dev in yaml_devices:
         name = dev.get("name")
@@ -608,6 +620,13 @@ def _bootstrap_interfaces(yaml_devices, run_id, pending_index, result):
 
             # Dedup key: (device, interface_name) — interfaces are scoped per-device in NetBox
             dedup_name = f"{target_device}::{iface_name}"
+            if target_device not in _nb_iface_cache and netbox_adapter is not None:
+                _nb_iface_cache[target_device] = {
+                    i["name"] for i in netbox_adapter.get_interfaces(target_device)
+                }
+            if iface_name in _nb_iface_cache.get(target_device, ()):  # s13: NetBox-side dedup
+                result.skipped["interface"] = result.skipped.get("interface", 0) + 1
+                continue
             if _already_pending(pending_index, "interface", dedup_name):
                 result.skipped["interface"] = result.skipped.get("interface", 0) + 1
                 continue
@@ -687,7 +706,7 @@ def _parse_inventory_xcvrs_preserving_case(inventory_text: str) -> list[dict]:
     return out
 
 
-def _bootstrap_inventory_items(yaml_devices, run_id, pending_index, result):
+def _bootstrap_inventory_items(yaml_devices, run_id, pending_index, result, *, netbox_adapter=None):
     """Stage one :NetBoxPendingWrite per detected transceiver/SFP.
 
     Cisco devices: read ``raw/<host>/show_inventory.txt``, parse with a
@@ -706,6 +725,8 @@ def _bootstrap_inventory_items(yaml_devices, run_id, pending_index, result):
     """
     raw_dir = _runs_dir() / run_id / "raw"
     facts_dir = _runs_dir() / run_id / "facts"
+
+    _nb_item_serials: dict[str, set[str]] = {}
 
     for dev in yaml_devices:
         name = dev.get("name")
@@ -746,6 +767,14 @@ def _bootstrap_inventory_items(yaml_devices, run_id, pending_index, result):
                     continue
                 target = _target_for(iface_name)
                 dedup = f"{target}::{iface_name}::{serial}"
+                if target not in _nb_item_serials and netbox_adapter is not None:
+                    _nb_item_serials[target] = {
+                        i["serial"] for i in netbox_adapter.get_inventory_items(target)
+                        if i.get("serial")
+                    }
+                if serial in _nb_item_serials.get(target, ()):  # s13: NetBox-side dedup
+                    result.skipped["inventory_item"] = result.skipped.get("inventory_item", 0) + 1
+                    continue
                 if _already_pending(pending_index, "inventory_item", dedup):
                     result.skipped["inventory_item"] = result.skipped.get("inventory_item", 0) + 1
                     continue
@@ -783,6 +812,14 @@ def _bootstrap_inventory_items(yaml_devices, run_id, pending_index, result):
                     continue
                 target = _target_for(iface_name)
                 dedup = f"{target}::{iface_name}::{serial}"
+                if target not in _nb_item_serials and netbox_adapter is not None:
+                    _nb_item_serials[target] = {
+                        i["serial"] for i in netbox_adapter.get_inventory_items(target)
+                        if i.get("serial")
+                    }
+                if serial in _nb_item_serials.get(target, ()):  # s13: NetBox-side dedup
+                    result.skipped["inventory_item"] = result.skipped.get("inventory_item", 0) + 1
+                    continue
                 if _already_pending(pending_index, "inventory_item", dedup):
                     result.skipped["inventory_item"] = result.skipped.get("inventory_item", 0) + 1
                     continue

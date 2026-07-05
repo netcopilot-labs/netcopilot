@@ -400,6 +400,54 @@ class TestBootstrapEndpoint:
         assert resp.json()["detail"]["error"]["code"] == "bootstrap_failed"
 
 
+# ── POST /api/reconcile/stage_from_finding (s13) ────────────────────────────
+
+
+class TestStageFromFindingEndpoint:
+
+    def test_success(self):
+        result = {"staged": 1, "skipped": 0, "candidate_ids": ["cand-1"]}
+        with patch("netcopilot.declared_state.drift.stage_correction",
+                   return_value=result) as sc:
+            resp = client.post("/api/reconcile/stage_from_finding",
+                               json={"finding_id": "INTENT_SERIAL_DRIFT::acc-sw-01",
+                                     "run_id": "demo-run"})
+        assert resp.status_code == 200
+        assert resp.json() == result
+        assert sc.call_args.args == ("INTENT_SERIAL_DRIFT::acc-sw-01", "demo-run")
+
+    def test_400_missing_params(self):
+        resp = client.post("/api/reconcile/stage_from_finding", json={"finding_id": "x"})
+        assert resp.status_code == 400
+        assert resp.json()["detail"]["error"]["code"] == "missing_params"
+
+    def test_404_finding_not_found(self):
+        with patch("netcopilot.declared_state.drift.stage_correction",
+                   side_effect=KeyError("no finding")):
+            resp = client.post("/api/reconcile/stage_from_finding",
+                               json={"finding_id": "x", "run_id": "r"})
+        assert resp.status_code == 404
+        assert resp.json()["detail"]["error"]["code"] == "finding_not_found"
+
+    def test_400_not_correctable(self):
+        from netcopilot.declared_state.drift import NotCorrectable
+        with patch("netcopilot.declared_state.drift.stage_correction",
+                   side_effect=NotCorrectable("informational rule")):
+            resp = client.post("/api/reconcile/stage_from_finding",
+                               json={"finding_id": "x", "run_id": "r"})
+        assert resp.status_code == 400
+        assert resp.json()["detail"]["error"]["code"] == "not_correctable"
+
+    def test_502_netbox_unreachable(self):
+        from netcopilot.declared_state.drift import DriftSourceUnavailable
+        with patch("netcopilot.declared_state.drift.stage_correction",
+                   side_effect=DriftSourceUnavailable("down")):
+            resp = client.post("/api/reconcile/stage_from_finding",
+                               json={"finding_id": "x", "run_id": "r"})
+        assert resp.status_code == 502
+        assert resp.json()["detail"]["error"]["code"] == "netbox_unreachable"
+
+
 # ── GET /api/reconcile/history ──────────────────────────────────────────────
 
 

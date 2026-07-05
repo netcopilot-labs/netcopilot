@@ -18,9 +18,9 @@ def _run(coro):
 CTX = {"run_id": "demo-run"}
 
 
-def test_registered_30_tools_with_netbox():
+def test_registered_32_tools_with_netbox():
     names = [s["name"] for s in TOOL_SCHEMAS]
-    assert len(names) == 30
+    assert len(names) == 32
     for t in ("get_netbox_device", "get_netbox_site",
               "list_netbox_pending_writes", "get_netbox_write_history"):
         assert t in names and t in _HANDLERS

@@ -76,7 +76,11 @@ VALID_OPERATORS = {"equals", "not_equals", "greater_than", "less_than", "is_null
 # Valid values for the per-rule `status` field. Absent ⇒ "active".
 # "deferred"      — check exists but is intentionally not evaluated yet
 # "manual_review" — not automatable from collected data; operator territory
-VALID_STATUSES = {"active", "deferred", "manual_review"}
+# "external"      — evaluated outside the rules engine (e.g. drift detection,
+#                   s13/ADR-0015: needs a live declared-state source, so it
+#                   cannot run in the hermetic engine); catalogued for
+#                   remediation text + explain_finding only
+VALID_STATUSES = {"active", "deferred", "manual_review", "external"}
 
 # Required fields inside an eval block
 EVAL_REQUIRED_FIELDS = {"source", "element_id", "evidence"}

@@ -62,6 +62,8 @@ _TOOL_CATEGORIES: dict[str, str] = {
     "get_netbox_site":              _CAT_DECLARED,
     "list_netbox_pending_writes":   _CAT_DECLARED,
     "get_netbox_write_history":     _CAT_DECLARED,
+    "run_drift_check":              _CAT_DECLARED,
+    "compare_declared_vs_actual":   _CAT_DECLARED,
     # 🛣 TRACE TRAFFIC AND IMPACT
     "trace_path":                _CAT_TRACE,
     "blast_radius":              _CAT_TRACE,
@@ -162,12 +164,13 @@ _CATEGORY_RENDER: dict[str, dict] = {
         "subtitle": "What should the network look like — and what's queued to document?",
         "bullets": [
             "Devices and sites as documented in NetBox (the intended state)",
-            "Pending writes you can approve via the CLI",
+            "Pending writes you can approve in the Reconcile tab (or CLI)",
             "NetBox write history including failures and rejections",
+            "Drift checks: does the documentation still match reality?",
         ],
         "examples": [
             "What does NetBox say about core-rtr-01?",
-            "What did NetCopilot last write to NetBox?",
+            "Is NetBox in sync with the network?",
         ],
     },
     _CAT_VENDOR_DOCS: {

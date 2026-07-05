@@ -444,6 +444,60 @@ async def bootstrap_endpoint(
     }
 
 
+# ── POST /api/reconcile/stage_from_finding ──────────────────────────────────
+
+
+@router.post("/api/reconcile/stage_from_finding")
+async def stage_from_finding_endpoint(
+    body: dict[str, Any] = Body(...),
+) -> dict[str, Any]:
+    """Stage the NetBox correction(s) for one INTENT_* drift finding (s13).
+
+    Body: ``{"finding_id": "INTENT_...::device", "run_id": "..."}``
+
+    Staging writes only Neo4j (a :NetBoxPendingWrite + FROM_FINDING edge) —
+    no NetBox API write happens here, so this is not write-gated; the write
+    happens later via the gated approve flow.
+    """
+    finding_id = body.get("finding_id")
+    run_id = body.get("run_id")
+    if not finding_id or not run_id:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": "missing_params",
+                              "message": "Body must include finding_id and run_id."}},
+        )
+
+    from netcopilot.declared_state.drift import (
+        DriftSourceUnavailable,
+        NotCorrectable,
+        stage_correction,
+    )
+
+    try:
+        result = await asyncio.to_thread(stage_correction, finding_id, run_id)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {"code": "finding_not_found", "message": str(exc)}},
+        ) from exc
+    except NotCorrectable as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": "not_correctable", "message": str(exc)}},
+        ) from exc
+    except DriftSourceUnavailable as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={"error": {"code": "netbox_unreachable", "message": str(exc)}},
+        ) from exc
+    except Exception as exc:
+        log.error("stage_from_finding(%r) failed: %s", finding_id, exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return result
+
+
 # ── GET /api/reconcile/history ──────────────────────────────────────────────
 
 
