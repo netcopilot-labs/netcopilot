@@ -164,6 +164,46 @@ class NetBoxAdapter(DeclaredStateSource):
             "netbox_id": iface.id,
         }
 
+    # ------------------------------------------------------- dedup-read extras
+    # Read helpers beyond the DeclaredStateSource contract, consumed by
+    # bootstrap's NetBox-side dedup (s13 fix: interfaces / manufacturers /
+    # platforms / virtual-chassis / inventory items were pending-only deduped,
+    # so re-clicking Bootstrap re-staged already-documented objects).
+
+    def get_manufacturers(self) -> list[dict]:
+        try:
+            return [{"slug": str(m.slug), "name": str(m.name), "netbox_id": m.id}
+                    for m in self._nb.dcim.manufacturers.all()]
+        except Exception as exc:
+            log.error("NetBoxAdapter.get_manufacturers() failed: %s", exc)
+            return []
+
+    def get_platforms(self) -> list[dict]:
+        try:
+            return [{"slug": str(p.slug), "name": str(p.name), "netbox_id": p.id}
+                    for p in self._nb.dcim.platforms.all()]
+        except Exception as exc:
+            log.error("NetBoxAdapter.get_platforms() failed: %s", exc)
+            return []
+
+    def get_virtual_chassis(self) -> list[dict]:
+        try:
+            return [{"name": str(v.name), "netbox_id": v.id}
+                    for v in self._nb.dcim.virtual_chassis.all()]
+        except Exception as exc:
+            log.error("NetBoxAdapter.get_virtual_chassis() failed: %s", exc)
+            return []
+
+    def get_inventory_items(self, device: str) -> list[dict]:
+        try:
+            return [{"name": str(i.name),
+                     "serial": str(i.serial) if getattr(i, "serial", None) else None,
+                     "netbox_id": i.id}
+                    for i in self._nb.dcim.inventory_items.filter(device=device)]
+        except Exception as exc:
+            log.error("NetBoxAdapter.get_inventory_items(%r) failed: %s", device, exc)
+            return []
+
     # ---------------------------------------------------------------- probe
 
     def ping(self) -> None:

@@ -158,3 +158,63 @@ def test_missing_facts_dir_warns_not_crashes(env):
     tmp_path, staged = env
     result = bootstrap.run("ghost-run", inventory_path=tmp_path / "lab.yaml")
     assert any("facts dir not found" in w for w in result.warnings)
+
+
+def test_rerun_against_populated_netbox_stages_zero(env, monkeypatch):
+    """s13 fix: interfaces/manufacturers/platforms/VCs/SFPs were pending-only
+    deduped — re-clicking Bootstrap against a fully-documented NetBox
+    re-staged all of them. With NetBox-side dedup, a second run stages 0."""
+    tmp_path, staged = env
+
+    class PopulatedNetBox:
+        """Fake NetBox that already holds everything this run would stage."""
+
+        def ensure_infrastructure(self):
+            return {}
+
+        def ensure_device_type(self, *a, **kw):
+            return 1
+
+        def get_devices(self):
+            return [{"name": n} for n in (
+                "acc-sw-01", "core-st-01-1", "core-st-01-2",
+                "edge-fw-01-1", "edge-fw-01-2")]
+
+        def get_sites(self):
+            return [{"slug": "demo", "name": "demo"}]
+
+        def get_clusters(self):
+            return [{"name": "FW_HA"}]
+
+        def get_manufacturers(self):
+            return [{"slug": "cisco", "name": "Cisco"},
+                    {"slug": "fortinet", "name": "Fortinet"}]
+
+        def get_platforms(self):
+            return [{"slug": "cisco-ios-xe", "name": "Cisco IOS-XE"},
+                    {"slug": "fortinet-fortios", "name": "Fortinet FortiOS"}]
+
+        def get_virtual_chassis(self):
+            return [{"name": "core-st-01"}]
+
+        def get_interfaces(self, device):
+            return [{"name": "GigabitEthernet1/0/1"}]
+
+        def get_inventory_items(self, device):
+            return []
+
+    real_get_source = bootstrap.get_source
+
+    def fake_get_source(name, **kw):
+        if name == "netbox":
+            return PopulatedNetBox()
+        return real_get_source(name, **kw)
+
+    monkeypatch.setattr(bootstrap, "get_source", fake_get_source)
+    # device-type provisioning is exercised via ensure_device_type above;
+    # _provision_device_types needs no further stubbing.
+
+    result = bootstrap.run("demo-run", inventory_path=tmp_path / "lab.yaml")
+    assert len(staged) == 0, [c["object_type"] for c in staged]
+    assert result.total_new == 0
+    assert result.total_skipped > 0
