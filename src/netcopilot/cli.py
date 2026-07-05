@@ -336,6 +336,22 @@ def _cmd_netbox(args: argparse.Namespace) -> None:
             raise SystemExit(1)
         print(f"Rejected {args.candidate_id} (audit row written).")
 
+    elif args.netbox_command == "drift":
+        from .declared_state.drift import DriftSourceUnavailable, run_drift_check
+        try:
+            report = run_drift_check(args.run_id, args.inventory)
+        except DriftSourceUnavailable as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            raise SystemExit(2)
+        except FileNotFoundError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            raise SystemExit(2)
+        print(report.format_summary())
+        for w in report.warnings:
+            print(f"  warning: {w}", file=sys.stderr)
+        if not report.quiet:
+            raise SystemExit(1)
+
     elif args.netbox_command == "history":
         from .graph.client import get_driver
         with get_driver().session() as session:
@@ -424,6 +440,9 @@ def main() -> None:
     nb_rej.add_argument("--all", action="store_true")
     nb_rej.add_argument("--source", default=None)
     nb_rej.add_argument("--object-type", dest="object_type", default=None)
+    nb_drift = nb_sub.add_parser("drift", help="compare declared state (NetBox) vs a collected run — exit 1 on drift, 2 on error")
+    nb_drift.add_argument("run_id", help="run identifier (directory under RUNS_DIR)")
+    nb_drift.add_argument("--inventory", required=True, help="path to the inventory YAML the run came from")
     nb_hist = nb_sub.add_parser("history", help="show the NetBox write audit log (newest first)")
     nb_hist.add_argument("--limit", type=int, default=20)
     nb_p.set_defaults(func=_cmd_netbox)

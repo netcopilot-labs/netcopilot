@@ -17,6 +17,7 @@ from .tools import (
     analyze,
     correlation,
     device,
+    drift_check,
     explain,
     findings,
     firewall,
@@ -616,6 +617,42 @@ TOOL_SCHEMAS: list[dict] = [
             "required": [],
         },
     },
+    {
+        "name": "run_drift_check",
+        "description": (
+            "Compare DECLARED state (NetBox) against the OBSERVED state of a "
+            "collected run and report INTENT_* drift findings (missing / "
+            "undocumented devices, serial / platform / site drift, interface "
+            "drift). Use for 'is NetBox in sync', 'check drift', 'does the "
+            "documentation match reality'. Findings are also loaded for the run "
+            "so the Audit tab shows them."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string", "description": "Run to compare (defaults to the selected run)."},
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "compare_declared_vs_actual",
+        "description": (
+            "Field-by-field declared (NetBox) vs observed (collected run) "
+            "comparison for ONE device: serial, platform, site, and per-interface "
+            "attributes. Use for 'compare declared vs actual for X', 'does NetBox "
+            "match X', 'what drifted on X'. For the whole network use "
+            "run_drift_check."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "device": {"type": "string", "description": "Device name (per-physical member name for stacks, e.g. name-1)."},
+                "run_id": {"type": "string", "description": "Run to compare (defaults to the selected run)."},
+            },
+            "required": ["device"],
+        },
+    },
 ]
 
 _HANDLERS = {
@@ -646,6 +683,8 @@ _HANDLERS = {
     "get_netbox_site": netbox.get_netbox_site,
     "list_netbox_pending_writes": netbox.list_netbox_pending_writes,
     "get_netbox_write_history": netbox.get_netbox_write_history,
+    "run_drift_check": drift_check.run_drift_check,
+    "compare_declared_vs_actual": drift_check.compare_declared_vs_actual,
     "about_netcopilot": onboarding.about_netcopilot,
     "dashboard_guide": onboarding.dashboard_guide,
     "list_capabilities": onboarding.list_capabilities,

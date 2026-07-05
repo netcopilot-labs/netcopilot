@@ -20978,3 +20978,75 @@
   tier: surface
   description: Host-facing access ports lack BPDU-guard and no global 'portfast bpduguard default' — a rogue switch could hijack STP (aggregated per device). S10 (ADR-0012).
   genie_source: null
+- rule_id: INTENT_DEVICE_MISSING_IN_NETWORK
+  severity: high
+  category: intent
+  protocol: any
+  tier: drift
+  status: external
+  description: A device declared in NetBox (at a site the run covers) was not observed in the collected run — powered off, unreachable, missing from the inventory, or decommissioned without retiring the record. S13 (ADR-0015).
+  remediation: Verify the device is up and reachable and that the inventory covers it. If it was decommissioned, retire the NetBox record.
+  genie_source: null
+- rule_id: INTENT_DEVICE_UNKNOWN_IN_NETBOX
+  severity: low
+  category: intent
+  protocol: any
+  tier: drift
+  status: external
+  description: A device collected from the network has no NetBox record — the documentation is incomplete. S13 (ADR-0015).
+  remediation: Stage it via bootstrap (Reconcile tab → Bootstrap from run) or document it in NetBox directly.
+  genie_source: null
+- rule_id: INTENT_SERIAL_DRIFT
+  severity: high
+  category: intent
+  protocol: any
+  tier: drift
+  status: external
+  description: The serial number declared in NetBox differs from the one observed on the device — a likely undocumented hardware swap (RMA, chassis replacement). S13 (ADR-0015).
+  remediation: Confirm whether the chassis was replaced; stage the observed serial to NetBox via the drift finding's Update NetBox action.
+  genie_source: null
+- rule_id: INTENT_PLATFORM_DRIFT
+  severity: low
+  category: intent
+  protocol: any
+  tier: drift
+  status: external
+  description: The platform declared in NetBox differs from what the observed operating system maps to. S13 (ADR-0015).
+  remediation: Update the NetBox platform to match the observed operating system.
+  genie_source: null
+- rule_id: INTENT_SITE_DRIFT
+  severity: low
+  category: intent
+  protocol: any
+  tier: drift
+  status: external
+  description: NetBox places the device at a different site than the inventory declares. S13 (ADR-0015).
+  remediation: Move the device to the correct site in NetBox, or fix the inventory.
+  genie_source: null
+- rule_id: INTENT_INTERFACE_MISSING_IN_NETWORK
+  severity: low
+  category: intent
+  protocol: any
+  tier: drift
+  status: external
+  description: Interfaces declared in NetBox were not observed in the run (aggregated per device) — a module may have been removed or the records are stale. S13 (ADR-0015).
+  remediation: Verify the interfaces exist; retire stale interface records in NetBox.
+  genie_source: null
+- rule_id: INTENT_INTERFACE_UNKNOWN_IN_NETBOX
+  severity: info
+  category: intent
+  protocol: any
+  tier: drift
+  status: external
+  description: Observed interfaces have no NetBox record (aggregated per device) — the documentation is incomplete. S13 (ADR-0015).
+  remediation: Stage them via bootstrap (idempotent) to complete the documentation.
+  genie_source: null
+- rule_id: INTENT_INTERFACE_ATTR_DRIFT
+  severity: info
+  category: intent
+  protocol: any
+  tier: drift
+  status: external
+  description: Interface attributes (enabled, description, MTU, MAC) differ between NetBox and the observed state (aggregated per device). S13 (ADR-0015).
+  remediation: Review each attribute; stage the observed values via the drift finding's Update NetBox action.
+  genie_source: null
