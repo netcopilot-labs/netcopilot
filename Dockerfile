@@ -44,7 +44,7 @@ RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/wh
 # lives at /app/src and the SPA static/ dir is served from the source tree.
 COPY pyproject.toml README.md ./
 COPY src ./src
-RUN pip install --no-cache-dir -e ".[pyats,rag,reports,telegram]"
+RUN pip install --no-cache-dir -e ".[pyats,rag,reports,telegram,netbox]"
 
 # Pre-bake the RAG embedding + cross-encoder weights into the image so
 # lookup_vendor_docs works offline and is fast on the first query.
