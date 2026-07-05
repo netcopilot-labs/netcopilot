@@ -59,6 +59,8 @@ VALID_OBJECT_TYPES = frozenset(
     {
         "device", "interface", "manufacturer", "platform", "site",
         "vlan", "ipaddress",
+        "vrf", "prefix",    # s14: IPAM (ipam.vrfs / ipam.prefixes)
+        "cable",            # s14: dcim.Cable from high-confidence links
         "cluster",          # dcim.Cluster for firewall HA pairs
         "virtual_chassis",  # dcim.VirtualChassis for switch stacks
         "inventory_item",   # dcim.InventoryItem for transceivers/SFPs
@@ -375,14 +377,20 @@ _NETBOX_ENDPOINT_MAP = {
     "device":          ("dcim",           "devices"),
     "interface":       ("dcim",           "interfaces"),
     "inventory_item":  ("dcim",           "inventory_items"),
+    "vrf":             ("ipam",           "vrfs"),
+    "vlan":            ("ipam",           "vlans"),
+    "prefix":          ("ipam",           "prefixes"),
+    "ipaddress":       ("ipam",           "ip_addresses"),
+    "cable":           ("dcim",           "cables"),
 }
 
 # Bulk approve writes parents before dependents. virtual_chassis precedes
 # device so member Devices can reference it via FK; inventory_item comes last
 # (depends on device + interface existing).
 _TOPOLOGICAL_ORDER = (
-    "site", "cluster", "virtual_chassis", "manufacturer", "platform",
-    "device", "interface", "inventory_item",
+    "site", "vrf", "vlan", "prefix",
+    "cluster", "virtual_chassis", "manufacturer", "platform",
+    "device", "interface", "ipaddress", "inventory_item", "cable",
 )
 
 # Mirror of bootstrap's dedup-key fields — kept in sync but local to avoid
@@ -395,6 +403,11 @@ _AUDIT_DEDUP_KEY_FIELD = {
     "interface": "dedup_key",
     "cluster": "name",
     "virtual_chassis": "name",
+    "vrf": "name",
+    "vlan": "dedup_key",        # "<site>::<vid>"
+    "prefix": "dedup_key",      # "<vrf-or-global>::<cidr>"
+    "ipaddress": "address",     # CIDR string is globally unique enough here
+    "cable": "dedup_key",       # order-independent "<a>--<b>" termination pair
     "vlan": "vid",
     "ipaddress": "address",
     "inventory_item": "dedup_key",  # device::iface::serial (set at stage time)
@@ -651,6 +664,62 @@ def _write_to_netbox(
                 payload["component_id"] = iface.id
         payload.pop("_resolve_device_name", None)
 
+    # ipaddress writes assign to an Interface: resolve the FK from the
+    # `device::interface` hint at write time (same pattern as inventory_item).
+    if object_type == "ipaddress" and not is_update:
+        payload = dict(payload)
+        dev_name = payload.pop("_resolve_device_name", None)
+        iface_name = payload.pop("_resolve_interface_name", None)
+        if dev_name and iface_name and "assigned_object_id" not in payload:
+            iface = _resolve_interface_for_inventory_item(adapter, dev_name, iface_name)
+            if iface is None:
+                # An unassigned IP silently loses the assignment intent —
+                # fail retryably instead (interfaces write first in bulk, so
+                # this only happens when the interface candidate is missing).
+                return {
+                    "api_method": "POST",
+                    "api_response_status": 422,
+                    "netbox_object_id": None,
+                    "after_json": None,
+                    "reason_append": (
+                        f" — interface {dev_name}/{iface_name} not found in NetBox; "
+                        "approve the interface candidate first, then retry"
+                    ),
+                }
+            payload["assigned_object_type"] = "dcim.interface"
+            payload["assigned_object_id"] = iface.id
+
+    # cable writes terminate on two Interfaces: resolve both FKs from hints.
+    # An unresolvable end is a hard skip (a mis-terminated cable is worse
+    # than a failed candidate) — returned as a 4xx-style failed outcome.
+    if object_type == "cable" and not is_update:
+        payload = dict(payload)
+        ends = {}
+        for side in ("a", "b"):
+            dev_name = payload.pop(f"_resolve_{side}_device", None)
+            iface_name = payload.pop(f"_resolve_{side}_interface", None)
+            if dev_name and iface_name:
+                iface = _resolve_interface_for_inventory_item(adapter, dev_name, iface_name)
+                if iface is not None:
+                    ends[side] = [{"object_type": "dcim.interface", "object_id": iface.id}]
+        if "a_terminations" not in payload or "b_terminations" not in payload:
+            if "a" in ends and "b" in ends:
+                payload["a_terminations"] = ends["a"]
+                payload["b_terminations"] = ends["b"]
+            else:
+                missing = [side for side in ("a", "b") if side not in ends]
+                return {
+                    "api_method": "POST",
+                    "api_response_status": 422,
+                    "netbox_object_id": None,
+                    "after_json": None,
+                    "reason_append": (
+                        f" — cable termination(s) {missing} could not be resolved "
+                        "to NetBox interfaces; approve the device/interface "
+                        "candidates first, then retry"
+                    ),
+                }
+
     def _attempt() -> dict[str, Any]:
         """Single write attempt — returns a result dict OR re-raises pynetbox/network errors."""
         if is_update:
@@ -870,6 +939,32 @@ def _resolve_by_natural_key(adapter, object_type: str, dedup_key: str, payload: 
             except Exception:
                 return None
         return None
+    if object_type == "vrf":
+        return endpoint.get(name=dedup_key)
+    if object_type == "vlan":
+        # vlan dedup_key is "<site>::<vid>"
+        if "::" in dedup_key:
+            site, vid = dedup_key.split("::", 1)
+            try:
+                return endpoint.get(site=site, vid=int(vid))
+            except Exception:
+                return None
+        return None
+    if object_type == "prefix":
+        # prefix dedup_key is "<vrf-or-global>::<cidr>"
+        if "::" in dedup_key:
+            vrf, cidr = dedup_key.split("::", 1)
+            try:
+                if vrf == "global":
+                    return endpoint.get(prefix=cidr, vrf_id="null")
+                return endpoint.get(prefix=cidr, vrf=vrf)
+            except Exception:
+                return None
+        return None
+    if object_type == "ipaddress":
+        return endpoint.get(address=dedup_key)
+    # cable: no reliable natural-key GET (terminations aren't filterable by
+    # a simple key) — a duplicate surfaces as a failed outcome, not silently.
     return None
 
 

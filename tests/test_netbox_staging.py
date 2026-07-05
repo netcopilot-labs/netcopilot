@@ -232,3 +232,123 @@ def test_approve_bulk_auth_abort_stops(writes_on, monkeypatch):
     out = approve_bulk(ids=["c0", "c1", "c2"], adapter=MagicMock())
     assert len(calls) == 1                        # stopped at the first auth failure
     assert out["aborted"] is True and out["abort_reason"].startswith("auth")
+
+
+# ── s14: IPAM + cable types ──────────────────────────────────────────────────
+
+
+def _ipam_adapter():
+    """Adapter stub with ipam + dcim endpoints for the s14 types."""
+    adapter = MagicMock()
+    for app, ep in (("ipam", "vrfs"), ("ipam", "vlans"), ("ipam", "prefixes"),
+                    ("ipam", "ip_addresses"), ("dcim", "cables"),
+                    ("dcim", "interfaces")):
+        endpoint = MagicMock()
+        rec = MagicMock(id=7)
+        rec.serialize.return_value = {"id": 7}
+        endpoint.create.return_value = rec
+        setattr(getattr(adapter._nb, app), ep, endpoint)
+    return adapter
+
+
+def test_s14_types_valid_and_ordered():
+    for t in ("vrf", "vlan", "prefix", "ipaddress", "cable"):
+        assert t in VALID_OBJECT_TYPES
+    order = staging._TOPOLOGICAL_ORDER
+    assert order.index("vrf") < order.index("vlan") < order.index("prefix")
+    assert order.index("prefix") < order.index("device")
+    assert order.index("interface") < order.index("ipaddress")
+    assert order.index("cable") == len(order) - 1  # cables strictly last
+
+
+def test_write_vlan_and_prefix_route_to_ipam(writes_on):
+    adapter = _ipam_adapter()
+    r = _write_to_netbox(adapter, "vlan",
+                         {"vid": 50, "name": "GUEST", "site": {"slug": "demo"},
+                          "dedup_key": "demo::50"})
+    assert r["api_response_status"] == 201
+    adapter._nb.ipam.vlans.create.assert_called_once()
+    r = _write_to_netbox(adapter, "prefix",
+                         {"prefix": "192.0.2.0/24", "dedup_key": "global::192.0.2.0/24"})
+    assert r["api_response_status"] == 201
+    adapter._nb.ipam.prefixes.create.assert_called_once()
+
+
+def test_write_ipaddress_resolves_interface_fk(writes_on):
+    adapter = _ipam_adapter()
+    iface = MagicMock(id=31)
+    with patch.object(staging, "_resolve_interface_for_inventory_item",
+                      return_value=iface) as res:
+        r = _write_to_netbox(adapter, "ipaddress", {
+            "address": "192.0.2.5/24",
+            "_resolve_device_name": "acc-sw-01",
+            "_resolve_interface_name": "GigabitEthernet1/0/1",
+        })
+    assert r["api_response_status"] == 201
+    res.assert_called_once_with(adapter, "acc-sw-01", "GigabitEthernet1/0/1")
+    sent = adapter._nb.ipam.ip_addresses.create.call_args.kwargs
+    assert sent["assigned_object_type"] == "dcim.interface"
+    assert sent["assigned_object_id"] == 31
+    assert "_resolve_device_name" not in sent  # hints dropped before POST
+
+
+def test_write_ipaddress_unresolvable_interface_fails_retryable(writes_on):
+    adapter = _ipam_adapter()
+    with patch.object(staging, "_resolve_interface_for_inventory_item",
+                      return_value=None):
+        r = _write_to_netbox(adapter, "ipaddress", {
+            "address": "192.0.2.5/24",
+            "_resolve_device_name": "acc-sw-01",
+            "_resolve_interface_name": "GigabitEthernet1/0/9",
+        })
+    assert r["api_response_status"] == 422
+    assert "approve the interface candidate first" in r["reason_append"]
+    adapter._nb.ipam.ip_addresses.create.assert_not_called()  # never unassigned
+
+
+def test_write_cable_resolves_both_terminations(writes_on):
+    adapter = _ipam_adapter()
+    a, b = MagicMock(id=11), MagicMock(id=22)
+    with patch.object(staging, "_resolve_interface_for_inventory_item",
+                      side_effect=[a, b]):
+        r = _write_to_netbox(adapter, "cable", {
+            "status": "connected",
+            "dedup_key": "acc-sw-01:Gi1/0/1--core-sw-01:Gi1/0/1",
+            "_resolve_a_device": "acc-sw-01", "_resolve_a_interface": "Gi1/0/1",
+            "_resolve_b_device": "core-sw-01", "_resolve_b_interface": "Gi1/0/1",
+        })
+    assert r["api_response_status"] == 201
+    sent = adapter._nb.dcim.cables.create.call_args.kwargs
+    assert sent["a_terminations"] == [{"object_type": "dcim.interface", "object_id": 11}]
+    assert sent["b_terminations"] == [{"object_type": "dcim.interface", "object_id": 22}]
+
+
+def test_write_cable_missing_end_fails_hard(writes_on):
+    adapter = _ipam_adapter()
+    a = MagicMock(id=11)
+    with patch.object(staging, "_resolve_interface_for_inventory_item",
+                      side_effect=[a, None]):
+        r = _write_to_netbox(adapter, "cable", {
+            "status": "connected",
+            "_resolve_a_device": "acc-sw-01", "_resolve_a_interface": "Gi1/0/1",
+            "_resolve_b_device": "ghost-sw", "_resolve_b_interface": "Gi1/0/1",
+        })
+    assert r["api_response_status"] == 422
+    assert "['b']" in r["reason_append"]
+    adapter._nb.dcim.cables.create.assert_not_called()  # never mis-terminated
+
+
+def test_natural_key_resolvers_for_s14_types(writes_on):
+    adapter = _ipam_adapter()
+    staging._resolve_by_natural_key(adapter, "vrf", "TENANT-VRF", {})
+    adapter._nb.ipam.vrfs.get.assert_called_once_with(name="TENANT-VRF")
+    staging._resolve_by_natural_key(adapter, "vlan", "demo::50", {})
+    adapter._nb.ipam.vlans.get.assert_called_once_with(site="demo", vid=50)
+    staging._resolve_by_natural_key(adapter, "prefix", "global::192.0.2.0/24", {})
+    adapter._nb.ipam.prefixes.get.assert_called_once_with(
+        prefix="192.0.2.0/24", vrf_id="null")
+    staging._resolve_by_natural_key(adapter, "ipaddress", "192.0.2.5/24", {})
+    adapter._nb.ipam.ip_addresses.get.assert_called_once_with(address="192.0.2.5/24")
+    # cable: no reliable natural key → None, never a guessed match
+    assert staging._resolve_by_natural_key(
+        adapter, "cable", "a:Gi1--b:Gi1", {}) is None
