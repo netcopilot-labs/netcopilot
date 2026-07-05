@@ -174,3 +174,47 @@ def test_stack_c9500_svl_recovers_dad_from_config(tmp_path):
     assert dad["remote_interface_id"] == "core-sw-01:Hu2/0/2"
     # the SVL fiber already in stack_ports must NOT be duplicated
     assert sum(1 for l in links if l["stack_subtype"] == "svl") == 1
+
+
+def test_fortigate_ha_hbdev_links(tmp_path):
+    """HA config names the heartbeat devices → one link per hbdev port
+    (operator-reported: a single inferred interconnect under-documents HA)."""
+    import json as _json
+    facts = tmp_path / "edge-fw-09"
+    facts.mkdir()
+    (facts / "fortigate_system_ha.json").write_text(_json.dumps({
+        "results": [{"mode": "a-p", "hbdev": '"ha" 50 "port8" 0 '}]}))
+    dev = {
+        "hostname": "edge-fw-09",
+        "os_family": "fortios",
+        "platform": "FortiGate-601E",
+        "stack_ports": [],
+        "cluster_members": [{"member_id": 0}, {"member_id": 1}],
+    }
+    links = discover_stack_interconnect_links([dev], {"edge-fw-09": facts})
+    assert len(links) == 2
+    assert {l["link_id"] for l in links} == {
+        "edge-fw-09::ha_hbdev_ha", "edge-fw-09::ha_hbdev_port8"}
+    for l in links:
+        assert l["discovery_method"] == "config_hbdev"
+        assert l["confidence"] == "high"
+        assert l["stack_subtype"] == "ha"
+        assert l["local_interface_id"].startswith("edge-fw-09:hb_0/")
+        assert l["remote_interface_id"].startswith("edge-fw-09:hb_1/")
+
+
+def test_fortigate_ha_without_hbdev_falls_back_inferred(tmp_path):
+    """No HA facts file → the old single inferred link (unchanged behavior)."""
+    facts = tmp_path / "edge-fw-09"
+    facts.mkdir()
+    dev = {
+        "hostname": "edge-fw-09",
+        "os_family": "fortios",
+        "platform": "FortiGate-601E",
+        "stack_ports": [],
+        "cluster_members": [{"member_id": 0}, {"member_id": 1}],
+    }
+    links = discover_stack_interconnect_links([dev], {"edge-fw-09": facts})
+    assert len(links) == 1
+    assert links[0]["discovery_method"] == "stack_inferred"
+    assert links[0]["stack_subtype"] == "ha"

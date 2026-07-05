@@ -1472,6 +1472,23 @@ def _cable_type_for(a_media: str | None, b_media: str | None) -> str | None:
     return a_media or b_media
 
 
+def _fortigate_hbdev_ports(dev_facts_dir: Path) -> list[str]:
+    """Heartbeat interface names from the HA config (hbdev '"ha" 50 "port8" 0')."""
+    ha_file = dev_facts_dir / "fortigate_system_ha.json"
+    if not ha_file.is_file():
+        return []
+    try:
+        raw = json.loads(ha_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    r = raw.get("results", raw)
+    if isinstance(r, list):
+        r = r[0] if r else {}
+    if not isinstance(r, dict):
+        return []
+    return re.findall(r'"([^"]+)"', r.get("hbdev") or "")
+
+
 def _cable_dedup_key(a: tuple[str, str], b: tuple[str, str]) -> str:
     ends = sorted([f"{a[0]}:{a[1]}", f"{b[0]}:{b[1]}"])
     return f"{ends[0]}--{ends[1]}"
@@ -1582,6 +1599,11 @@ def _bootstrap_cables(yaml_devices, model, run_id, pending_index, result, *, net
         a_short = (link.get("local_interface_id") or "").split(":", 1)[-1]
         b_short = (link.get("remote_interface_id") or "").split(":", 1)[-1]
 
+        if a_short.startswith("hb_") or b_short.startswith("hb_"):
+            # HA heartbeat pseudo-ends (model's hbdev links) — the dedicated
+            # hbdev section below stages these cables with real port names.
+            continue
+
         a = _resolve_end(a_dev, a_short)
         b = _resolve_end(b_dev, b_short)
         if a is None or b is None:
@@ -1678,6 +1700,86 @@ def _bootstrap_cables(yaml_devices, model, run_id, pending_index, result, *, net
             affects_device_site=site,
         )
         result.new["interface"] = result.new.get("interface", 0) + 1
+
+    # ── HA heartbeat cables (hbdev) ──────────────────────────────────────────
+    # The HA config names the heartbeat interfaces; they are per-chassis
+    # physical ports, so the non-master member gets its own interface records
+    # (data interfaces rightly live on the master only in a-p). The cable is
+    # assumed direct member-to-member — the standard a-p deployment — and the
+    # candidate reason says so for the operator gate to verify.
+    for inv_name, dev in yaml_by_name.items():
+        os_name = normalize_os(dev.get("os") or "")
+        members = _load_cluster_members(inv_name, run_id)
+        if not _is_fortigate_ha(os_name, members) or len(members) < 2:
+            continue
+        hb_ports = _fortigate_hbdev_ports(_runs_dir() / run_id / "facts" / inv_name)
+        if not hb_ports:
+            continue
+        site = (dev.get("site") or "").lower() or None
+        master = _member_device_name(inv_name, _master_position(members))
+        m_names = [_member_device_name(inv_name, i + 1) for i in range(len(members))]
+
+        for port in hb_ports:
+            for target in m_names:
+                if target == master:
+                    continue  # master's interfaces come from system_interface
+                dedup_i = f"{target}::{port}"
+                if netbox_adapter is not None and target not in nb_iface_names:
+                    nb_iface_names[target] = {
+                        i["name"] for i in netbox_adapter.get_interfaces(target)}
+                if (port in nb_iface_names.get(target, ())
+                        or _already_pending(pending_index, "interface", dedup_i)):
+                    result.skipped["interface"] = result.skipped.get("interface", 0) + 1
+                    continue
+                stage_candidate(
+                    source="bootstrap", object_type="interface",
+                    payload={
+                        "device": {"name": target},
+                        "name": port,
+                        "type": "other",
+                        "enabled": True,
+                        "description": "HA heartbeat port (hbdev)",
+                        "dedup_key": dedup_i,
+                    },
+                    reason=f"HA heartbeat interface on standby member {target}",
+                    affects_device_name=inv_name,
+                    affects_device_site=site,
+                )
+                result.new["interface"] = result.new.get("interface", 0) + 1
+
+            a, b = (m_names[0], port), (m_names[1], port)
+            dedup = _cable_dedup_key(a, b)
+            same_nb_cable = (nb_end_cable.get(a) is not None
+                             and nb_end_cable.get(a) == nb_end_cable.get(b))
+            if same_nb_cable or _already_pending(pending_index, "cable", dedup):
+                claimed_in_wave[a] = claimed_in_wave[b] = dedup
+                result.skipped["cable"] = result.skipped.get("cable", 0) + 1
+                continue
+            conflict = [e for e in (a, b)
+                        if (e in nb_end_cable)
+                        or (claimed_in_wave.get(e) not in (None, dedup))]
+            if conflict:
+                result.warnings.append(
+                    f"HA heartbeat {inv_name}/{port}: interface "
+                    f"{', '.join(f'{d}/{i}' for d, i in conflict)} already claimed "
+                    "by a different cable — heartbeat cable not staged"
+                )
+                continue
+            claimed_in_wave[a] = claimed_in_wave[b] = dedup
+            stage_candidate(
+                source="bootstrap", object_type="cable",
+                payload={
+                    "status": "connected",
+                    "dedup_key": dedup,
+                    "_resolve_a_device": a[0], "_resolve_a_interface": a[1],
+                    "_resolve_b_device": b[0], "_resolve_b_interface": b[1],
+                },
+                reason=(f"HA heartbeat (hbdev '{port}') — assumed direct "
+                        "member-to-member per standard a-p deployment; verify"),
+                affects_device_name=inv_name,
+                affects_device_site=site,
+            )
+            result.new["cable"] = result.new.get("cable", 0) + 1
 
 
 def _already_pending(pending_index: dict[tuple[str, str], str], object_type: str, name: str) -> bool:

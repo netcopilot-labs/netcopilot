@@ -557,3 +557,31 @@ def test_stackwise_rear_cables_modeled(env):
     assert cables[0]["_resolve_a_device"] == "core-st-01-1"
     assert cables[0]["_resolve_b_device"] == "core-st-01-2"
     assert cables[0]["_resolve_a_interface"] == "StackPort2"
+
+
+def test_ha_heartbeat_cables_from_hbdev(env):
+    tmp_path, staged = env
+    (tmp_path / "demo-run/facts/edge-fw-01/fortigate_system_ha.json").write_text(json.dumps({
+        "results": [{"mode": "a-p", "hbdev": '"ha" 50 "port8" 0 ',
+                     "group-name": "DEMO_HA"}]}))
+    mdir = tmp_path / "demo-run" / "model"
+    mdir.mkdir(parents=True, exist_ok=True)
+    (mdir / "network_model.json").write_text(json.dumps(
+        {"devices": [], "interfaces": [], "links": []}))
+
+    bootstrap.run("demo-run", inventory_path=tmp_path / "lab.yaml")
+
+    # standby member gets its own heartbeat interfaces (master position = 1
+    # in the fixture: member_id 0 is active)
+    hb_ifaces = {(c["payload"]["device"]["name"], c["payload"]["name"])
+                 for c in staged if c["object_type"] == "interface"
+                 and "heartbeat" in c["payload"].get("description", "")}
+    assert hb_ifaces == {("edge-fw-01-2", "ha"), ("edge-fw-01-2", "port8")}
+
+    cables = [c["payload"] for c in staged if c["object_type"] == "cable"]
+    assert len(cables) == 2
+    for p in cables:
+        assert p["_resolve_a_device"] == "edge-fw-01-1"
+        assert p["_resolve_b_device"] == "edge-fw-01-2"
+        assert p["_resolve_a_interface"] == p["_resolve_b_interface"]
+    assert {p["_resolve_a_interface"] for p in cables} == {"ha", "port8"}
