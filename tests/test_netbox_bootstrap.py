@@ -529,3 +529,31 @@ def test_cable_type_derived_from_ends():
     assert c("mmf", "mmf") == "mmf"
     assert c("mmf", None) == "mmf"
     assert c("mmf", "smf") is None           # mismatched pair = a finding, not doc
+
+
+def test_stackwise_rear_cables_modeled(env):
+    tmp_path, staged = env
+    model = {
+        "devices": [], "interfaces": [],
+        "links": [
+            {"link_id": "core-st-01::stack_cable_1_2_p2", "confidence": "very_high",
+             "discovery_method": "stack_interconnect", "link_type": "stack_interconnect",
+             "local_device_id": "core-st-01", "local_interface_id": "core-st-01:stack_1/2",
+             "remote_device_id": "core-st-01", "remote_interface_id": "core-st-01:stack_2/2"},
+        ],
+    }
+    mdir = tmp_path / "demo-run" / "model"
+    mdir.mkdir(parents=True, exist_ok=True)
+    (mdir / "network_model.json").write_text(json.dumps(model))
+
+    bootstrap.run("demo-run", inventory_path=tmp_path / "lab.yaml")
+    stack_ifaces = [c["payload"] for c in staged if c["object_type"] == "interface"
+                    and c["payload"]["name"].startswith("StackPort")]
+    assert {(p["device"]["name"], p["name"]) for p in stack_ifaces} == {
+        ("core-st-01-1", "StackPort2"), ("core-st-01-2", "StackPort2")}
+    assert all(p["type"] == "other" for p in stack_ifaces)
+    cables = [c["payload"] for c in staged if c["object_type"] == "cable"]
+    assert len(cables) == 1
+    assert cables[0]["_resolve_a_device"] == "core-st-01-1"
+    assert cables[0]["_resolve_b_device"] == "core-st-01-2"
+    assert cables[0]["_resolve_a_interface"] == "StackPort2"

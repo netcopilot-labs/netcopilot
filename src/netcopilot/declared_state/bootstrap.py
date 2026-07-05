@@ -1535,10 +1535,23 @@ def _bootstrap_cables(yaml_devices, model, run_id, pending_index, result, *, net
                     if iface.get("cable") is not None:
                         nb_end_cable[(t, iface["name"])] = iface["cable"]
 
+    _STACK_PORT = re.compile(r"^stack_(\d+)/(\d+)$")
+    pseudo_stack_ends: set[tuple[str, str, str]] = set()  # (target, iface, inventory_name)
+
     def _resolve_end(dev_id: str, short_name: str):
         dev = yaml_by_name.get(dev_id)
         if dev is None:
             return None
+        # StackWise rear connectors: real physical ports on each member
+        # chassis, absent from the interface facts. Modeled as
+        # "StackPort<n>" interfaces on the member device (staged below).
+        m = _STACK_PORT.match(short_name)
+        if m:
+            member_pos, port = int(m.group(1)), int(m.group(2))
+            target = _member_device_name(dev_id, member_pos)
+            iface = f"StackPort{port}"
+            pseudo_stack_ends.add((target, iface, dev_id))
+            return (target, iface)
         full = full_names.get(dev_id, {}).get(canonicalize(short_name))
         if full is None:
             return None
@@ -1636,6 +1649,35 @@ def _bootstrap_cables(yaml_devices, model, run_id, pending_index, result, *, net
             affects_device_site=(yaml_by_name[a_dev].get("site") or "").lower() or None,
         )
         result.new["cable"] = result.new.get("cable", 0) + 1
+
+    # Interfaces for the StackWise rear connectors referenced by staged
+    # cables — real ports on each member chassis, not in the interface facts.
+    nb_iface_names: dict[str, set[str]] = {}
+    for target, iface, inv_name in sorted(pseudo_stack_ends):
+        dedup = f"{target}::{iface}"
+        if netbox_adapter is not None and target not in nb_iface_names:
+            nb_iface_names[target] = {
+                i["name"] for i in netbox_adapter.get_interfaces(target)}
+        if (iface in nb_iface_names.get(target, ())
+                or _already_pending(pending_index, "interface", dedup)):
+            result.skipped["interface"] = result.skipped.get("interface", 0) + 1
+            continue
+        site = (yaml_by_name.get(inv_name, {}).get("site") or "").lower() or None
+        stage_candidate(
+            source="bootstrap", object_type="interface",
+            payload={
+                "device": {"name": target},
+                "name": iface,
+                "type": "other",
+                "enabled": True,
+                "description": "StackWise stack port (rear connector)",
+                "dedup_key": dedup,
+            },
+            reason=f"stack interconnect endpoint on {target}",
+            affects_device_name=inv_name,
+            affects_device_site=site,
+        )
+        result.new["interface"] = result.new.get("interface", 0) + 1
 
 
 def _already_pending(pending_index: dict[tuple[str, str], str], object_type: str, name: str) -> bool:
