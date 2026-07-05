@@ -161,6 +161,7 @@ class NetBoxAdapter(DeclaredStateSource):
             "mtu": iface.mtu if getattr(iface, "mtu", None) is not None else None,
             "mac_address": str(iface.mac_address) if getattr(iface, "mac_address", None) is not None else None,
             "description": str(iface.description) if getattr(iface, "description", None) else "",
+            "cable": iface.cable.id if getattr(iface, "cable", None) is not None else None,
             "netbox_id": iface.id,
         }
 
@@ -202,6 +203,46 @@ class NetBoxAdapter(DeclaredStateSource):
                     for i in self._nb.dcim.inventory_items.filter(device=device)]
         except Exception as exc:
             log.error("NetBoxAdapter.get_inventory_items(%r) failed: %s", device, exc)
+            return []
+
+    def get_vrfs(self) -> list[dict]:
+        try:
+            return [{"name": str(v.name), "netbox_id": v.id}
+                    for v in self._nb.ipam.vrfs.all()]
+        except Exception as exc:
+            log.error("NetBoxAdapter.get_vrfs() failed: %s", exc)
+            return []
+
+    def get_vlans(self) -> list[dict]:
+        try:
+            out = []
+            for v in self._nb.ipam.vlans.all():
+                site = getattr(v, "site", None)
+                site_slug = getattr(site, "slug", None) if site is not None else None
+                out.append({"vid": v.vid, "name": str(v.name),
+                            "site": str(site_slug or site or "").lower() or None,
+                            "netbox_id": v.id})
+            return out
+        except Exception as exc:
+            log.error("NetBoxAdapter.get_vlans() failed: %s", exc)
+            return []
+
+    def get_prefixes(self) -> list[dict]:
+        try:
+            return [{"prefix": str(pfx.prefix),
+                     "vrf": str(pfx.vrf) if getattr(pfx, "vrf", None) is not None else None,
+                     "netbox_id": pfx.id}
+                    for pfx in self._nb.ipam.prefixes.all()]
+        except Exception as exc:
+            log.error("NetBoxAdapter.get_prefixes() failed: %s", exc)
+            return []
+
+    def get_ip_addresses(self) -> list[dict]:
+        try:
+            return [{"address": str(ip.address), "netbox_id": ip.id}
+                    for ip in self._nb.ipam.ip_addresses.all()]
+        except Exception as exc:
+            log.error("NetBoxAdapter.get_ip_addresses() failed: %s", exc)
             return []
 
     # ---------------------------------------------------------------- probe

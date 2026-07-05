@@ -218,3 +218,171 @@ def test_rerun_against_populated_netbox_stages_zero(env, monkeypatch):
     assert len(staged) == 0, [c["object_type"] for c in staged]
     assert result.total_new == 0
     assert result.total_skipped > 0
+
+
+# ── s14: IPAM + cables (model-sourced) ───────────────────────────────────────
+
+
+def _write_model(tmp_path, run_id="demo-run"):
+    """Synthetic network_model.json matching _write_run's devices."""
+    model = {
+        "devices": [
+            {"hostname": "acc-sw-01", "site": "demo",
+             "vlans": [{"vlan_id": 50, "name": "GUEST-USERS", "state": "active"}]},
+            {"hostname": "core-st-01", "site": "demo",
+             "vlans": [{"vlan_id": 50, "name": "GUEST-USERS", "state": "active"},
+                        {"vlan_id": 60, "name": "SRV-USERS", "state": "active"}]},
+        ],
+        "interfaces": [
+            {"interface_id": "acc-sw-01:Gi1/0/1", "device_id": "acc-sw-01",
+             "name": "Gi1/0/1", "ip_address": "198.51.100.1", "prefix_length": 30,
+             "vrf": None},
+            {"interface_id": "core-st-01:Gi1/0/1", "device_id": "core-st-01",
+             "name": "Gi1/0/1", "ip_address": "198.51.100.2", "prefix_length": 30,
+             "vrf": "TENANT-VRF"},
+            # /32 host address → IP staged, no prefix derived
+            {"interface_id": "acc-sw-01:Lo0", "device_id": "acc-sw-01",
+             "name": "Lo0", "ip_address": "192.0.2.201", "prefix_length": 32,
+             "vrf": None},
+        ],
+        "links": [
+            {"link_id": "acc-sw-01:Gi1/0/1--core-st-01:Gi1/0/1",
+             "local_device_id": "acc-sw-01", "local_interface_id": "acc-sw-01:Gi1/0/1",
+             "remote_device_id": "core-st-01", "remote_interface_id": "core-st-01:Gi1/0/1",
+             "confidence": "very_high", "discovery_method": "cdp"},
+            {"link_id": "acc-sw-01:Gi1/0/1--edge-fw-01:port1",
+             "local_device_id": "acc-sw-01", "local_interface_id": "acc-sw-01:Gi1/0/1",
+             "remote_device_id": "unmanaged-sw", "remote_interface_id": "unmanaged-sw:Gi1",
+             "confidence": "very_high", "discovery_method": "cdp"},
+            {"link_id": "arp-inferred",
+             "local_device_id": "acc-sw-01", "local_interface_id": "acc-sw-01:Gi1/0/1",
+             "remote_device_id": "core-st-01", "remote_interface_id": "core-st-01:Gi1/0/1",
+             "confidence": "medium", "discovery_method": "arp_subnet"},
+        ],
+    }
+    mdir = tmp_path / run_id / "model"
+    mdir.mkdir(parents=True, exist_ok=True)
+    (mdir / "network_model.json").write_text(json.dumps(model))
+
+
+def _by_type_s14(staged):
+    out = {}
+    for c in staged:
+        out.setdefault(c["object_type"], []).append(c)
+    return out
+
+
+def test_ipam_staged_from_model(env):
+    tmp_path, staged = env
+    # Loopback needs a genie entry so the IP can resolve its full name
+    lo = json.loads((tmp_path / "demo-run/facts/acc-sw-01/genie_interface.json").read_text())
+    lo["Loopback0"] = {"oper_status": "up"}
+    (tmp_path / "demo-run/facts/acc-sw-01/genie_interface.json").write_text(json.dumps(lo))
+    _write_model(tmp_path)
+
+    bootstrap.run("demo-run", inventory_path=tmp_path / "lab.yaml")
+    by = _by_type_s14(staged)
+
+    assert [c["payload"]["name"] for c in by["vrf"]] == ["TENANT-VRF"]
+    # VLAN 50 dedups across devices; VLAN 60 from the stack
+    assert {(c["payload"]["site"]["slug"], c["payload"]["vid"]) for c in by["vlan"]} == {
+        ("demo", 50), ("demo", 60)}
+    # one shared /30 prefix per vrf side; /32 derives none
+    assert {(c["payload"].get("vrf", {}).get("name") if "vrf" in c["payload"] else None,
+             c["payload"]["prefix"]) for c in by["prefix"]} == {
+        (None, "198.51.100.0/30"), ("TENANT-VRF", "198.51.100.0/30")}
+    ips = {c["payload"]["address"]: c["payload"] for c in by["ipaddress"]}
+    assert set(ips) == {"198.51.100.1/30", "198.51.100.2/30", "192.0.2.201/32"}
+    # hint carries the FULL genie name via the canonical bridge
+    assert ips["198.51.100.1/30"]["_resolve_interface_name"] == "GigabitEthernet1/0/1"
+    # stack IP attributes to the member device
+    assert ips["198.51.100.2/30"]["_resolve_device_name"] == "core-st-01-1"
+    assert ips["192.0.2.201/32"]["_resolve_interface_name"] == "Loopback0"
+
+
+def test_cables_confidence_gated_and_endpoint_honest(env):
+    tmp_path, staged = env
+    _write_model(tmp_path)
+    result = bootstrap.run("demo-run", inventory_path=tmp_path / "lab.yaml")
+    by = _by_type_s14(staged)
+
+    cables = by.get("cable", [])
+    assert len(cables) == 1  # very_high managed link only; medium never stages
+    p = cables[0]["payload"]
+    assert p["_resolve_a_device"] == "acc-sw-01"
+    assert p["_resolve_b_device"] == "core-st-01-1"  # stack member attribution
+    assert p["_resolve_b_interface"] == "GigabitEthernet1/0/1"
+    assert "--" in p["dedup_key"]
+    # the unmanaged endpoint is disclosed, not silently dropped
+    assert any("unmanaged" in w or "not documentable" in w for w in result.warnings)
+
+
+def test_ipam_rerun_against_populated_netbox_stages_zero(env, monkeypatch):
+    tmp_path, staged = env
+    _write_model(tmp_path)
+
+    class PopulatedNetBox:
+        def ensure_infrastructure(self):
+            return {}
+
+        def ensure_device_type(self, *a, **kw):
+            return 1
+
+        def get_devices(self):
+            return [{"name": n} for n in (
+                "acc-sw-01", "core-st-01-1", "core-st-01-2",
+                "edge-fw-01-1", "edge-fw-01-2")]
+
+        def get_sites(self):
+            return [{"slug": "demo", "name": "demo"}]
+
+        def get_clusters(self):
+            return [{"name": "FW_HA"}]
+
+        def get_manufacturers(self):
+            return [{"slug": "cisco", "name": "Cisco"},
+                    {"slug": "fortinet", "name": "Fortinet"}]
+
+        def get_platforms(self):
+            return [{"slug": "cisco-ios-xe", "name": "Cisco IOS-XE"},
+                    {"slug": "fortinet-fortios", "name": "Fortinet FortiOS"}]
+
+        def get_virtual_chassis(self):
+            return [{"name": "core-st-01"}]
+
+        def get_interfaces(self, device):
+            # cable=1 → both cable ends already terminated in NetBox
+            return [{"name": "GigabitEthernet1/0/1", "cable": 1}]
+
+        def get_inventory_items(self, device):
+            return []
+
+        def get_vrfs(self):
+            return [{"name": "TENANT-VRF"}]
+
+        def get_vlans(self):
+            return [{"vid": 50, "name": "GUEST-USERS", "site": "demo"},
+                    {"vid": 60, "name": "SRV-USERS", "site": "demo"}]
+
+        def get_prefixes(self):
+            return [{"prefix": "198.51.100.0/30", "vrf": None},
+                    {"prefix": "198.51.100.0/30", "vrf": "TENANT-VRF"}]
+
+        def get_ip_addresses(self):
+            return [{"address": "198.51.100.1/30"},
+                    {"address": "198.51.100.2/30"},
+                    {"address": "192.0.2.201/32"}]
+
+    real_get_source = bootstrap.get_source
+
+    def fake_get_source(name, **kw):
+        if name == "netbox":
+            return PopulatedNetBox()
+        return real_get_source(name, **kw)
+
+    monkeypatch.setattr(bootstrap, "get_source", fake_get_source)
+    result = bootstrap.run("demo-run", inventory_path=tmp_path / "lab.yaml")
+    ipam_staged = [c for c in staged if c["object_type"] in
+                   ("vrf", "vlan", "prefix", "ipaddress", "cable")]
+    assert ipam_staged == [], [c["object_type"] for c in ipam_staged]
+    assert result.total_new == 0

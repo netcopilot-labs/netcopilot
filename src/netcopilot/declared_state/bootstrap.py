@@ -226,6 +226,16 @@ def run(run_id: str, inventory_path: str | Path) -> BootstrapResult:
     # Per-physical-device model: SFPs attributed per-member via _attribute_interface_to_position.
     _bootstrap_inventory_items(yaml_devices, run_id, pending_index, result, netbox_adapter=netbox_adapter)
 
+    # ── IPAM + cables (s14, ADR-0016) — sourced from the run's MODEL ─────────
+    # VLANs, interface IPs and links are model-layer products (link_builder);
+    # re-deriving them from raw facts would duplicate the model's job.
+    model = _load_model_for_bootstrap(run_id, result)
+    if model is not None:
+        _bootstrap_ipam(yaml_devices, model, run_id, pending_index, result,
+                        netbox_adapter=netbox_adapter)
+        _bootstrap_cables(yaml_devices, model, run_id, pending_index, result,
+                          netbox_adapter=netbox_adapter)
+
     log.info(
         "Bootstrap done. new=%s skipped=%s warnings=%d",
         result.new, result.skipped, len(result.warnings),
@@ -1125,6 +1135,273 @@ def _index_existing_pending() -> dict[tuple[str, str], str]:
     except Exception as exc:
         log.warning("Failed to read existing :NetBoxPendingWrite for dedup: %s", exc)
         return {}
+
+
+# ── IPAM + cables (s14, ADR-0016) ────────────────────────────────────────────
+
+
+def _load_model_for_bootstrap(run_id: str, result) -> dict | None:
+    """Read the run's network_model.json, or warn honestly and skip IPAM."""
+    model_path = _runs_dir() / run_id / "model" / "network_model.json"
+    if not model_path.is_file():
+        result.warnings.append(
+            f"model/network_model.json missing for run {run_id!r} — "
+            "IPAM + cable candidates skipped (run the full pipeline first)."
+        )
+        return None
+    try:
+        return json.loads(model_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        result.warnings.append(f"network_model.json malformed: {exc} — IPAM + cables skipped.")
+        return None
+
+
+def _full_iface_names(yaml_devices, run_id: str) -> dict[str, dict[str, str]]:
+    """Per inventory device: canonical name → genie FULL interface name.
+
+    The model uses short names ("Gi1/0/1"); NetBox interfaces were staged
+    with the genie full names ("GigabitEthernet1/0/1"). The genie file is
+    the shared source, so IP/cable hints resolve against exactly what
+    bootstrap staged.
+    """
+    from netcopilot.model.interface_normalizer import canonicalize
+
+    facts_dir = _runs_dir() / run_id / "facts"
+    out: dict[str, dict[str, str]] = {}
+    for dev in yaml_devices:
+        name = dev.get("name")
+        if not name:
+            continue
+        iface_file = facts_dir / name / "genie_interface.json"
+        if not iface_file.is_file():
+            continue
+        try:
+            data = json.loads(iface_file.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict):
+            out[name] = {
+                canonicalize(k): k for k in data
+                if _INTERFACE_NAME_KEY_PATTERN.match(k) and canonicalize(k)
+            }
+    return out
+
+
+def _target_member_for(dev: dict, iface_full_name: str, run_id: str) -> str:
+    """Per-physical-device attribution for one interface (bootstrap's rule)."""
+    name = dev.get("name")
+    os_name = normalize_os(dev.get("os") or "")
+    members = _load_cluster_members(name, run_id)
+    if _is_cisco_stack(os_name, members):
+        return _member_device_name(name, _attribute_interface_to_position(iface_full_name, members))
+    if _is_fortigate_ha(os_name, members):
+        return _member_device_name(name, _master_position(members))
+    return name
+
+
+def _bootstrap_ipam(yaml_devices, model, run_id, pending_index, result, *, netbox_adapter=None):
+    """Stage VRFs, VLANs, prefixes and interface-assigned IPs from the model."""
+    import ipaddress as ipaddr_mod
+
+    from netcopilot.model.interface_normalizer import canonicalize
+
+    yaml_by_name = {d.get("name"): d for d in yaml_devices if d.get("name")}
+    model_devices = [d for d in model.get("devices", []) if d.get("hostname") in yaml_by_name]
+    model_ifaces = [i for i in model.get("interfaces", []) if i.get("device_id") in yaml_by_name]
+    full_names = _full_iface_names(yaml_devices, run_id)
+
+    nb_vrfs = {v["name"] for v in netbox_adapter.get_vrfs()} if netbox_adapter else set()
+    nb_vlans = {(v.get("site"), v["vid"]) for v in netbox_adapter.get_vlans()} if netbox_adapter else set()
+    nb_prefixes = {(p.get("vrf"), p["prefix"]) for p in netbox_adapter.get_prefixes()} if netbox_adapter else set()
+    nb_ips = {ip["address"] for ip in netbox_adapter.get_ip_addresses()} if netbox_adapter else set()
+
+    # ── VRFs (name-only records; referenced by prefixes + IPs) ──────────────
+    vrf_names = sorted({i.get("vrf") for i in model_ifaces if i.get("vrf")})
+    for vrf in vrf_names:
+        if vrf in nb_vrfs or _already_pending(pending_index, "vrf", vrf):
+            result.skipped["vrf"] = result.skipped.get("vrf", 0) + 1
+            continue
+        stage_candidate(
+            source="bootstrap", object_type="vrf",
+            payload={"name": vrf},
+            reason=f"VRF observed on collected interfaces (run {run_id})",
+        )
+        result.new["vrf"] = result.new.get("vrf", 0) + 1
+
+    # ── VLANs per (site, vid) ────────────────────────────────────────────────
+    seen_vlans: dict[tuple[str, int], str] = {}
+    for d in model_devices:
+        site = (d.get("site") or "").lower() or None
+        for v in d.get("vlans") or []:
+            vid, vname = v.get("vlan_id"), v.get("name")
+            if vid is None or site is None:
+                continue
+            key = (site, vid)
+            if key in seen_vlans:
+                if vname and seen_vlans[key] != vname:
+                    result.warnings.append(
+                        f"VLAN {vid}@{site}: name differs across devices "
+                        f"({seen_vlans[key]!r} vs {vname!r} on {d.get('hostname')}) — kept the first."
+                    )
+                continue
+            seen_vlans[key] = vname or f"VLAN{vid}"
+            dedup = f"{site}::{vid}"
+            if key in nb_vlans or _already_pending(pending_index, "vlan", dedup):
+                result.skipped["vlan"] = result.skipped.get("vlan", 0) + 1
+                continue
+            stage_candidate(
+                source="bootstrap", object_type="vlan",
+                payload={"vid": vid, "name": seen_vlans[key],
+                         "site": {"slug": site}, "dedup_key": dedup},
+                reason=f"VLAN {vid} ({seen_vlans[key]}) observed on {d.get('hostname')}",
+                affects_device_name=d.get("hostname"), affects_device_site=site,
+            )
+            result.new["vlan"] = result.new.get("vlan", 0) + 1
+
+    # ── Prefixes + IP addresses from interface IPs ───────────────────────────
+    seen_prefixes: set[tuple[str, str]] = set()
+    seen_ips: set[str] = set()
+    for i in model_ifaces:
+        ip, plen = i.get("ip_address"), i.get("prefix_length")
+        if not ip or plen is None:
+            continue
+        dev_name = i.get("device_id")
+        dev = yaml_by_name[dev_name]
+        vrf = i.get("vrf") or None
+        cidr = f"{ip}/{plen}"
+
+        # Prefix (network) — /32 host addresses derive no subnet
+        if int(plen) < 32:
+            try:
+                network = str(ipaddr_mod.ip_network(cidr, strict=False))
+            except ValueError:
+                result.warnings.append(f"{dev_name}/{i.get('name')}: bad address {cidr!r} — skipped")
+                continue
+            pkey = (vrf, network)
+            if pkey not in seen_prefixes:
+                seen_prefixes.add(pkey)
+                dedup = f"{vrf or 'global'}::{network}"
+                if pkey in nb_prefixes or _already_pending(pending_index, "prefix", dedup):
+                    result.skipped["prefix"] = result.skipped.get("prefix", 0) + 1
+                else:
+                    payload: dict[str, Any] = {"prefix": network, "dedup_key": dedup}
+                    if vrf:
+                        payload["vrf"] = {"name": vrf}
+                    stage_candidate(
+                        source="bootstrap", object_type="prefix",
+                        payload=payload,
+                        reason=f"derived from {dev_name}/{i.get('name')} {cidr}"
+                               + (f" (vrf {vrf})" if vrf else ""),
+                    )
+                    result.new["prefix"] = result.new.get("prefix", 0) + 1
+
+        # IP address assigned to the (per-physical-member) interface
+        if cidr in seen_ips:
+            continue
+        seen_ips.add(cidr)
+        canon = canonicalize(i.get("name"))
+        full = full_names.get(dev_name, {}).get(canon)
+        if full is None:
+            result.warnings.append(
+                f"{dev_name}/{i.get('name')}: no matching documented interface — IP {cidr} not staged"
+            )
+            continue
+        target = _target_member_for(dev, full, run_id)
+        if cidr in nb_ips or _already_pending(pending_index, "ipaddress", cidr):
+            result.skipped["ipaddress"] = result.skipped.get("ipaddress", 0) + 1
+            continue
+        ip_payload: dict[str, Any] = {
+            "address": cidr,
+            "_resolve_device_name": target,
+            "_resolve_interface_name": full,
+        }
+        if vrf:
+            ip_payload["vrf"] = {"name": vrf}
+        stage_candidate(
+            source="bootstrap", object_type="ipaddress",
+            payload=ip_payload,
+            reason=f"{target}/{full} {cidr}" + (f" (vrf {vrf})" if vrf else ""),
+            affects_device_name=dev_name,
+            affects_device_site=(dev.get("site") or "").lower() or None,
+        )
+        result.new["ipaddress"] = result.new.get("ipaddress", 0) + 1
+
+
+# Link confidences that count as physical-cable evidence. Medium/low
+# (ARP/subnet inference) prove L3 adjacency, not a cable.
+_CABLE_CONFIDENCES = {"high", "very_high"}
+
+
+def _bootstrap_cables(yaml_devices, model, run_id, pending_index, result, *, netbox_adapter=None):
+    """Stage one dcim.Cable per high-confidence physical link."""
+    from netcopilot.model.interface_normalizer import canonicalize
+
+    yaml_by_name = {d.get("name"): d for d in yaml_devices if d.get("name")}
+    full_names = _full_iface_names(yaml_devices, run_id)
+
+    # An interface that already terminates a cable in NetBox is settled —
+    # NetBox forbids double-termination, and the operator may have corrected
+    # the cable by hand.
+    nb_cabled: set[tuple[str, str]] = set()
+    if netbox_adapter is not None:
+        for dev_name in yaml_by_name:
+            members = _load_cluster_members(dev_name, run_id)
+            os_name = normalize_os(yaml_by_name[dev_name].get("os") or "")
+            targets = ([_member_device_name(dev_name, i + 1) for i in range(len(members))]
+                       if members and (_is_cisco_stack(os_name, members) or _is_fortigate_ha(os_name, members))
+                       else [dev_name])
+            for t in targets:
+                for iface in netbox_adapter.get_interfaces(t):
+                    if iface.get("cable") is not None:
+                        nb_cabled.add((t, iface["name"]))
+
+    def _resolve_end(dev_id: str, short_name: str):
+        dev = yaml_by_name.get(dev_id)
+        if dev is None:
+            return None
+        full = full_names.get(dev_id, {}).get(canonicalize(short_name))
+        if full is None:
+            return None
+        return (_target_member_for(dev, full, run_id), full)
+
+    for link in model.get("links", []):
+        if link.get("confidence") not in _CABLE_CONFIDENCES:
+            continue
+        a_dev = link.get("local_device_id")
+        b_dev = link.get("remote_device_id")
+        a_short = (link.get("local_interface_id") or "").split(":", 1)[-1]
+        b_short = (link.get("remote_interface_id") or "").split(":", 1)[-1]
+
+        a = _resolve_end(a_dev, a_short)
+        b = _resolve_end(b_dev, b_short)
+        if a is None or b is None:
+            result.warnings.append(
+                f"link {link.get('link_id')}: endpoint not documentable "
+                f"(unmanaged device or undocumented interface) — cable not staged"
+            )
+            continue
+
+        ends = sorted([f"{a[0]}:{a[1]}", f"{b[0]}:{b[1]}"])
+        dedup = f"{ends[0]}--{ends[1]}"
+        if (a in nb_cabled or b in nb_cabled
+                or _already_pending(pending_index, "cable", dedup)):
+            result.skipped["cable"] = result.skipped.get("cable", 0) + 1
+            continue
+        stage_candidate(
+            source="bootstrap", object_type="cable",
+            payload={
+                "status": "connected",
+                "dedup_key": dedup,
+                "_resolve_a_device": a[0], "_resolve_a_interface": a[1],
+                "_resolve_b_device": b[0], "_resolve_b_interface": b[1],
+            },
+            reason=(f"physical link {link.get('link_id')} "
+                    f"(discovery: {link.get('discovery_method')}, "
+                    f"confidence: {link.get('confidence')})"),
+            affects_device_name=a_dev,
+            affects_device_site=(yaml_by_name[a_dev].get("site") or "").lower() or None,
+        )
+        result.new["cable"] = result.new.get("cable", 0) + 1
 
 
 def _already_pending(pending_index: dict[tuple[str, str], str], object_type: str, name: str) -> bool:
