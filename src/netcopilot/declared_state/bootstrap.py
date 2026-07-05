@@ -591,24 +591,31 @@ def _bootstrap_interfaces(yaml_devices, run_id, pending_index, result, *, netbox
         if not name:
             continue
 
+        os_name = normalize_os(dev.get("os") or "")
+
         iface_file = facts_dir / name / "genie_interface.json"
-        if not iface_file.is_file():
+        if iface_file.is_file():
+            try:
+                data = json.loads(iface_file.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                result.warnings.append(f"{name}: genie_interface.json malformed: {exc}")
+                continue
+        elif os_name == "fortios":
+            # s14: FortiGate interfaces come from the REST facts — before this
+            # the firewall stayed undocumented (no interfaces → no IPs → no
+            # cables terminating on it).
+            data = _fortigate_iface_entries(facts_dir / name, result, name)
+            if data is None:
+                continue
+        else:
             result.warnings.append(
                 f"{name}: genie_interface.json missing — no interface candidates for this device"
             )
             continue
 
-        try:
-            data = json.loads(iface_file.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
-            result.warnings.append(f"{name}: genie_interface.json malformed: {exc}")
-            continue
-
         if not isinstance(data, dict) or not data:
-            result.warnings.append(f"{name}: genie_interface.json empty or non-dict")
+            result.warnings.append(f"{name}: interface facts empty for this device")
             continue
-
-        os_name = normalize_os(dev.get("os") or "")
         members = _load_cluster_members(name, run_id)
         is_stack = _is_cisco_stack(os_name, members)
         is_ha = _is_fortigate_ha(os_name, members)
@@ -644,7 +651,8 @@ def _bootstrap_interfaces(yaml_devices, run_id, pending_index, result, *, netbox
             payload = {
                 "device": {"name": target_device},  # NetBox 4.6: FK as dict, not bare string
                 "name": iface_name,
-                "type": _normalise_iface_type(iface_data.get("type")),
+                "type": (iface_data.get("type") if iface_data.get("_type_is_netbox")
+                         else _normalise_iface_type(iface_data.get("type"))),
                 "enabled": bool(iface_data.get("enabled", True)),
                 # NetBox forbids null description; coerce None to "".
                 "description": iface_data.get("description") or "",
@@ -977,6 +985,47 @@ def _provision_device_types(
     return type_id_by_slug
 
 
+_FORTIGATE_IFACE_TYPE = {"physical": "other", "aggregate": "lag",
+                         "tunnel": "virtual", "vlan": "virtual"}
+
+
+def _fortigate_iface_entries(dev_facts_dir: Path, result, name: str) -> dict | None:
+    """FortiGate interfaces as genie-shaped entries (s14).
+
+    Reads ``fortigate_system_interface.json`` (REST) and maps each row to
+    the field shape the shared staging loop consumes. Returns None (with a
+    warning) when the file is absent/malformed.
+    """
+    fg_file = dev_facts_dir / "fortigate_system_interface.json"
+    if not fg_file.is_file():
+        result.warnings.append(
+            f"{name}: fortigate_system_interface.json missing — no interface candidates"
+        )
+        return None
+    try:
+        raw = json.loads(fg_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        result.warnings.append(f"{name}: fortigate_system_interface.json malformed: {exc}")
+        return None
+
+    entries: dict[str, dict] = {}
+    for row in raw.get("results") or []:
+        if not isinstance(row, dict) or not row.get("name"):
+            continue
+        mac = row.get("macaddr") or None
+        if mac in ("00:00:00:00:00:00",):
+            mac = None
+        entries[row["name"]] = {
+            "enabled": (row.get("status") or "").lower() == "up",
+            "type": _FORTIGATE_IFACE_TYPE.get((row.get("type") or "").lower(), "other"),
+            "_type_is_netbox": True,  # already a NetBox slug — skip genie mapping
+            "description": row.get("description") or row.get("alias") or "",
+            "mtu": row.get("mtu"),
+            "mac_address": mac,
+        }
+    return entries
+
+
 def _normalise_iface_type(genie_type: str | None) -> str:
     """Best-effort NetBox interface type mapping."""
     if not genie_type:
@@ -1173,12 +1222,21 @@ def _full_iface_names(yaml_devices, run_id: str) -> dict[str, dict[str, str]]:
         if not name:
             continue
         iface_file = facts_dir / name / "genie_interface.json"
-        if not iface_file.is_file():
-            continue
-        try:
-            data = json.loads(iface_file.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            continue
+        data: dict | None = None
+        if iface_file.is_file():
+            try:
+                data = json.loads(iface_file.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                data = None
+        elif normalize_os(dev.get("os") or "") == "fortios":
+            fg_file = facts_dir / name / "fortigate_system_interface.json"
+            if fg_file.is_file():
+                try:
+                    raw = json.loads(fg_file.read_text(encoding="utf-8"))
+                    data = {r["name"]: r for r in raw.get("results") or []
+                            if isinstance(r, dict) and r.get("name")}
+                except json.JSONDecodeError:
+                    data = None
         if isinstance(data, dict):
             out[name] = {
                 canonicalize(k): k for k in data
@@ -1197,6 +1255,19 @@ def _target_member_for(dev: dict, iface_full_name: str, run_id: str) -> str:
     if _is_fortigate_ha(os_name, members):
         return _member_device_name(name, _master_position(members))
     return name
+
+
+def _split_ip_len(ip, plen):
+    """Some sources embed the mask in ip_address ("10.255.1.1/24", plen=None)."""
+    if not ip or ip == "unassigned":
+        return None, None
+    if plen is None and isinstance(ip, str) and "/" in ip:
+        addr, _, embedded = ip.partition("/")
+        try:
+            return addr, int(embedded)
+        except ValueError:
+            return None, None
+    return ip, plen
 
 
 def _bootstrap_ipam(yaml_devices, model, run_id, pending_index, result, *, netbox_adapter=None):
@@ -1259,11 +1330,35 @@ def _bootstrap_ipam(yaml_devices, model, run_id, pending_index, result, *, netbo
             result.new["vlan"] = result.new.get("vlan", 0) + 1
 
     # ── Prefixes + IP addresses from interface IPs ───────────────────────────
+    # Ambiguity guard: the same address claimed by multiple interfaces
+    # (shared NAT'd mgmt, anycast) must not be documented as one arbitrary
+    # owner's IP — warn and let the operator decide.
+    claim_counts: dict[str, int] = {}
+    for i in model_ifaces:
+        ip, plen = _split_ip_len(i.get("ip_address"), i.get("prefix_length"))
+        if ip and plen is not None:
+            key = f"{ip}/{plen}"
+            claim_counts[key] = claim_counts.get(key, 0) + 1
+    ambiguous = {k for k, n in claim_counts.items() if n > 1}
+    for cidr in sorted(ambiguous):
+        claimants = sorted(
+            f"{i.get('device_id')}/{i.get('name')}" for i in model_ifaces
+            if _split_ip_len(i.get("ip_address"), i.get("prefix_length"))[0]
+            and "/".join(map(str, _split_ip_len(i.get("ip_address"), i.get("prefix_length")))) == cidr
+        )
+        result.warnings.append(
+            f"IP {cidr} is claimed by {len(claimants)} interfaces "
+            f"({', '.join(claimants[:5])}{' …' if len(claimants) > 5 else ''}) — "
+            "ambiguous, not staged."
+        )
+
     seen_prefixes: set[tuple[str, str]] = set()
     seen_ips: set[str] = set()
     for i in model_ifaces:
-        ip, plen = i.get("ip_address"), i.get("prefix_length")
+        ip, plen = _split_ip_len(i.get("ip_address"), i.get("prefix_length"))
         if not ip or plen is None:
+            continue
+        if f"{ip}/{plen}" in ambiguous:
             continue
         dev_name = i.get("device_id")
         dev = yaml_by_name[dev_name]

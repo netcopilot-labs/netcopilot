@@ -386,3 +386,59 @@ def test_ipam_rerun_against_populated_netbox_stages_zero(env, monkeypatch):
                    ("vrf", "vlan", "prefix", "ipaddress", "cable")]
     assert ipam_staged == [], [c["object_type"] for c in ipam_staged]
     assert result.total_new == 0
+
+
+def test_fortigate_interfaces_staged_from_rest_facts(env):
+    tmp_path, staged = env
+    # No genie file for the firewall — the REST facts are the source
+    (tmp_path / "demo-run/facts/edge-fw-01/genie_interface.json").unlink()
+    (tmp_path / "demo-run/facts/edge-fw-01/fortigate_system_interface.json").write_text(json.dumps({
+        "results": [
+            {"name": "port1", "status": "up", "type": "physical",
+             "description": "", "alias": "", "macaddr": "00:00:00:00:00:00"},
+            {"name": "fortilink", "status": "up", "type": "aggregate",
+             "description": "sw fabric", "alias": "", "macaddr": ""},
+            {"name": "ssl.root", "status": "up", "type": "tunnel",
+             "description": "", "alias": "SSL VPN interface", "macaddr": ""},
+        ]}))
+    bootstrap.run("demo-run", inventory_path=tmp_path / "lab.yaml")
+    fw_ifaces = {c["payload"]["name"]: c["payload"] for c in staged
+                 if c["object_type"] == "interface"
+                 and c["payload"]["device"]["name"].startswith("edge-fw-01")}
+    assert set(fw_ifaces) == {"port1", "fortilink", "ssl.root"}
+    assert fw_ifaces["port1"]["type"] == "other"
+    assert fw_ifaces["fortilink"]["type"] == "lag"
+    assert fw_ifaces["fortilink"]["description"] == "sw fabric"
+    assert fw_ifaces["ssl.root"]["type"] == "virtual"
+    assert fw_ifaces["ssl.root"]["description"] == "SSL VPN interface"
+    assert fw_ifaces["port1"]["mac_address"] is None  # all-zero MAC dropped
+    # HA pair: interfaces attribute to the master member device
+    assert fw_ifaces["port1"]["device"]["name"] == "edge-fw-01-1"
+
+
+def test_ip_embedded_mask_and_ambiguous_claims(env):
+    tmp_path, staged = env
+    model = {
+        "devices": [], "links": [],
+        "interfaces": [
+            # FortiGate-style: mask embedded, prefix_length None
+            {"device_id": "acc-sw-01", "name": "Gi1/0/1",
+             "ip_address": "198.51.100.9/30", "prefix_length": None, "vrf": None},
+            # the same address claimed twice → ambiguous, never staged
+            {"device_id": "acc-sw-01", "name": "Gi1/0/1",
+             "ip_address": "192.0.2.99", "prefix_length": 24, "vrf": None},
+            {"device_id": "core-st-01", "name": "Gi1/0/1",
+             "ip_address": "192.0.2.99", "prefix_length": 24, "vrf": None},
+            # 'unassigned' rows are silently valid no-ops
+            {"device_id": "acc-sw-01", "name": "Gi1/0/2",
+             "ip_address": "unassigned", "prefix_length": None, "vrf": None},
+        ],
+    }
+    mdir = tmp_path / "demo-run" / "model"
+    mdir.mkdir(parents=True, exist_ok=True)
+    (mdir / "network_model.json").write_text(json.dumps(model))
+
+    result = bootstrap.run("demo-run", inventory_path=tmp_path / "lab.yaml")
+    ips = [c["payload"]["address"] for c in staged if c["object_type"] == "ipaddress"]
+    assert ips == ["198.51.100.9/30"]        # embedded mask parsed + staged
+    assert any("192.0.2.99/24" in w and "ambiguous" in w for w in result.warnings)
