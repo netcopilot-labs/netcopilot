@@ -3007,6 +3007,23 @@ def _parse_svl_ports_from_config(config_path: Path) -> list[dict]:
     return results
 
 
+def _parse_hbdev_ports(facts_dir: Path) -> list[str]:
+    """HA heartbeat interface names from fortigate_system_ha.json's hbdev.
+
+    The config value is a quoted pair list ('"ha" 50 "port8" 0') — the names
+    are the heartbeat devices, the numbers their priorities.
+    """
+    raw = _load_json_file(facts_dir / "fortigate_system_ha.json")
+    if not raw:
+        return []
+    r = raw.get("results", raw)
+    if isinstance(r, list):
+        r = r[0] if r else {}
+    if not isinstance(r, dict):
+        return []
+    return re.findall(r'"([^"]+)"', r.get("hbdev") or "")
+
+
 def _svl_mirror_interface(intf: str, from_member: int, to_member: int) -> str:
     """Replace the member number in an SVL interface name.
 
@@ -3104,6 +3121,53 @@ def discover_stack_interconnect_links(
                     logger.info(
                         "Stack interconnect: %d SVL/DAD fiber(s) for %s from running_config",
                         len(svl_ports), hostname,
+                    )
+                    continue
+
+            # FortiGate HA: the HA config names the heartbeat interfaces
+            # (hbdev) — one physical link per heartbeat device, not a single
+            # inferred interconnect. Endpoint ids encode the member as
+            # "hb_<member_id>/<port>" (per-chassis ports share one name).
+            if is_fortios and facts_dirs and hostname in facts_dirs:
+                hb_ports = _parse_hbdev_ports(facts_dirs[hostname])
+                if hb_ports:
+                    sorted_members = sorted(
+                        cluster_members, key=lambda m: m.get("member_id", 0)
+                    )
+                    m_from = sorted_members[0].get("member_id", 0)
+                    m_to = sorted_members[1].get("member_id", 1)
+                    for port in hb_ports:
+                        new_links.append({
+                            "link_id": f"{hostname}::ha_hbdev_{port}",
+                            "local_device_id": hostname,
+                            "local_interface_id": f"{hostname}:hb_{m_from}/{port}",
+                            "remote_device_id": hostname,
+                            "remote_interface_id": f"{hostname}:hb_{m_to}/{port}",
+                            "status": "up",
+                            "direction": "bidirectional",
+                            "discovery_method": "config_hbdev",
+                            "confidence": "high",
+                            "evidence": [
+                                f"fortigate_system_ha.json: hbdev names "
+                                f"'{port}' as an HA heartbeat device"
+                            ],
+                            "peer_collected": True,
+                            "discovery_protocol": DISCOVERY_PROTOCOL_MAP.get(
+                                "stack_interconnect", "Stack"
+                            ),
+                            "discovery_priority": DISCOVERY_PRIORITY.get(
+                                "stack_interconnect", 2
+                            ),
+                            "link_type": "stack_interconnect",
+                            "stack_subtype": "ha",
+                            "local_member_id": m_from,
+                            "remote_member_id": m_to,
+                            "l2": None,
+                            "l3": None,
+                        })
+                    logger.info(
+                        "Stack interconnect: %d HA heartbeat link(s) for %s from hbdev",
+                        len(hb_ports), hostname,
                     )
                     continue
 

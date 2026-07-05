@@ -226,6 +226,16 @@ def run(run_id: str, inventory_path: str | Path) -> BootstrapResult:
     # Per-physical-device model: SFPs attributed per-member via _attribute_interface_to_position.
     _bootstrap_inventory_items(yaml_devices, run_id, pending_index, result, netbox_adapter=netbox_adapter)
 
+    # ── IPAM + cables (s14, ADR-0016) — sourced from the run's MODEL ─────────
+    # VLANs, interface IPs and links are model-layer products (link_builder);
+    # re-deriving them from raw facts would duplicate the model's job.
+    model = _load_model_for_bootstrap(run_id, result)
+    if model is not None:
+        _bootstrap_ipam(yaml_devices, model, run_id, pending_index, result,
+                        netbox_adapter=netbox_adapter)
+        _bootstrap_cables(yaml_devices, model, run_id, pending_index, result,
+                          netbox_adapter=netbox_adapter)
+
     log.info(
         "Bootstrap done. new=%s skipped=%s warnings=%d",
         result.new, result.skipped, len(result.warnings),
@@ -581,31 +591,43 @@ def _bootstrap_interfaces(yaml_devices, run_id, pending_index, result, *, netbox
         if not name:
             continue
 
+        os_name = normalize_os(dev.get("os") or "")
+
+        trusted_names = False
         iface_file = facts_dir / name / "genie_interface.json"
-        if not iface_file.is_file():
+        if iface_file.is_file():
+            try:
+                data = json.loads(iface_file.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                result.warnings.append(f"{name}: genie_interface.json malformed: {exc}")
+                continue
+        elif os_name == "fortios":
+            # s14: FortiGate interfaces come from the REST facts — before this
+            # the firewall stayed undocumented (no interfaces → no IPs → no
+            # cables terminating on it).
+            data = _fortigate_iface_entries(facts_dir / name, result, name)
+            if data is None:
+                continue
+            trusted_names = True  # structured REST rows, not genie dict keys
+        else:
             result.warnings.append(
                 f"{name}: genie_interface.json missing — no interface candidates for this device"
             )
             continue
 
-        try:
-            data = json.loads(iface_file.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
-            result.warnings.append(f"{name}: genie_interface.json malformed: {exc}")
-            continue
-
         if not isinstance(data, dict) or not data:
-            result.warnings.append(f"{name}: genie_interface.json empty or non-dict")
+            result.warnings.append(f"{name}: interface facts empty for this device")
             continue
-
-        os_name = normalize_os(dev.get("os") or "")
         members = _load_cluster_members(name, run_id)
         is_stack = _is_cisco_stack(os_name, members)
         is_ha = _is_fortigate_ha(os_name, members)
 
         for iface_name, iface_data in data.items():
-            if not _INTERFACE_NAME_KEY_PATTERN.match(iface_name):
-                # Skip degenerate keys (top-level metadata, error rows)
+            if not trusted_names and not _INTERFACE_NAME_KEY_PATTERN.match(iface_name):
+                # Skip degenerate genie keys (top-level metadata, error rows).
+                # REST-sourced FortiGate rows are structured and keep names
+                # the pattern would reject (digit-named VLAN sub-interfaces,
+                # underscore tunnels).
                 continue
 
             # Per-physical-device model: resolve the target Device per attribution rule
@@ -634,7 +656,8 @@ def _bootstrap_interfaces(yaml_devices, run_id, pending_index, result, *, netbox
             payload = {
                 "device": {"name": target_device},  # NetBox 4.6: FK as dict, not bare string
                 "name": iface_name,
-                "type": _normalise_iface_type(iface_data.get("type")),
+                "type": (iface_data.get("type") if iface_data.get("_type_is_netbox")
+                         else _normalise_iface_type(iface_data.get("type"))),
                 "enabled": bool(iface_data.get("enabled", True)),
                 # NetBox forbids null description; coerce None to "".
                 "description": iface_data.get("description") or "",
@@ -967,6 +990,47 @@ def _provision_device_types(
     return type_id_by_slug
 
 
+_FORTIGATE_IFACE_TYPE = {"physical": "other", "aggregate": "lag",
+                         "tunnel": "virtual", "vlan": "virtual"}
+
+
+def _fortigate_iface_entries(dev_facts_dir: Path, result, name: str) -> dict | None:
+    """FortiGate interfaces as genie-shaped entries (s14).
+
+    Reads ``fortigate_system_interface.json`` (REST) and maps each row to
+    the field shape the shared staging loop consumes. Returns None (with a
+    warning) when the file is absent/malformed.
+    """
+    fg_file = dev_facts_dir / "fortigate_system_interface.json"
+    if not fg_file.is_file():
+        result.warnings.append(
+            f"{name}: fortigate_system_interface.json missing — no interface candidates"
+        )
+        return None
+    try:
+        raw = json.loads(fg_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        result.warnings.append(f"{name}: fortigate_system_interface.json malformed: {exc}")
+        return None
+
+    entries: dict[str, dict] = {}
+    for row in raw.get("results") or []:
+        if not isinstance(row, dict) or not row.get("name"):
+            continue
+        mac = row.get("macaddr") or None
+        if mac in ("00:00:00:00:00:00",):
+            mac = None
+        entries[row["name"]] = {
+            "enabled": (row.get("status") or "").lower() == "up",
+            "type": _FORTIGATE_IFACE_TYPE.get((row.get("type") or "").lower(), "other"),
+            "_type_is_netbox": True,  # already a NetBox slug — skip genie mapping
+            "description": row.get("description") or row.get("alias") or "",
+            "mtu": row.get("mtu"),
+            "mac_address": mac,
+        }
+    return entries
+
+
 def _normalise_iface_type(genie_type: str | None) -> str:
     """Best-effort NetBox interface type mapping."""
     if not genie_type:
@@ -994,8 +1058,11 @@ _DEDUP_KEY_FIELD = {
     "platform": "slug",
     "device": "name",
     "interface": "dedup_key",
-    "vlan": "vid",        # reserved for the IPAM sprint
-    "ipaddress": "address",  # reserved for the IPAM sprint
+    "vlan": "dedup_key",     # "<site>::<vid>" (s14)
+    "ipaddress": "address",  # CIDR string (s14)
+    "vrf": "name",           # (s14)
+    "prefix": "dedup_key",   # "<vrf-or-global>::<cidr>" (s14)
+    "cable": "dedup_key",    # "<a>--<b>" termination pair (s14)
     "cluster": "name",    # dcim.Cluster's natural key is its name
     "virtual_chassis": "name",  # dcim.VirtualChassis natural key
     "inventory_item": "dedup_key",  # <device>::<iface>::<serial>
@@ -1125,6 +1192,594 @@ def _index_existing_pending() -> dict[tuple[str, str], str]:
     except Exception as exc:
         log.warning("Failed to read existing :NetBoxPendingWrite for dedup: %s", exc)
         return {}
+
+
+# ── IPAM + cables (s14, ADR-0016) ────────────────────────────────────────────
+
+
+def _load_model_for_bootstrap(run_id: str, result) -> dict | None:
+    """Read the run's network_model.json, or warn honestly and skip IPAM."""
+    model_path = _runs_dir() / run_id / "model" / "network_model.json"
+    if not model_path.is_file():
+        result.warnings.append(
+            f"model/network_model.json missing for run {run_id!r} — "
+            "IPAM + cable candidates skipped (run the full pipeline first)."
+        )
+        return None
+    try:
+        return json.loads(model_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        result.warnings.append(f"network_model.json malformed: {exc} — IPAM + cables skipped.")
+        return None
+
+
+def _full_iface_names(yaml_devices, run_id: str) -> dict[str, dict[str, str]]:
+    """Per inventory device: canonical name → genie FULL interface name.
+
+    The model uses short names ("Gi1/0/1"); NetBox interfaces were staged
+    with the genie full names ("GigabitEthernet1/0/1"). The genie file is
+    the shared source, so IP/cable hints resolve against exactly what
+    bootstrap staged.
+    """
+    from netcopilot.model.interface_normalizer import canonicalize
+
+    facts_dir = _runs_dir() / run_id / "facts"
+    out: dict[str, dict[str, str]] = {}
+    for dev in yaml_devices:
+        name = dev.get("name")
+        if not name:
+            continue
+        iface_file = facts_dir / name / "genie_interface.json"
+        data: dict | None = None
+        trusted = False
+        if iface_file.is_file():
+            try:
+                data = json.loads(iface_file.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                data = None
+        elif normalize_os(dev.get("os") or "") == "fortios":
+            fg_file = facts_dir / name / "fortigate_system_interface.json"
+            if fg_file.is_file():
+                try:
+                    raw = json.loads(fg_file.read_text(encoding="utf-8"))
+                    data = {r["name"]: r for r in raw.get("results") or []
+                            if isinstance(r, dict) and r.get("name")}
+                    trusted = True
+                except json.JSONDecodeError:
+                    data = None
+        if isinstance(data, dict):
+            out[name] = {
+                canonicalize(k): k for k in data
+                if (trusted or _INTERFACE_NAME_KEY_PATTERN.match(k)) and canonicalize(k)
+            }
+    return out
+
+
+def _target_member_for(dev: dict, iface_full_name: str, run_id: str) -> str:
+    """Per-physical-device attribution for one interface (bootstrap's rule)."""
+    name = dev.get("name")
+    os_name = normalize_os(dev.get("os") or "")
+    members = _load_cluster_members(name, run_id)
+    if _is_cisco_stack(os_name, members):
+        return _member_device_name(name, _attribute_interface_to_position(iface_full_name, members))
+    if _is_fortigate_ha(os_name, members):
+        return _member_device_name(name, _master_position(members))
+    return name
+
+
+def _split_ip_len(ip, plen):
+    """Some sources embed the mask in ip_address ("10.255.1.1/24", plen=None)."""
+    if not ip or ip == "unassigned":
+        return None, None
+    if plen is None and isinstance(ip, str) and "/" in ip:
+        addr, _, embedded = ip.partition("/")
+        try:
+            return addr, int(embedded)
+        except ValueError:
+            return None, None
+    return ip, plen
+
+
+def _bootstrap_ipam(yaml_devices, model, run_id, pending_index, result, *, netbox_adapter=None):
+    """Stage VRFs, VLANs, prefixes and interface-assigned IPs from the model."""
+    import ipaddress as ipaddr_mod
+
+    from netcopilot.model.interface_normalizer import canonicalize
+
+    yaml_by_name = {d.get("name"): d for d in yaml_devices if d.get("name")}
+    model_devices = [d for d in model.get("devices", []) if d.get("hostname") in yaml_by_name]
+    model_ifaces = [i for i in model.get("interfaces", []) if i.get("device_id") in yaml_by_name]
+    full_names = _full_iface_names(yaml_devices, run_id)
+
+    nb_vrfs = {v["name"] for v in netbox_adapter.get_vrfs()} if netbox_adapter else set()
+    nb_vlans = {(v.get("site"), v["vid"]) for v in netbox_adapter.get_vlans()} if netbox_adapter else set()
+    nb_prefixes = {(p.get("vrf"), p["prefix"]) for p in netbox_adapter.get_prefixes()} if netbox_adapter else set()
+    nb_ips = {ip["address"] for ip in netbox_adapter.get_ip_addresses()} if netbox_adapter else set()
+
+    # ── VRFs (name-only records; referenced by prefixes + IPs) ──────────────
+    vrf_names = sorted({i.get("vrf") for i in model_ifaces if i.get("vrf")})
+    for vrf in vrf_names:
+        if vrf in nb_vrfs or _already_pending(pending_index, "vrf", vrf):
+            result.skipped["vrf"] = result.skipped.get("vrf", 0) + 1
+            continue
+        stage_candidate(
+            source="bootstrap", object_type="vrf",
+            payload={"name": vrf},
+            reason=f"VRF observed on collected interfaces (run {run_id})",
+        )
+        result.new["vrf"] = result.new.get("vrf", 0) + 1
+
+    # ── VLANs per (site, vid) ────────────────────────────────────────────────
+    seen_vlans: dict[tuple[str, int], str] = {}
+    for d in model_devices:
+        site = (d.get("site") or "").lower() or None
+        for v in d.get("vlans") or []:
+            vid, vname = v.get("vlan_id"), v.get("name")
+            if vid is None or site is None:
+                continue
+            key = (site, vid)
+            if key in seen_vlans:
+                if vname and seen_vlans[key] != vname:
+                    result.warnings.append(
+                        f"VLAN {vid}@{site}: name differs across devices "
+                        f"({seen_vlans[key]!r} vs {vname!r} on {d.get('hostname')}) — kept the first."
+                    )
+                continue
+            seen_vlans[key] = vname or f"VLAN{vid}"
+            dedup = f"{site}::{vid}"
+            if key in nb_vlans or _already_pending(pending_index, "vlan", dedup):
+                result.skipped["vlan"] = result.skipped.get("vlan", 0) + 1
+                continue
+            stage_candidate(
+                source="bootstrap", object_type="vlan",
+                payload={"vid": vid, "name": seen_vlans[key],
+                         "site": {"slug": site}, "dedup_key": dedup},
+                reason=f"VLAN {vid} ({seen_vlans[key]}) observed on {d.get('hostname')}",
+                affects_device_name=d.get("hostname"), affects_device_site=site,
+            )
+            result.new["vlan"] = result.new.get("vlan", 0) + 1
+
+    # ── Prefixes + IP addresses from interface IPs ───────────────────────────
+    # Ambiguity guard: the same address claimed by multiple interfaces
+    # (shared NAT'd mgmt, anycast) must not be documented as one arbitrary
+    # owner's IP — warn and let the operator decide.
+    claim_counts: dict[str, int] = {}
+    for i in model_ifaces:
+        ip, plen = _split_ip_len(i.get("ip_address"), i.get("prefix_length"))
+        if ip and plen is not None:
+            key = f"{ip}/{plen}"
+            claim_counts[key] = claim_counts.get(key, 0) + 1
+    ambiguous = {k for k, n in claim_counts.items() if n > 1}
+    for cidr in sorted(ambiguous):
+        claimants = sorted(
+            f"{i.get('device_id')}/{i.get('name')}" for i in model_ifaces
+            if _split_ip_len(i.get("ip_address"), i.get("prefix_length"))[0]
+            and "/".join(map(str, _split_ip_len(i.get("ip_address"), i.get("prefix_length")))) == cidr
+        )
+        result.warnings.append(
+            f"IP {cidr} is claimed by {len(claimants)} interfaces "
+            f"({', '.join(claimants[:5])}{' …' if len(claimants) > 5 else ''}) — "
+            "ambiguous, not staged."
+        )
+
+    seen_prefixes: set[tuple[str, str]] = set()
+    seen_ips: set[str] = set()
+    for i in model_ifaces:
+        ip, plen = _split_ip_len(i.get("ip_address"), i.get("prefix_length"))
+        if not ip or plen is None:
+            continue
+        if f"{ip}/{plen}" in ambiguous:
+            continue
+        dev_name = i.get("device_id")
+        dev = yaml_by_name[dev_name]
+        vrf = i.get("vrf") or None
+        cidr = f"{ip}/{plen}"
+
+        # Prefix (network) — /32 host addresses derive no subnet
+        if int(plen) < 32:
+            try:
+                network = str(ipaddr_mod.ip_network(cidr, strict=False))
+            except ValueError:
+                result.warnings.append(f"{dev_name}/{i.get('name')}: bad address {cidr!r} — skipped")
+                continue
+            pkey = (vrf, network)
+            if pkey not in seen_prefixes:
+                seen_prefixes.add(pkey)
+                dedup = f"{vrf or 'global'}::{network}"
+                if pkey in nb_prefixes or _already_pending(pending_index, "prefix", dedup):
+                    result.skipped["prefix"] = result.skipped.get("prefix", 0) + 1
+                else:
+                    payload: dict[str, Any] = {"prefix": network, "dedup_key": dedup}
+                    if vrf:
+                        payload["vrf"] = {"name": vrf}
+                    stage_candidate(
+                        source="bootstrap", object_type="prefix",
+                        payload=payload,
+                        reason=f"derived from {dev_name}/{i.get('name')} {cidr}"
+                               + (f" (vrf {vrf})" if vrf else ""),
+                    )
+                    result.new["prefix"] = result.new.get("prefix", 0) + 1
+
+        # IP address assigned to the (per-physical-member) interface
+        if cidr in seen_ips:
+            continue
+        seen_ips.add(cidr)
+        canon = canonicalize(i.get("name"))
+        full = full_names.get(dev_name, {}).get(canon)
+        if full is None:
+            result.warnings.append(
+                f"{dev_name}/{i.get('name')}: no matching documented interface — IP {cidr} not staged"
+            )
+            continue
+        target = _target_member_for(dev, full, run_id)
+        if cidr in nb_ips or _already_pending(pending_index, "ipaddress", cidr):
+            result.skipped["ipaddress"] = result.skipped.get("ipaddress", 0) + 1
+            continue
+        ip_payload: dict[str, Any] = {
+            "address": cidr,
+            "_resolve_device_name": target,
+            "_resolve_interface_name": full,
+        }
+        if vrf:
+            ip_payload["vrf"] = {"name": vrf}
+        stage_candidate(
+            source="bootstrap", object_type="ipaddress",
+            payload=ip_payload,
+            reason=f"{target}/{full} {cidr}" + (f" (vrf {vrf})" if vrf else ""),
+            affects_device_name=dev_name,
+            affects_device_site=(dev.get("site") or "").lower() or None,
+        )
+        result.new["ipaddress"] = result.new.get("ipaddress", 0) + 1
+
+
+# Link confidences that count as physical-cable evidence. Medium/low
+# (ARP/subnet inference) prove L3 adjacency, not a cable.
+_CABLE_CONFIDENCES = {"high", "very_high"}
+
+
+def _end_cable_media(sfp_pid: str | None, media_type: str | None) -> str | None:
+    """NetBox cable type implied by one end's transceiver PID / media type."""
+    pid = (sfp_pid or "").upper()
+    if pid:
+        if "AOC" in pid:
+            return "aoc"
+        if "DAC" in pid or re.search(r"CU[0-9]M", pid):
+            return "dac-passive"
+        if re.search(r"(^|[^A-Z])(SR|CSR|SX)", pid):
+            return "mmf"
+        if re.search(r"(^|[^A-Z])(LR|ER|ZR|LH|LX)", pid):
+            return "smf"
+        if "BASE-T" in pid or pid.startswith("GLC-T"):
+            return "cat6"
+        # Unknown PID → fall through to the media_type hint
+    media = (media_type or "").lower()
+    if media.startswith("copper"):
+        return "cat6"
+    if media == "fiber-aoc":
+        return "aoc"
+    if media in ("fiber-sr", "fiber-mm"):
+        return "mmf"
+    if media == "fiber-lr":
+        return "smf"
+    return None  # generic "fiber"/absent → don't guess
+
+
+def _cable_type_for(a_media: str | None, b_media: str | None) -> str | None:
+    """Combine both ends' implied media: agree → type; one known → it;
+    conflict → None (a mismatched pair is a finding, not documentation)."""
+    if a_media and b_media:
+        return a_media if a_media == b_media else None
+    return a_media or b_media
+
+
+def _fortigate_hbdev_ports(dev_facts_dir: Path) -> list[str]:
+    """Heartbeat interface names from the HA config (hbdev '"ha" 50 "port8" 0')."""
+    ha_file = dev_facts_dir / "fortigate_system_ha.json"
+    if not ha_file.is_file():
+        return []
+    try:
+        raw = json.loads(ha_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    r = raw.get("results", raw)
+    if isinstance(r, list):
+        r = r[0] if r else {}
+    if not isinstance(r, dict):
+        return []
+    return re.findall(r'"([^"]+)"', r.get("hbdev") or "")
+
+
+def _cable_dedup_key(a: tuple[str, str], b: tuple[str, str]) -> str:
+    ends = sorted([f"{a[0]}:{a[1]}", f"{b[0]}:{b[1]}"])
+    return f"{ends[0]}--{ends[1]}"
+
+
+def _lag_interfaces(yaml_devices, run_id: str) -> set[tuple[str, str]]:
+    """(target_device, full_name) of every aggregate/port-channel interface."""
+    facts_dir = _runs_dir() / run_id / "facts"
+    out: set[tuple[str, str]] = set()
+    for dev in yaml_devices:
+        name = dev.get("name")
+        if not name:
+            continue
+        os_name = normalize_os(dev.get("os") or "")
+        genie_file = facts_dir / name / "genie_interface.json"
+        if genie_file.is_file():
+            try:
+                data = json.loads(genie_file.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                continue
+            for iface_name, iface_data in (data or {}).items():
+                if not isinstance(iface_data, dict):
+                    continue
+                gtype = (iface_data.get("type") or "").lower()
+                if "etherchannel" in gtype or "port-channel" in gtype:
+                    out.add((_target_member_for(dev, iface_name, run_id), iface_name))
+        elif os_name == "fortios":
+            fg_file = facts_dir / name / "fortigate_system_interface.json"
+            if not fg_file.is_file():
+                continue
+            try:
+                raw = json.loads(fg_file.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                continue
+            for row in raw.get("results") or []:
+                if isinstance(row, dict) and (row.get("type") or "").lower() == "aggregate":
+                    out.add((_target_member_for(dev, row["name"], run_id), row["name"]))
+    return out
+
+
+def _bootstrap_cables(yaml_devices, model, run_id, pending_index, result, *, netbox_adapter=None):
+    """Stage one dcim.Cable per high-confidence physical link."""
+    from netcopilot.model.interface_normalizer import canonicalize
+
+    yaml_by_name = {d.get("name"): d for d in yaml_devices if d.get("name")}
+    full_names = _full_iface_names(yaml_devices, run_id)
+
+    # An interface that already terminates a cable in NetBox is settled —
+    # NetBox forbids double-termination, and the operator may have corrected
+    # the cable by hand.
+    nb_end_cable: dict[tuple[str, str], int] = {}
+    if netbox_adapter is not None:
+        for dev_name in yaml_by_name:
+            members = _load_cluster_members(dev_name, run_id)
+            os_name = normalize_os(yaml_by_name[dev_name].get("os") or "")
+            targets = ([_member_device_name(dev_name, i + 1) for i in range(len(members))]
+                       if members and (_is_cisco_stack(os_name, members) or _is_fortigate_ha(os_name, members))
+                       else [dev_name])
+            for t in targets:
+                for iface in netbox_adapter.get_interfaces(t):
+                    if iface.get("cable") is not None:
+                        nb_end_cable[(t, iface["name"])] = iface["cable"]
+
+    _STACK_PORT = re.compile(r"^stack_(\d+)/(\d+)$")
+    pseudo_stack_ends: set[tuple[str, str, str]] = set()  # (target, iface, inventory_name)
+
+    def _resolve_end(dev_id: str, short_name: str):
+        dev = yaml_by_name.get(dev_id)
+        if dev is None:
+            return None
+        # StackWise rear connectors: real physical ports on each member
+        # chassis, absent from the interface facts. Modeled as
+        # "StackPort<n>" interfaces on the member device (staged below).
+        m = _STACK_PORT.match(short_name)
+        if m:
+            member_pos, port = int(m.group(1)), int(m.group(2))
+            target = _member_device_name(dev_id, member_pos)
+            iface = f"StackPort{port}"
+            pseudo_stack_ends.add((target, iface, dev_id))
+            return (target, iface)
+        full = full_names.get(dev_id, {}).get(canonicalize(short_name))
+        if full is None:
+            return None
+        return (_target_member_for(dev, full, run_id), full)
+
+    lag_ends = _lag_interfaces(yaml_devices, run_id)
+
+    iface_media = {
+        (i.get("device_id"), canonicalize(i.get("name") or "")):
+            _end_cable_media(i.get("sfp_pid"), i.get("media_type"))
+        for i in model.get("interfaces", [])
+    }
+
+    # NetBox enforces one cable per interface. The model can carry several
+    # high-confidence links claiming the same end (FDB-derived mgmt links are
+    # transitive) — keep the best-confidence claim deterministically, warn
+    # the rest, instead of letting NetBox reject them at write time.
+    conf_rank = {"very_high": 0, "high": 1}
+    links = sorted(
+        (l for l in model.get("links", []) if l.get("confidence") in _CABLE_CONFIDENCES),
+        key=lambda l: (conf_rank.get(l.get("confidence"), 9), l.get("link_id") or ""),
+    )
+    claimed_in_wave: dict[tuple[str, str], str] = {}  # end → dedup key
+
+    for link in links:
+        a_dev = link.get("local_device_id")
+        b_dev = link.get("remote_device_id")
+        a_short = (link.get("local_interface_id") or "").split(":", 1)[-1]
+        b_short = (link.get("remote_interface_id") or "").split(":", 1)[-1]
+
+        if a_short.startswith("hb_") or b_short.startswith("hb_"):
+            # HA heartbeat pseudo-ends (model's hbdev links) — the dedicated
+            # hbdev section below stages these cables with real port names.
+            continue
+
+        a = _resolve_end(a_dev, a_short)
+        b = _resolve_end(b_dev, b_short)
+        if a is None or b is None:
+            result.warnings.append(
+                f"link {link.get('link_id')}: endpoint not documentable "
+                f"(unmanaged device or undocumented interface) — cable not staged"
+            )
+            continue
+
+        # NetBox forbids cable terminations on LAG interfaces; the physical
+        # cable belongs to member ports we cannot attribute from this link.
+        lagged = [e for e in (a, b) if e in lag_ends]
+        if lagged:
+            result.warnings.append(
+                f"link {link.get('link_id')}: endpoint "
+                f"{', '.join(f'{d}/{i}' for d, i in lagged)} is a LAG — "
+                "physical member cabling not derivable, cable not staged"
+            )
+            continue
+
+        dedup = _cable_dedup_key(a, b)
+
+        # Same cable already documented in NetBox (both ends on one cable id)
+        # or already pending → clean idempotent skip.
+        same_nb_cable = (nb_end_cable.get(a) is not None
+                         and nb_end_cable.get(a) == nb_end_cable.get(b))
+        if same_nb_cable or _already_pending(pending_index, "cable", dedup):
+            claimed_in_wave[a] = claimed_in_wave[b] = dedup
+            result.skipped["cable"] = result.skipped.get("cable", 0) + 1
+            continue
+
+        # An end held by a DIFFERENT cable (NetBox or earlier in this wave):
+        # this link is likely indirect (transitive FDB) — warn, don't stage.
+        conflict = [e for e in (a, b)
+                    if (e in nb_end_cable)
+                    or (claimed_in_wave.get(e) not in (None, dedup))]
+        if conflict:
+            result.warnings.append(
+                f"link {link.get('link_id')}: interface "
+                f"{', '.join(f'{d}/{i}' for d, i in conflict)} already claimed by a "
+                "different cable — this link is likely indirect, not staged"
+            )
+            continue
+
+        claimed_in_wave[a] = claimed_in_wave[b] = dedup
+        cable_type = _cable_type_for(
+            iface_media.get((a_dev, canonicalize(a_short))),
+            iface_media.get((b_dev, canonicalize(b_short))),
+        )
+        payload = {
+            "status": "connected",
+            "dedup_key": dedup,
+            "_resolve_a_device": a[0], "_resolve_a_interface": a[1],
+            "_resolve_b_device": b[0], "_resolve_b_interface": b[1],
+        }
+        if cable_type:
+            payload["type"] = cable_type
+        stage_candidate(
+            source="bootstrap", object_type="cable",
+            payload=payload,
+            reason=(f"physical link {link.get('link_id')} "
+                    f"(discovery: {link.get('discovery_method')}, "
+                    f"confidence: {link.get('confidence')})"),
+            affects_device_name=a_dev,
+            affects_device_site=(yaml_by_name[a_dev].get("site") or "").lower() or None,
+        )
+        result.new["cable"] = result.new.get("cable", 0) + 1
+
+    # Interfaces for the StackWise rear connectors referenced by staged
+    # cables — real ports on each member chassis, not in the interface facts.
+    nb_iface_names: dict[str, set[str]] = {}
+    for target, iface, inv_name in sorted(pseudo_stack_ends):
+        dedup = f"{target}::{iface}"
+        if netbox_adapter is not None and target not in nb_iface_names:
+            nb_iface_names[target] = {
+                i["name"] for i in netbox_adapter.get_interfaces(target)}
+        if (iface in nb_iface_names.get(target, ())
+                or _already_pending(pending_index, "interface", dedup)):
+            result.skipped["interface"] = result.skipped.get("interface", 0) + 1
+            continue
+        site = (yaml_by_name.get(inv_name, {}).get("site") or "").lower() or None
+        stage_candidate(
+            source="bootstrap", object_type="interface",
+            payload={
+                "device": {"name": target},
+                "name": iface,
+                "type": "other",
+                "enabled": True,
+                "description": "StackWise stack port (rear connector)",
+                "dedup_key": dedup,
+            },
+            reason=f"stack interconnect endpoint on {target}",
+            affects_device_name=inv_name,
+            affects_device_site=site,
+        )
+        result.new["interface"] = result.new.get("interface", 0) + 1
+
+    # ── HA heartbeat cables (hbdev) ──────────────────────────────────────────
+    # The HA config names the heartbeat interfaces; they are per-chassis
+    # physical ports, so the non-master member gets its own interface records
+    # (data interfaces rightly live on the master only in a-p). The cable is
+    # assumed direct member-to-member — the standard a-p deployment — and the
+    # candidate reason says so for the operator gate to verify.
+    for inv_name, dev in yaml_by_name.items():
+        os_name = normalize_os(dev.get("os") or "")
+        members = _load_cluster_members(inv_name, run_id)
+        if not _is_fortigate_ha(os_name, members) or len(members) < 2:
+            continue
+        hb_ports = _fortigate_hbdev_ports(_runs_dir() / run_id / "facts" / inv_name)
+        if not hb_ports:
+            continue
+        site = (dev.get("site") or "").lower() or None
+        master = _member_device_name(inv_name, _master_position(members))
+        m_names = [_member_device_name(inv_name, i + 1) for i in range(len(members))]
+
+        for port in hb_ports:
+            for target in m_names:
+                if target == master:
+                    continue  # master's interfaces come from system_interface
+                dedup_i = f"{target}::{port}"
+                if netbox_adapter is not None and target not in nb_iface_names:
+                    nb_iface_names[target] = {
+                        i["name"] for i in netbox_adapter.get_interfaces(target)}
+                if (port in nb_iface_names.get(target, ())
+                        or _already_pending(pending_index, "interface", dedup_i)):
+                    result.skipped["interface"] = result.skipped.get("interface", 0) + 1
+                    continue
+                stage_candidate(
+                    source="bootstrap", object_type="interface",
+                    payload={
+                        "device": {"name": target},
+                        "name": port,
+                        "type": "other",
+                        "enabled": True,
+                        "description": "HA heartbeat port (hbdev)",
+                        "dedup_key": dedup_i,
+                    },
+                    reason=f"HA heartbeat interface on standby member {target}",
+                    affects_device_name=inv_name,
+                    affects_device_site=site,
+                )
+                result.new["interface"] = result.new.get("interface", 0) + 1
+
+            a, b = (m_names[0], port), (m_names[1], port)
+            dedup = _cable_dedup_key(a, b)
+            same_nb_cable = (nb_end_cable.get(a) is not None
+                             and nb_end_cable.get(a) == nb_end_cable.get(b))
+            if same_nb_cable or _already_pending(pending_index, "cable", dedup):
+                claimed_in_wave[a] = claimed_in_wave[b] = dedup
+                result.skipped["cable"] = result.skipped.get("cable", 0) + 1
+                continue
+            conflict = [e for e in (a, b)
+                        if (e in nb_end_cable)
+                        or (claimed_in_wave.get(e) not in (None, dedup))]
+            if conflict:
+                result.warnings.append(
+                    f"HA heartbeat {inv_name}/{port}: interface "
+                    f"{', '.join(f'{d}/{i}' for d, i in conflict)} already claimed "
+                    "by a different cable — heartbeat cable not staged"
+                )
+                continue
+            claimed_in_wave[a] = claimed_in_wave[b] = dedup
+            stage_candidate(
+                source="bootstrap", object_type="cable",
+                payload={
+                    "status": "connected",
+                    "dedup_key": dedup,
+                    "_resolve_a_device": a[0], "_resolve_a_interface": a[1],
+                    "_resolve_b_device": b[0], "_resolve_b_interface": b[1],
+                },
+                reason=(f"HA heartbeat (hbdev '{port}') — assumed direct "
+                        "member-to-member per standard a-p deployment; verify"),
+                affects_device_name=inv_name,
+                affects_device_site=site,
+            )
+            result.new["cable"] = result.new.get("cable", 0) + 1
 
 
 def _already_pending(pending_index: dict[tuple[str, str], str], object_type: str, name: str) -> bool:

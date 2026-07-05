@@ -84,6 +84,7 @@ export default function FindingsPage({
     'INTENT_INTERFACE_ATTR_DRIFT',
   ])
   const [stageToast, setStageToast] = useState(null)
+  const [stagedFindings, setStagedFindings] = useState(() => new Set())
   const stageFromFinding = async (findingId) => {
     try {
       const res = await fetch('/api/reconcile/stage_from_finding', {
@@ -99,6 +100,7 @@ export default function FindingsPage({
           (body.skipped ? ` (${body.skipped} already pending)` : '') +
           ' — review in the Reconcile tab.',
       })
+      setStagedFindings(prev => new Set(prev).add(findingId))
     } catch (e) {
       setStageToast({ kind: 'error', message: `Stage failed: ${e.message}` })
     }
@@ -430,14 +432,24 @@ export default function FindingsPage({
                   </button>
                   {/* s13: stage the NetBox correction for correctable drift findings */}
                   {!isAckedSection && CORRECTABLE_INTENT.has(group.ruleId) && (
-                    <button
-                      onClick={() => stageFromFinding(f.finding_id)}
-                      className="px-1.5 py-0.5 mr-1 rounded text-white transition-colors shrink-0"
-                      title="Stage the observed value as a NetBox update candidate (approved in the Reconcile tab)"
-                      style={{ fontSize: 10, background: '#6366F1' }}
-                    >
-                      Update NetBox
-                    </button>
+                    stagedFindings.has(f.finding_id) ? (
+                      <span
+                        className="px-1.5 py-0.5 mr-1 rounded shrink-0"
+                        title="Candidate staged — approve it in the Reconcile tab, then re-run the drift check"
+                        style={{ fontSize: 10, background: '#DCFCE7', color: '#166534' }}
+                      >
+                        Staged ✓ → Reconcile
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => stageFromFinding(f.finding_id)}
+                        className="px-1.5 py-0.5 mr-1 rounded text-white transition-colors shrink-0"
+                        title="Stage the observed value as a NetBox update candidate (approved in the Reconcile tab)"
+                        style={{ fontSize: 10, background: '#6366F1' }}
+                      >
+                        Update NetBox
+                      </button>
+                    )
                   )}
                   {/* Per-finding ack/un-ack */}
                   {!f.acknowledged ? (
