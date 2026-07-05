@@ -3258,6 +3258,7 @@ _CATEGORY_PREFIXES = {
     "routing": ["ROUTE_", "VRF_", "STATIC_"],
     "cluster": ["CLUSTER_", "HA_", "STACK_"],
     "qos": ["QOS_"],
+    "intent": ["INTENT_"],
 }
 
 # Legacy severity normalization
@@ -3393,7 +3394,22 @@ def _load_findings(
 
     # Handle both formats: {metadata, findings} or flat array
     findings = raw.get("findings", []) if isinstance(raw, dict) else raw
+    return load_findings_list(driver, findings, site, run_id)
 
+
+def load_findings_list(
+    driver,
+    findings: list[dict[str, Any]],
+    site: str,
+    run_id: str,
+) -> int:
+    """Load finding dicts into Neo4j as Finding nodes linked to Device nodes.
+
+    Extracted from :func:`_load_findings` (s13) so out-of-pipeline finding
+    producers (drift detection) share the exact node property set and
+    attachment rules — same Cypher, same key_facts flattening, same
+    element_id parsing.
+    """
     finding_params: list[dict[str, Any]] = []
     # Extra HAS_FINDING relationships for cross-device findings
     extra_relations: list[dict[str, str]] = []

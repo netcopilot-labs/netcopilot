@@ -130,6 +130,7 @@ class NetBoxAdapter(DeclaredStateSource):
         platform = str(dev.platform) if getattr(dev, "platform", None) is not None else None
         site = str(dev.site) if getattr(dev, "site", None) is not None else None
         status = str(dev.status) if getattr(dev, "status", None) is not None else None
+        serial = str(dev.serial) if getattr(dev, "serial", None) else None
 
         return {
             "name": str(dev.name),
@@ -138,6 +139,7 @@ class NetBoxAdapter(DeclaredStateSource):
             "platform": platform,
             "site": site,
             "status": status,
+            "serial": serial,
             "netbox_id": dev.id,
         }
 
@@ -158,8 +160,20 @@ class NetBoxAdapter(DeclaredStateSource):
             "type": str(iface.type) if getattr(iface, "type", None) is not None else None,
             "mtu": iface.mtu if getattr(iface, "mtu", None) is not None else None,
             "mac_address": str(iface.mac_address) if getattr(iface, "mac_address", None) is not None else None,
+            "description": str(iface.description) if getattr(iface, "description", None) else "",
             "netbox_id": iface.id,
         }
+
+    # ---------------------------------------------------------------- probe
+
+    def ping(self) -> None:
+        """Raise if NetBox is unreachable — never degrade to empty reads.
+
+        The get_* methods swallow errors into []/None (acceptable as dedup
+        hints); consumers that must distinguish "NetBox is empty" from
+        "NetBox is down" (drift detection, s13) call this first.
+        """
+        self._nb.status()
 
     # ---------------------------------------------------------------- clusters
 
