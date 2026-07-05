@@ -163,7 +163,7 @@ _CATEGORY_RENDER: dict[str, dict] = {
         "header": "📋 DECLARED STATE (NETBOX)",
         "subtitle": "What should the network look like — and what's queued to document?",
         "bullets": [
-            "Devices and sites as documented in NetBox (the intended state)",
+            "The full documented picture: devices, interfaces, VLANs, IPs, cables",
             "Pending writes you can approve in the Reconcile tab (or CLI)",
             "NetBox write history including failures and rejections",
             "Drift checks: does the documentation still match reality?",

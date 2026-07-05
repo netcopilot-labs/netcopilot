@@ -140,8 +140,13 @@ Telegram bot). Data persists in named volumes across `docker compose down`; add
   "what the network *should* look like" layer, and — with explicit opt-in —
   can document what it collected back into NetBox through a staged →
   human-approved → audited pipeline (every write is a reviewable candidate;
-  nothing is auto-approved, nothing is ever deleted). Point `NETBOX_URL` +
-  `NETBOX_API_TOKEN` at your instance, or try the bundled demo NetBox:
+  nothing is auto-approved, nothing is ever deleted). It documents the full
+  physical and logical picture: devices (stacks as virtual chassis, cluster
+  members individually), interfaces, transceivers, VLANs, VRFs, prefixes,
+  IP addresses assigned to their interfaces, and cables — typed by the
+  optics that terminate them, from high-confidence link evidence only.
+  Point `NETBOX_URL` + `NETBOX_API_TOKEN` at your instance, or try the
+  bundled demo NetBox:
   ```bash
   docker compose --profile netbox up -d          # local NetBox on :8001
   export NETBOX_URL=http://localhost:8001
