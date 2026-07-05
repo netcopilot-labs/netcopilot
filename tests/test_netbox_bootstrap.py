@@ -400,12 +400,18 @@ def test_fortigate_interfaces_staged_from_rest_facts(env):
              "description": "sw fabric", "alias": "", "macaddr": ""},
             {"name": "ssl.root", "status": "up", "type": "tunnel",
              "description": "", "alias": "SSL VPN interface", "macaddr": ""},
+            # real FortiGate naming the genie key-pattern would reject:
+            {"name": "100", "status": "up", "type": "vlan",
+             "description": "users vlan", "alias": "", "macaddr": ""},
+            {"name": "S2S_TUNNEL_1", "status": "up", "type": "tunnel",
+             "description": "", "alias": "", "macaddr": ""},
         ]}))
     bootstrap.run("demo-run", inventory_path=tmp_path / "lab.yaml")
     fw_ifaces = {c["payload"]["name"]: c["payload"] for c in staged
                  if c["object_type"] == "interface"
                  and c["payload"]["device"]["name"].startswith("edge-fw-01")}
-    assert set(fw_ifaces) == {"port1", "fortilink", "ssl.root"}
+    assert set(fw_ifaces) == {"port1", "fortilink", "ssl.root", "100", "S2S_TUNNEL_1"}
+    assert fw_ifaces["100"]["type"] == "virtual"          # vlan sub-interface
     assert fw_ifaces["port1"]["type"] == "other"
     assert fw_ifaces["fortilink"]["type"] == "lag"
     assert fw_ifaces["fortilink"]["description"] == "sw fabric"
@@ -442,3 +448,69 @@ def test_ip_embedded_mask_and_ambiguous_claims(env):
     ips = [c["payload"]["address"] for c in staged if c["object_type"] == "ipaddress"]
     assert ips == ["198.51.100.9/30"]        # embedded mask parsed + staged
     assert any("192.0.2.99/24" in w and "ambiguous" in w for w in result.warnings)
+
+
+def test_dedup_key_maps_stay_in_sync():
+    """bootstrap._DEDUP_KEY_FIELD and staging._AUDIT_DEDUP_KEY_FIELD are
+    documented mirrors (kept local to avoid a circular import) — s14 caught
+    them drifting (vlan keyed by bare vid; vrf/prefix/cable missing), which
+    broke pending-queue idempotency for the IPAM types."""
+    from netcopilot.declared_state.staging import _AUDIT_DEDUP_KEY_FIELD
+    assert bootstrap._DEDUP_KEY_FIELD == _AUDIT_DEDUP_KEY_FIELD
+
+
+def test_cable_guards_lag_and_conflicting_claims(env):
+    """Real-hardware lessons: NetBox forbids cables on LAG interfaces, and
+    transitive FDB links can claim an interface a better link already owns."""
+    tmp_path, staged = env
+    model = {
+        "devices": [], "interfaces": [],
+        "links": [
+            # winner: very_high direct link
+            {"link_id": "direct", "confidence": "very_high", "discovery_method": "cdp",
+             "local_device_id": "acc-sw-01", "local_interface_id": "acc-sw-01:Gi1/0/1",
+             "remote_device_id": "core-st-01", "remote_interface_id": "core-st-01:Gi1/0/1"},
+            # transitive FDB link claiming the same core port → conflict warning
+            {"link_id": "fdb_indirect", "confidence": "high", "discovery_method": "fdb",
+             "local_device_id": "acc-sw-01", "local_interface_id": "acc-sw-01:Gi1/0/2",
+             "remote_device_id": "core-st-01", "remote_interface_id": "core-st-01:Gi1/0/1"},
+        ],
+    }
+    # give acc-sw-01 a second genie interface + make core's port exist
+    gi = json.loads((tmp_path / "demo-run/facts/acc-sw-01/genie_interface.json").read_text())
+    gi["GigabitEthernet1/0/2"] = {"oper_status": "up"}
+    (tmp_path / "demo-run/facts/acc-sw-01/genie_interface.json").write_text(json.dumps(gi))
+    mdir = tmp_path / "demo-run" / "model"
+    mdir.mkdir(parents=True, exist_ok=True)
+    (mdir / "network_model.json").write_text(json.dumps(model))
+
+    result = bootstrap.run("demo-run", inventory_path=tmp_path / "lab.yaml")
+    cables = [c for c in staged if c["object_type"] == "cable"]
+    assert len(cables) == 1
+    # the very_high direct link wins the contested core port
+    assert "acc-sw-01:GigabitEthernet1/0/1" in cables[0]["payload"]["dedup_key"]
+    assert any("already claimed by a different cable" in w for w in result.warnings)
+
+
+def test_cable_guard_lag_endpoint(env):
+    tmp_path, staged = env
+    # FortiGate with an aggregate interface as the link endpoint
+    (tmp_path / "demo-run/facts/edge-fw-01/genie_interface.json").unlink()
+    (tmp_path / "demo-run/facts/edge-fw-01/fortigate_system_interface.json").write_text(json.dumps({
+        "results": [{"name": "AGG1", "status": "up", "type": "aggregate",
+                     "description": "", "alias": "", "macaddr": ""}]}))
+    model = {
+        "devices": [], "interfaces": [],
+        "links": [
+            {"link_id": "lag_link", "confidence": "very_high", "discovery_method": "lacp",
+             "local_device_id": "edge-fw-01", "local_interface_id": "edge-fw-01:AGG1",
+             "remote_device_id": "acc-sw-01", "remote_interface_id": "acc-sw-01:Gi1/0/1"},
+        ],
+    }
+    mdir = tmp_path / "demo-run" / "model"
+    mdir.mkdir(parents=True, exist_ok=True)
+    (mdir / "network_model.json").write_text(json.dumps(model))
+
+    result = bootstrap.run("demo-run", inventory_path=tmp_path / "lab.yaml")
+    assert [c for c in staged if c["object_type"] == "cable"] == []
+    assert any("is a LAG" in w for w in result.warnings)

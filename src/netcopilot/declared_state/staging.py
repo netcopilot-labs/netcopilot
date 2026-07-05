@@ -408,7 +408,6 @@ _AUDIT_DEDUP_KEY_FIELD = {
     "prefix": "dedup_key",      # "<vrf-or-global>::<cidr>"
     "ipaddress": "address",     # CIDR string is globally unique enough here
     "cable": "dedup_key",       # order-independent "<a>--<b>" termination pair
-    "vlan": "vid",
     "ipaddress": "address",
     "inventory_item": "dedup_key",  # device::iface::serial (set at stage time)
 }
