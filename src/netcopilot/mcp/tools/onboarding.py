@@ -164,7 +164,7 @@ _CATEGORY_RENDER: dict[str, dict] = {
         "subtitle": "What should the network look like — and what's queued to document?",
         "bullets": [
             "Devices and sites as documented in NetBox (the intended state)",
-            "Pending writes you can approve via the CLI",
+            "Pending writes you can approve in the Reconcile tab (or CLI)",
             "NetBox write history including failures and rejections",
             "Drift checks: does the documentation still match reality?",
         ],
