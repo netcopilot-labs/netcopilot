@@ -20985,7 +20985,12 @@
   tier: drift
   status: external
   description: A device declared in NetBox (at a site the run covers) was not observed in the collected run — powered off, unreachable, missing from the inventory, or decommissioned without retiring the record. S13 (ADR-0015).
-  remediation: Verify the device is up and reachable and that the inventory covers it. If it was decommissioned, retire the NetBox record.
+  remediation:
+    generic: |
+      ! Declared in NetBox but not observed in the collected run.
+      ! 1. Verify the device is powered and reachable (ping / SSH).
+      ! 2. Confirm the collection inventory covers it.
+      ! 3. If decommissioned, retire the NetBox record (no CLI change).
   genie_source: null
 - rule_id: INTENT_DEVICE_UNKNOWN_IN_NETBOX
   severity: low
@@ -20994,7 +20999,11 @@
   tier: drift
   status: external
   description: A device collected from the network has no NetBox record — the documentation is incomplete. S13 (ADR-0015).
-  remediation: Stage it via bootstrap (Reconcile tab → Bootstrap from run) or document it in NetBox directly.
+  remediation:
+    generic: |
+      ! Observed in the network but undocumented in NetBox.
+      ! Stage it via bootstrap (Reconcile tab -> Bootstrap from run),
+      ! or create the device record in NetBox directly. No device CLI change.
   genie_source: null
 - rule_id: INTENT_SERIAL_DRIFT
   severity: high
@@ -21003,7 +21012,12 @@
   tier: drift
   status: external
   description: The serial number declared in NetBox differs from the one observed on the device — a likely undocumented hardware swap (RMA, chassis replacement). S13 (ADR-0015).
-  remediation: Confirm whether the chassis was replaced; stage the observed serial to NetBox via the drift finding's Update NetBox action.
+  remediation:
+    generic: |
+      ! NetBox serial differs from the observed chassis serial.
+      ! 1. Confirm on-device:  show version | include erial
+      ! 2. If the hardware was replaced (RMA), use the finding's
+      !    [Update NetBox] action to stage the observed serial, then approve.
   genie_source: null
 - rule_id: INTENT_PLATFORM_DRIFT
   severity: low
@@ -21012,7 +21026,11 @@
   tier: drift
   status: external
   description: The platform declared in NetBox differs from what the observed operating system maps to. S13 (ADR-0015).
-  remediation: Update the NetBox platform to match the observed operating system.
+  remediation:
+    generic: |
+      ! NetBox platform differs from the observed operating system.
+      ! Use the finding's [Update NetBox] action to stage the observed
+      ! platform, then approve in the Reconcile tab. No device CLI change.
   genie_source: null
 - rule_id: INTENT_SITE_DRIFT
   severity: low
@@ -21021,7 +21039,11 @@
   tier: drift
   status: external
   description: NetBox places the device at a different site than the inventory declares. S13 (ADR-0015).
-  remediation: Move the device to the correct site in NetBox, or fix the inventory.
+  remediation:
+    generic: |
+      ! NetBox places this device at a different site than the inventory.
+      ! Decide which is right: move the device in NetBox (via the finding's
+      !    [Update NetBox] action) or correct the inventory YAML.
   genie_source: null
 - rule_id: INTENT_INTERFACE_MISSING_IN_NETWORK
   severity: low
@@ -21030,7 +21052,11 @@
   tier: drift
   status: external
   description: Interfaces declared in NetBox were not observed in the run (aggregated per device) — a module may have been removed or the records are stale. S13 (ADR-0015).
-  remediation: Verify the interfaces exist; retire stale interface records in NetBox.
+  remediation:
+    generic: |
+      ! Interfaces declared in NetBox were not observed.
+      ! 1. Verify on-device:  show ip interface brief
+      ! 2. If a module was removed, retire the stale interface records in NetBox.
   genie_source: null
 - rule_id: INTENT_INTERFACE_UNKNOWN_IN_NETBOX
   severity: info
@@ -21039,7 +21065,11 @@
   tier: drift
   status: external
   description: Observed interfaces have no NetBox record (aggregated per device) — the documentation is incomplete. S13 (ADR-0015).
-  remediation: Stage them via bootstrap (idempotent) to complete the documentation.
+  remediation:
+    generic: |
+      ! Observed interfaces are undocumented in NetBox.
+      ! Re-run bootstrap (idempotent) to stage them, then approve
+      ! in the Reconcile tab. No device CLI change.
   genie_source: null
 - rule_id: INTENT_INTERFACE_ATTR_DRIFT
   severity: info
@@ -21048,5 +21078,10 @@
   tier: drift
   status: external
   description: Interface attributes (enabled, description, MTU, MAC) differ between NetBox and the observed state (aggregated per device). S13 (ADR-0015).
-  remediation: Review each attribute; stage the observed values via the drift finding's Update NetBox action.
+  remediation:
+    generic: |
+      ! Interface attributes differ between NetBox and the observed state
+      ! (see the finding's drift detail for per-interface values).
+      ! Use the finding's [Update NetBox] action to stage the observed
+      ! values, then approve in the Reconcile tab.
   genie_source: null

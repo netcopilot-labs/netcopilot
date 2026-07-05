@@ -440,3 +440,18 @@ def test_run_not_loaded_in_neo4j_warns(env):
         report = drift.run_drift_check("demo-run", env / "lab.yaml",
                                        adapter=adapter, load=True)
     assert any("not loaded in Neo4j" in w for w in report.warnings)
+
+
+def test_catalog_remediation_entries_are_template_dicts():
+    """Caught live in s13: a flat-string remediation crashes get_remediation.
+
+    The catalog contract is ``remediation: {os_family: template}`` — enforce
+    it catalog-wide so authoring mistakes fail here, not in a chat tool.
+    """
+    import yaml
+    from pathlib import Path
+    catalog_path = Path("src/netcopilot/rules/rule-catalog.yaml")
+    raw = yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
+    bad = [r["rule_id"] for r in raw
+           if "remediation" in r and not isinstance(r["remediation"], dict)]
+    assert bad == [], f"flat-string remediation (must be os_family->template dict): {bad}"

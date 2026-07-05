@@ -110,6 +110,12 @@ def get_remediation(
         return None
 
     templates = rule["remediation"]
+    if not isinstance(templates, dict):
+        # Catalog authoring error (must be {os_family: template}) — surface
+        # loudly instead of crashing the calling tool (caught live in s13).
+        log.warning("Rule %s remediation is %s, expected a template dict — ignored",
+                    rule_id, type(templates).__name__)
+        return None
     template = templates.get(os_family) or templates.get("generic")
     if not template:
         return None
