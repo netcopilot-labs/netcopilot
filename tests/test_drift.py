@@ -324,6 +324,104 @@ def test_missing_in_network_loads_as_standalone_node(env):
     assert props["category"] == "intent"
 
 
+# ── stage_correction (S13-3) ─────────────────────────────────────────────────
+
+
+def _finding_row(rule_id, device="acc-sw-01", **kf):
+    row = {
+        "finding_id": f"{rule_id}::{device}", "rule_id": rule_id,
+        "device": device, "element_id": device, "site": "demo",
+        "severity": "high", "run_id": "demo-run",
+    }
+    row.update({f"kf_{k}": v for k, v in kf.items()})
+    return row
+
+
+def _neo4j_returning(row):
+    fake_session = MagicMock()
+    fake_session.run.return_value.single.return_value = {"f": row} if row else None
+    fake_driver = MagicMock()
+    fake_driver.session.return_value.__enter__ = lambda s: fake_session
+    fake_driver.session.return_value.__exit__ = MagicMock(return_value=False)
+    return fake_driver
+
+
+def test_stage_correction_serial_drift(env):
+    row = _finding_row("INTENT_SERIAL_DRIFT", declared="STALE9999", observed="SYNTH0001")
+    adapter = _synced_adapter()
+    with patch("netcopilot.graph.client.get_driver", return_value=_neo4j_returning(row)), \
+         patch("netcopilot.declared_state.staging.list_pending", return_value=[]), \
+         patch("netcopilot.declared_state.staging.stage_candidate",
+               return_value="cand-1") as sc:
+        out = drift.stage_correction("INTENT_SERIAL_DRIFT::acc-sw-01", "demo-run",
+                                     adapter=adapter)
+    assert out == {"staged": 1, "skipped": 0, "candidate_ids": ["cand-1"]}
+    kw = sc.call_args.kwargs
+    assert kw["source"] == "drift"
+    assert kw["object_type"] == "device"
+    assert kw["payload"] == {"name": "acc-sw-01", "serial": "SYNTH0001"}
+    assert kw["before"]["id"] == 1                       # live netbox_id threaded
+    assert kw["from_finding_id"] == "INTENT_SERIAL_DRIFT::acc-sw-01"
+    assert kw["drift_severity"] == "high"
+
+
+def test_stage_correction_interface_attr_drift(env):
+    drifted = {"GigabitEthernet1/0/1": {
+        "enabled": {"declared": False, "observed": True},
+        "description": {"declared": "stale", "observed": "uplink"},
+    }}
+    row = _finding_row("INTENT_INTERFACE_ATTR_DRIFT", drift=json.dumps(drifted))
+    adapter = _synced_adapter()
+    with patch("netcopilot.graph.client.get_driver", return_value=_neo4j_returning(row)), \
+         patch("netcopilot.declared_state.staging.list_pending", return_value=[]), \
+         patch("netcopilot.declared_state.staging.stage_candidate",
+               return_value="cand-1") as sc:
+        out = drift.stage_correction("INTENT_INTERFACE_ATTR_DRIFT::acc-sw-01",
+                                     "demo-run", adapter=adapter)
+    assert out["staged"] == 1
+    kw = sc.call_args.kwargs
+    assert kw["object_type"] == "interface"
+    assert kw["payload"]["enabled"] is True
+    assert kw["payload"]["description"] == "uplink"
+    assert kw["payload"]["device"] == {"name": "acc-sw-01"}
+
+
+def test_stage_correction_idempotent_skip(env):
+    row = _finding_row("INTENT_SERIAL_DRIFT", declared="STALE9999", observed="SYNTH0001")
+    adapter = _synced_adapter()
+    pending = [{"netbox_object_type": "device", "payload": {"name": "acc-sw-01"}}]
+    with patch("netcopilot.graph.client.get_driver", return_value=_neo4j_returning(row)), \
+         patch("netcopilot.declared_state.staging.list_pending", return_value=pending), \
+         patch("netcopilot.declared_state.staging.stage_candidate") as sc:
+        out = drift.stage_correction("INTENT_SERIAL_DRIFT::acc-sw-01", "demo-run",
+                                     adapter=adapter)
+    assert out == {"staged": 0, "skipped": 1, "candidate_ids": []}
+    sc.assert_not_called()
+
+
+def test_stage_correction_not_correctable(env):
+    row = _finding_row("INTENT_DEVICE_MISSING_IN_NETWORK", device="ghost-sw-99")
+    with patch("netcopilot.graph.client.get_driver", return_value=_neo4j_returning(row)):
+        with pytest.raises(drift.NotCorrectable):
+            drift.stage_correction("INTENT_DEVICE_MISSING_IN_NETWORK::ghost-sw-99",
+                                   "demo-run", adapter=_synced_adapter())
+
+
+def test_stage_correction_finding_not_found(env):
+    with patch("netcopilot.graph.client.get_driver", return_value=_neo4j_returning(None)):
+        with pytest.raises(KeyError):
+            drift.stage_correction("INTENT_SERIAL_DRIFT::nope", "demo-run",
+                                   adapter=_synced_adapter())
+
+
+def test_stage_correction_unreachable_netbox_raises(env):
+    row = _finding_row("INTENT_SERIAL_DRIFT", observed="SYNTH0001")
+    with patch("netcopilot.graph.client.get_driver", return_value=_neo4j_returning(row)):
+        with pytest.raises(drift.DriftSourceUnavailable):
+            drift.stage_correction("INTENT_SERIAL_DRIFT::acc-sw-01", "demo-run",
+                                   adapter=FakeAdapter(reachable=False))
+
+
 def test_persist_without_neo4j_warns_not_silent(env):
     adapter = _synced_adapter()
     adapter.devices[1]["serial"] = "STALE9999"

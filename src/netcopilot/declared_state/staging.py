@@ -132,6 +132,7 @@ def stage_candidate(
     affects_device_site: str | None = None,
     affects_interface_id: str | None = None,
     from_finding_id: str | None = None,
+    from_finding_run_id: str | None = None,
 ) -> str:
     """Create a :NetBoxPendingWrite node + wire its outgoing edges.
 
@@ -151,7 +152,11 @@ def stage_candidate(
             DESC). Pass ``affects_device_site`` alongside in multi-site
             graphs to avoid attaching to a same-named device elsewhere.
         affects_interface_id: If set, creates an ``AFFECTS_INTERFACE`` edge.
-        from_finding_id: If set, creates a ``FROM_FINDING`` edge.
+        from_finding_id: If set, creates a ``FROM_FINDING`` edge. Pass
+            ``from_finding_run_id`` alongside to pin the edge to the exact
+            run's Finding snapshot (finding_id repeats across runs); without
+            it the LATEST snapshot is used — same convention as
+            ``affects_device_name``/``affects_device_site``.
 
     Missing edge targets log WARN and the candidate stages without the edge.
 
@@ -250,14 +255,34 @@ def stage_candidate(
             )
 
         if from_finding_id:
+            # Finding nodes carry `finding_id` (RULE::element), which repeats
+            # across runs — pin to the caller's run when known, else the
+            # LATEST snapshot (AFFECTS_DEVICE convention). (s13 fix: the
+            # original Cypher matched a nonexistent `id` property, so the
+            # edge never attached — latent since s11 because drift is the
+            # first from_finding_id producer.)
+            if from_finding_run_id:
+                edge_cypher = (
+                    "MATCH (p:NetBoxPendingWrite {id: $cid}) "
+                    "MATCH (f:Finding {finding_id: $fid, run_id: $frun}) "
+                    "WITH p, f LIMIT 1 "
+                    "CREATE (p)-[:FROM_FINDING]->(f) RETURN count(f) AS n"
+                )
+            else:
+                edge_cypher = (
+                    "MATCH (p:NetBoxPendingWrite {id: $cid}) "
+                    "MATCH (f:Finding {finding_id: $fid}) "
+                    "WITH p, f ORDER BY f.run_id DESC LIMIT 1 "
+                    "CREATE (p)-[:FROM_FINDING]->(f) RETURN count(f) AS n"
+                )
             _attach_edge_or_warn(
                 session,
                 candidate_id,
-                "MATCH (p:NetBoxPendingWrite {id: $cid}), (f:Finding {id: $fid}) "
-                "CREATE (p)-[:FROM_FINDING]->(f) RETURN count(f) AS n",
-                {"cid": candidate_id, "fid": from_finding_id},
+                edge_cypher,
+                {"cid": candidate_id, "fid": from_finding_id,
+                 "frun": from_finding_run_id},
                 edge_label="FROM_FINDING",
-                target_desc=f"Finding id={from_finding_id!r}",
+                target_desc=f"Finding finding_id={from_finding_id!r} run={from_finding_run_id!r}",
             )
 
     return candidate_id

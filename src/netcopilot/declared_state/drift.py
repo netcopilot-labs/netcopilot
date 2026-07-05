@@ -420,6 +420,165 @@ def run_drift_check(
     return report
 
 
+class NotCorrectable(ValueError):
+    """The finding carries no NetBox correction NetCopilot can stage."""
+
+
+# Rules whose observed value can be staged as a NetBox correction. The rest
+# are informational: MISSING_IN_NETWORK means NetBox is right or the network
+# is broken (a write would paper over it); the UNKNOWN/MISSING interface and
+# device rules are creates already covered by the idempotent bootstrap.
+_CORRECTABLE_RULES = {
+    "INTENT_SERIAL_DRIFT",
+    "INTENT_PLATFORM_DRIFT",
+    "INTENT_SITE_DRIFT",
+    "INTENT_INTERFACE_ATTR_DRIFT",
+}
+
+_PLATFORM_NAME_TO_SLUG = {name: slug for slug, name in _OS_TO_PLATFORM.values()}
+
+
+def stage_correction(finding_id: str, run_id: str, *, adapter=None) -> dict[str, Any]:
+    """Stage the NetBox correction(s) for one INTENT_* drift finding.
+
+    Reads the loaded :Finding row, re-reads the declared object live (fresh
+    NetBox ids, guards stale findings), and stages update candidate(s) with
+    ``source='drift'``, priority derived from the finding severity, and a
+    ``FROM_FINDING`` edge. Idempotent: an already-pending candidate for the
+    same object is skipped, not duplicated.
+
+    Returns:
+        ``{"staged": int, "skipped": int, "candidate_ids": [str, ...]}``
+
+    Raises:
+        KeyError: finding not found for the run.
+        NotCorrectable: the rule has no stageable correction.
+        DriftSourceUnavailable: NetBox unreachable.
+    """
+    from netcopilot.declared_state.staging import (
+        _dedup_key_for_audit,
+        list_pending,
+        stage_candidate,
+    )
+    from netcopilot.graph.client import get_driver
+
+    with get_driver().session() as session:
+        record = session.run(
+            "MATCH (f:Finding {finding_id: $fid, run_id: $run_id}) RETURN f LIMIT 1",
+            fid=finding_id, run_id=run_id,
+        ).single()
+    if record is None:
+        raise KeyError(f"No finding {finding_id!r} for run {run_id!r}")
+    f = dict(record["f"])
+
+    rule_id = f.get("rule_id", "")
+    if rule_id not in _CORRECTABLE_RULES:
+        raise NotCorrectable(
+            f"{rule_id or finding_id} has no stageable NetBox correction — "
+            "creates go through bootstrap; MISSING_IN_NETWORK needs a human decision."
+        )
+
+    device = f.get("device") or f.get("element_id")
+    site = f.get("site")
+    severity = f.get("severity")
+
+    if adapter is None:
+        adapter = get_source("netbox")
+    try:
+        adapter.ping()
+    except Exception as exc:
+        raise DriftSourceUnavailable(
+            f"Declared-state source unreachable — cannot stage a correction: {exc}"
+        ) from exc
+
+    pending_keys = {
+        (r["netbox_object_type"],
+         _dedup_key_for_audit(r["netbox_object_type"], r.get("payload") or {}))
+        for r in list_pending(source="drift")
+    }
+
+    staged: list[str] = []
+    skipped = 0
+
+    def _stage(object_type: str, payload: dict, before: dict, reason: str,
+               affects_interface_id: str | None = None) -> None:
+        nonlocal skipped
+        key = (object_type, _dedup_key_for_audit(object_type, payload))
+        if key in pending_keys:
+            skipped += 1
+            return
+        staged.append(stage_candidate(
+            source="drift",
+            object_type=object_type,
+            payload=payload,
+            before=before,
+            reason=reason,
+            drift_severity=severity,
+            affects_device_name=device,
+            affects_device_site=site,
+            affects_interface_id=affects_interface_id,
+            from_finding_id=finding_id,
+            from_finding_run_id=run_id,
+        ))
+
+    if rule_id in ("INTENT_SERIAL_DRIFT", "INTENT_PLATFORM_DRIFT", "INTENT_SITE_DRIFT"):
+        declared = adapter.get_device(device)
+        if declared is None:
+            raise KeyError(f"Device {device!r} no longer exists in NetBox — re-run the drift check.")
+        observed = f.get("kf_observed")
+        if observed is None:
+            raise NotCorrectable(f"{finding_id}: finding carries no observed value.")
+
+        payload: dict[str, Any] = {"name": device}
+        if rule_id == "INTENT_SERIAL_DRIFT":
+            payload["serial"] = observed
+        elif rule_id == "INTENT_PLATFORM_DRIFT":
+            slug = _PLATFORM_NAME_TO_SLUG.get(observed)
+            if slug is None:
+                raise NotCorrectable(
+                    f"{finding_id}: observed platform {observed!r} maps to no known slug."
+                )
+            payload["platform"] = {"slug": slug}
+        else:
+            payload["site"] = {"slug": observed.lower()}
+
+        _stage(
+            "device", payload,
+            before={**declared, "id": declared["netbox_id"]},
+            reason=f"{rule_id}: update NetBox to the observed value ({observed!r})",
+        )
+
+    else:  # INTENT_INTERFACE_ATTR_DRIFT
+        try:
+            drifted: dict[str, dict] = json.loads(f.get("kf_drift") or "{}")
+        except json.JSONDecodeError as exc:
+            raise NotCorrectable(f"{finding_id}: malformed drift evidence: {exc}") from exc
+        if not drifted:
+            raise NotCorrectable(f"{finding_id}: finding carries no per-interface drift detail.")
+
+        decl_ifaces = {i["name"]: i for i in adapter.get_interfaces(device)}
+        for iface_name, attrs in drifted.items():
+            decl = decl_ifaces.get(iface_name)
+            if decl is None:
+                skipped += 1
+                continue  # interface gone from NetBox since detection
+            payload = {
+                "device": {"name": device},
+                "name": iface_name,
+                "dedup_key": f"{device}::{iface_name}",
+            }
+            for attr, vals in attrs.items():
+                payload[attr] = vals.get("observed")
+            _stage(
+                "interface", payload,
+                before={**decl, "id": decl["netbox_id"]},
+                reason=(f"{rule_id}: {iface_name} — update "
+                        f"{', '.join(sorted(attrs))} to the observed value(s)"),
+            )
+
+    return {"staged": len(staged), "skipped": skipped, "candidate_ids": staged}
+
+
 def _persist(report: DriftReport) -> None:
     """Write the drift artifact + refresh the run's INTENT_* :Finding rows."""
     run_dir = _runs_dir() / report.run_id
