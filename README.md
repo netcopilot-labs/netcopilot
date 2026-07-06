@@ -160,6 +160,25 @@ Telegram bot). Data persists in named volumes across `docker compose down`; add
   In chat: *"what does NetBox say about core-sw-01?"*, *"what did NetCopilot
   write to NetBox?"*. Writes require `NETBOX_WRITE_ENABLED=true` — without it
   NetCopilot is a pure reader (see `CONSTITUTION.md`, Article I).
+
+  Once NetBox knows your devices, it can also **be the inventory** — no YAML
+  file needed. Each NetBox site with devices appears in the dashboard's
+  inventory dropdown as `NetBox: <site>`, and the CLI takes a URI:
+  ```bash
+  netcopilot run --inventory netbox://<site> --site <site>
+  ```
+  A device is collectable when it is `active` and carries a **primary IPv4**
+  (bootstrap stages it from the address collection actually used; for
+  NAT'd/out-of-band management, set it by hand once) and a **platform slug**
+  NetCopilot recognizes (`cisco-ios-xe`, `cisco-ios-xr`, `fortinet-fortios` —
+  bootstrap creates these). Per-device collect hints and credential
+  *references* live in the device's config context under a `netcopilot` key —
+  secrets stay in your environment, NetBox only holds the `${ENV_VAR}` name:
+  ```json
+  {"netcopilot": {"api_token": "${FW1_TOKEN}", "ssh_only": true}}
+  ```
+  YAML inventories keep working exactly as before — NetBox is an additional
+  source, not a replacement (see `inventory/README.md`).
 - **Your Telegram bot.** Set `TELEGRAM_BOT_TOKEN` (from @BotFather) and
   `TELEGRAM_ALLOWED_USERS` in `.env`, then `docker compose up -d telegram`.
 - **Your email (reports).** Set the `SMTP_*` block in `.env` (any SMTP server).

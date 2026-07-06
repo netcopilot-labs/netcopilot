@@ -75,3 +75,75 @@ def test_delete_folder_inventory_removes_the_folder(tmp_path, monkeypatch):
     resp = runs_trigger.delete_inventory("tenant-c")
     assert resp["deleted"] is True
     assert not d.exists()                        # whole folder gone, creds included
+
+
+# ── s15: NetBox entries in the picker ────────────────────────────────────────
+
+class _FakeNetBoxAdapter:
+    sites = [{"slug": "demo", "name": "demo", "device_count": 8},
+             {"slug": "empty-site", "name": "Empty", "device_count": 0}]
+    ping_exc = None
+
+    def __init__(self, timeout=None):
+        pass
+
+    def ping(self):
+        if self.ping_exc:
+            raise self.ping_exc
+
+    def get_sites(self):
+        return list(self.sites)
+
+
+@pytest.fixture()
+def netbox_env(tmp_path, monkeypatch):
+    _isolate_inventory_dir(tmp_path, monkeypatch)
+    monkeypatch.setenv("NETBOX_URL", "http://netbox.example.test")
+    monkeypatch.setenv("NETBOX_API_TOKEN", "nbt_x.y")
+    from netcopilot.declared_state import netbox_adapter as nba
+    monkeypatch.setattr(nba, "NetBoxAdapter", _FakeNetBoxAdapter)
+    monkeypatch.setattr(runs_trigger, "_netbox_probe_warned", False)
+    _FakeNetBoxAdapter.ping_exc = None
+    return tmp_path
+
+
+def test_netbox_entries_listed_per_populated_site(netbox_env):
+    items = {i["id"]: i for i in runs_trigger._list_inventories()}
+    nb = items["netbox-demo"]
+    assert nb["label"] == "NetBox: demo" and nb["kind"] == "netbox"
+    assert nb["site"] == "demo" and nb["path"] == "netbox://demo"
+    assert "netbox-empty-site" not in items      # zero devices → not offered
+
+
+def test_netbox_entries_absent_without_env(tmp_path, monkeypatch):
+    _isolate_inventory_dir(tmp_path, monkeypatch)
+    monkeypatch.delenv("NETBOX_URL", raising=False)
+    monkeypatch.delenv("NETBOX_API_TOKEN", raising=False)
+    assert [i for i in runs_trigger._list_inventories() if i["kind"] == "netbox"] == []
+
+
+def test_netbox_down_yields_no_entries_and_no_error(netbox_env, caplog):
+    _FakeNetBoxAdapter.ping_exc = ConnectionError("refused")
+    import logging
+    with caplog.at_level(logging.WARNING):
+        items = runs_trigger._list_inventories()   # must not raise
+        runs_trigger._list_inventories()           # second fetch: no re-warn
+    assert [i for i in items if i["kind"] == "netbox"] == []
+    assert caplog.text.count("not answering") == 1  # warn once per outage
+
+
+def test_trigger_netbox_inventory_writes_uri_run_config(netbox_env, monkeypatch):
+    import json as json_mod
+    trigger_dir = netbox_env / ".trigger"
+    monkeypatch.setattr(runs_trigger, "_TRIGGER_DIR", trigger_dir)
+    monkeypatch.setattr(runs_trigger, "_FLAG_REQUESTED", trigger_dir / "run_requested")
+    monkeypatch.setattr(runs_trigger, "_FLAG_COMPLETE", trigger_dir / "run_complete")
+    monkeypatch.setattr(runs_trigger, "_FLAG_TRIGGERED_AT", trigger_dir / "triggered_at")
+    monkeypatch.setattr(runs_trigger, "_FLAG_RUN_CONFIG", trigger_dir / "run_config.json")
+    monkeypatch.setattr(runs_trigger, "_PROGRESS_FILE", trigger_dir / ".progress.jsonl")
+
+    out = runs_trigger.trigger_run(runs_trigger.TriggerRequest(inventory_id="netbox-demo"))
+    assert out["status"] == "requested"
+    cfg = json_mod.loads((trigger_dir / "run_config.json").read_text())
+    # collect mode + the URI verbatim — the watcher passes it to --inventory untouched
+    assert cfg == {"mode": "collect", "inventory": "netbox://demo", "site": "demo"}

@@ -84,12 +84,58 @@ def _demo_inventories() -> list[dict]:
     return demos
 
 
+# One warning per outage, not one per dropdown fetch; reset on recovery.
+_netbox_probe_warned = False
+
+
+def _netbox_inventories() -> list[dict]:
+    """One selectable entry per NetBox site holding devices (s15).
+
+    Appears only when NETBOX_URL + NETBOX_API_TOKEN are configured AND NetBox
+    answers a short-timeout probe — a down NetBox must not stall the dropdown
+    (and must not error it: the YAML/demo entries still serve). The entry's
+    ``path`` is the ``netbox://<site>`` URI, which flows through
+    run_config.json and the watcher to ``netcopilot run --inventory``
+    verbatim — the watcher needs no NetBox knowledge.
+    """
+    global _netbox_probe_warned
+    if not (os.environ.get("NETBOX_URL") and os.environ.get("NETBOX_API_TOKEN")):
+        return []
+    try:
+        from netcopilot.declared_state.netbox_adapter import NetBoxAdapter
+
+        adapter = NetBoxAdapter(timeout=2)
+        adapter.ping()
+        sites = adapter.get_sites()
+    except Exception as exc:
+        if not _netbox_probe_warned:
+            log.warning("NetBox configured but not answering — no NetBox "
+                        "inventories offered: %s", exc)
+            _netbox_probe_warned = True
+        return []
+    _netbox_probe_warned = False
+    return [
+        {
+            "id": f"netbox-{s['slug']}",
+            "label": f"NetBox: {s['name']}",
+            "kind": "netbox",
+            "site": s["slug"],
+            "path": f"netbox://{s['slug']}",
+        }
+        for s in sites
+        # A site with zero devices would only offer a guaranteed-empty run;
+        # None (older NetBox without the count) is given the benefit of the doubt.
+        if s.get("device_count") != 0
+    ]
+
+
 def _list_inventories() -> list[dict]:
     """Inventories selectable for 'Run Now': the bundled demo labs (offline
     replay) + the operator's own inventories in the mounted inventory dir —
     either a flat ``<name>.yaml`` (credentials from the root .env) or a
     self-contained folder ``<name>/`` holding ``lab.yaml`` + its own
-    ``credentials.env`` (multitenant — each tenant carries its own secrets)."""
+    ``credentials.env`` (multitenant — each tenant carries its own secrets) +
+    one ``NetBox: <site>`` entry per populated NetBox site (s15)."""
     items = _demo_inventories()
     if _INVENTORY_DIR.is_dir():
         for f in sorted(_INVENTORY_DIR.glob("*.y*ml")):
@@ -103,6 +149,7 @@ def _list_inventories() -> list[dict]:
                     "id": d.name, "label": d.name, "kind": "real",
                     "site": d.name, "path": str(d),
                 })
+    items.extend(_netbox_inventories())
     return items
 
 

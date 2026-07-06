@@ -74,9 +74,15 @@ class NetBoxAdapter(DeclaredStateSource):
 
     # ---------------------------------------------------------------- contract
 
-    def get_devices(self) -> list[dict]:
+    def get_devices(self, site: str | None = None) -> list[dict]:
+        """All devices, or only those of one site (server-side filter by slug)."""
         try:
-            return [self._device_to_dict(d) for d in self._nb.dcim.devices.all()]
+            records = (
+                self._nb.dcim.devices.filter(site=site)
+                if site
+                else self._nb.dcim.devices.all()
+            )
+            return [self._device_to_dict(d) for d in records]
         except Exception as exc:  # network error, auth failure, etc.
             log.error("NetBoxAdapter.get_devices() failed: %s", exc)
             return []
@@ -132,6 +138,38 @@ class NetBoxAdapter(DeclaredStateSource):
         status = str(dev.status) if getattr(dev, "status", None) is not None else None
         serial = str(dev.serial) if getattr(dev, "serial", None) else None
 
+        # Slug/value forms (s15): display strings above are human labels; the
+        # inventory source needs the stable machine identifiers. Brief nested
+        # records carry .slug / .value; absent attributes degrade to None.
+        def _slug_of(rec) -> str | None:
+            if rec is None:
+                return None
+            slug = getattr(rec, "slug", None)
+            return str(slug) if slug else None
+
+        status_rec = getattr(dev, "status", None)
+        status_value = None
+        if status_rec is not None:
+            status_value = getattr(status_rec, "value", None) or str(status_rec).lower()
+
+        vc_rec = getattr(dev, "virtual_chassis", None)
+        vc_name = str(vc_rec.name) if vc_rec is not None and getattr(vc_rec, "name", None) else None
+        cluster_rec = getattr(dev, "cluster", None)
+        cluster_name = (
+            str(cluster_rec.name) if cluster_rec is not None and getattr(cluster_rec, "name", None) else None
+        )
+
+        cc = getattr(dev, "config_context", None)
+        if cc is not None and not isinstance(cc, dict):
+            try:
+                cc = dict(cc)
+            except (TypeError, ValueError):
+                log.warning(
+                    "NetBox device %s: config_context has an unexpected shape (%s) — ignored",
+                    dev.name, type(cc).__name__,
+                )
+                cc = None
+
         return {
             "name": str(dev.name),
             "mgmt_ip": primary_ip,
@@ -141,14 +179,23 @@ class NetBoxAdapter(DeclaredStateSource):
             "status": status,
             "serial": serial,
             "netbox_id": dev.id,
+            "platform_slug": _slug_of(getattr(dev, "platform", None)),
+            "role_slug": _slug_of(getattr(dev, "role", None) or getattr(dev, "device_role", None)),
+            "site_slug": _slug_of(getattr(dev, "site", None)),
+            "status_value": status_value,
+            "virtual_chassis": vc_name,
+            "cluster": cluster_name,
+            "config_context": cc,
         }
 
     @staticmethod
     def _site_to_dict(site) -> dict:
+        count = getattr(site, "device_count", None)
         return {
             "slug": str(site.slug),
             "name": str(site.name),
             "netbox_id": site.id,
+            "device_count": int(count) if count is not None else None,
         }
 
     @staticmethod

@@ -35,7 +35,7 @@ from typing import Any
 from netcopilot.declared_state import get_source
 from netcopilot.declared_state.bootstrap import (
     _INTERFACE_NAME_KEY_PATTERN,
-    _OS_TO_PLATFORM,
+    OS_TO_PLATFORM,
     _attribute_interface_to_position,
     _is_cisco_stack,
     _is_fortigate_ha,
@@ -136,7 +136,7 @@ def _derive_observed(run_id: str, inventory_path: str | Path, warnings: list[str
         site_slug = yaml_site.lower() if isinstance(yaml_site, str) else None
         if site_slug:
             sites.add(site_slug)
-        platform_name = _OS_TO_PLATFORM.get(os_name, (None, None))[1]
+        platform_name = OS_TO_PLATFORM.get(os_name, (None, None))[1]
 
         info_serial = None
         info_platform = None
@@ -435,7 +435,7 @@ _CORRECTABLE_RULES = {
     "INTENT_INTERFACE_ATTR_DRIFT",
 }
 
-_PLATFORM_NAME_TO_SLUG = {name: slug for slug, name in _OS_TO_PLATFORM.values()}
+_PLATFORM_NAME_TO_SLUG = {name: slug for slug, name in OS_TO_PLATFORM.values()}
 
 
 def stage_correction(finding_id: str, run_id: str, *, adapter=None) -> dict[str, Any]:
