@@ -173,6 +173,37 @@ def test_netbox_adapter_reads(monkeypatch):
     assert ifaces[0]["name"] == "Gi1/0/1" and ifaces[0]["mtu"] == 1500
 
 
+def test_netbox_adapter_ip_addresses_carry_operator_meaning(monkeypatch):
+    # s16: dns_name/description/tenant/assigned-object travel; bare-minimum
+    # records (no enrichment) degrade to None fields, never KeyError.
+    api = _install_fake_pynetbox(monkeypatch)
+    class Rec:
+        def __init__(self, **kw): self.__dict__.update(kw)
+        def __str__(self): return str(getattr(self, "name", ""))
+    rich = Rec(id=9, address="198.51.100.26/28", dns_name="cam-lobby-01.branch.example",
+               description="Lobby camera", status=Rec(name="active", value="active"),
+               role=None, tenant=Rec(name="facilities"), tags=[Rec(name="cctv", slug="cctv")],
+               vrf=None,
+               assigned_object=Rec(name="Vlan10", device=Rec(name="acc-sw-03")))
+    bare = Rec(id=10, address="198.51.100.27/28")
+    class EP:
+        def all(self): return [rich, bare]
+    api.ipam = types.SimpleNamespace(ip_addresses=EP())
+    from netcopilot.declared_state.netbox_adapter import NetBoxAdapter
+    a = NetBoxAdapter(url="https://netbox.example.test", token="nbt_x.y")
+    ips = a.get_ip_addresses()
+    r = ips[0]
+    assert r["address"] == "198.51.100.26/28" and r["netbox_id"] == 9
+    assert r["dns_name"] == "cam-lobby-01.branch.example"
+    assert r["description"] == "Lobby camera"
+    assert r["status_value"] == "active" and r["tenant"] == "facilities"
+    assert r["tags"] == ["cctv"]
+    assert r["assigned_device"] == "acc-sw-03" and r["assigned_interface"] == "Vlan10"
+    b = ips[1]
+    assert b["address"] == "198.51.100.27/28"
+    assert b["dns_name"] is None and b["assigned_device"] is None and b["tags"] == []
+
+
 def test_ensure_infrastructure_is_write_gated(monkeypatch):
     # Empty NetBox + writes disabled → the first create attempt raises
     # WritesDisabled BEFORE any API call (Constitution Art. I).

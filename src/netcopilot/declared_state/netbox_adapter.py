@@ -285,12 +285,50 @@ class NetBoxAdapter(DeclaredStateSource):
             return []
 
     def get_ip_addresses(self) -> list[dict]:
+        """All IP addresses, with the operator's meaning attached (s16).
+
+        Beyond the bare address (all bootstrap/drift dedup ever needed), each
+        dict carries the enrichment fields the service layer joins on —
+        ``dns_name`` / ``description`` are the operator-given meaning;
+        ``assigned_device`` / ``assigned_interface`` are the declared
+        binding. All additive; existing consumers are address-keyed.
+        """
         try:
-            return [{"address": str(ip.address), "netbox_id": ip.id}
-                    for ip in self._nb.ipam.ip_addresses.all()]
+            return [self._ip_to_dict(ip) for ip in self._nb.ipam.ip_addresses.all()]
         except Exception as exc:
             log.error("NetBoxAdapter.get_ip_addresses() failed: %s", exc)
             return []
+
+    @staticmethod
+    def _ip_to_dict(ip) -> dict:
+        status_rec = getattr(ip, "status", None)
+        status_value = None
+        if status_rec is not None:
+            status_value = getattr(status_rec, "value", None) or str(status_rec).lower()
+
+        assigned = getattr(ip, "assigned_object", None)
+        assigned_device = None
+        assigned_interface = None
+        if assigned is not None:
+            dev_rec = getattr(assigned, "device", None)
+            if dev_rec is not None and getattr(dev_rec, "name", None):
+                assigned_device = str(dev_rec.name)
+            if getattr(assigned, "name", None):
+                assigned_interface = str(assigned.name)
+
+        return {
+            "address": str(ip.address),
+            "netbox_id": ip.id,
+            "dns_name": str(ip.dns_name) if getattr(ip, "dns_name", None) else None,
+            "description": str(ip.description) if getattr(ip, "description", None) else None,
+            "status_value": status_value,
+            "role": str(ip.role) if getattr(ip, "role", None) is not None else None,
+            "tenant": str(ip.tenant) if getattr(ip, "tenant", None) is not None else None,
+            "tags": [str(getattr(t, "slug", None) or t) for t in (getattr(ip, "tags", None) or [])],
+            "vrf": str(ip.vrf) if getattr(ip, "vrf", None) is not None else None,
+            "assigned_device": assigned_device,
+            "assigned_interface": assigned_interface,
+        }
 
     # ---------------------------------------------------------------- probe
 
