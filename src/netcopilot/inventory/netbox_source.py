@@ -34,6 +34,7 @@ parse-at-construction). Unreachable or misconfigured NetBox raises
 :class:`NetBoxInventoryError` — never an empty device list.
 """
 import logging
+import re
 
 from netcopilot.inventory.base import InventorySource
 
@@ -54,6 +55,30 @@ _HINT_KEYS = (
 
 class NetBoxInventoryError(RuntimeError):
     """NetBox cannot serve as an inventory source (down or misconfigured)."""
+
+
+def _logical_group_name(kind: str, group_name: str, members: list[dict]) -> str:
+    """The collection-target name for a folded VC / HA cluster.
+
+    A virtual chassis IS the logical device — its name is authoritative
+    (bootstrap names it after the inventory entry, and hand-modeled VCs use
+    the VC name as the chassis identity). An HA *cluster*, though, is a
+    grouping label (e.g. the operator's HA-group name), while the member
+    devices carry the device identity as ``<name>-<position>`` (ADR-0013/16):
+    when every member shares one such stem, the stem is the logical device;
+    otherwise (hand-modeled clusters with arbitrary member names) the cluster
+    name is the best available identity. Found live on real HA hardware —
+    folding to the cluster label produced a target the inventory never had.
+    """
+    if kind != "cluster":
+        return group_name
+    stems = set()
+    for m in members:
+        match = re.match(r"^(.+)-\d+$", m.get("name") or "")
+        if not match:
+            return group_name
+        stems.add(match.group(1))
+    return stems.pop() if len(stems) == 1 else group_name
 
 
 def _slug_to_os() -> dict[str, str]:
@@ -143,6 +168,7 @@ class NetBoxInventory(InventorySource):
         # Per-physical members → one logical collection target per VC/cluster,
         # reached through whichever member carries a primary IPv4.
         for (kind, group_name), members in sorted(groups.items()):
+            logical = _logical_group_name(kind, group_name, members)
             with_ip = sorted(
                 (m for m in members if m.get("mgmt_ip")), key=lambda m: m["name"]
             )
@@ -159,7 +185,7 @@ class NetBoxInventory(InventorySource):
                     "collecting via %s (lowest name — deterministic)",
                     kind, group_name, len(with_ip), with_ip[0]["name"],
                 )
-            entry = self._entry_from(with_ip[0], name=group_name)
+            entry = self._entry_from(with_ip[0], name=logical)
             if entry:
                 entries.append(entry)
 

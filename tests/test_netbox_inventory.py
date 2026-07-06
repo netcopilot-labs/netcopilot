@@ -164,24 +164,40 @@ def test_vc_without_any_primary_ip_skipped_naming_the_vc(caplog):
     assert "acc-stack-01" in caplog.text and "primary_ip4" in caplog.text
 
 
-def test_ha_cluster_members_fold_to_one_entry():
+def test_ha_cluster_members_fold_to_the_member_stem_not_the_cluster_label():
+    # Real shape (caught live on HA hardware): the cluster is a grouping
+    # LABEL (e.g. "FW-HA-GROUP"), the device identity is the members' stem.
     members = [
-        _dev(name="edge-fw-01-1", mgmt_ip="192.0.2.1", cluster="edge-fw-01",
+        _dev(name="edge-fw-01-1", mgmt_ip="192.0.2.1", cluster="FW-HA-GROUP",
              platform_slug="fortinet-fortios", role_slug="firewall", netbox_id=20),
-        _dev(name="edge-fw-01-2", mgmt_ip=None, cluster="edge-fw-01",
+        _dev(name="edge-fw-01-2", mgmt_ip=None, cluster="FW-HA-GROUP",
              platform_slug="fortinet-fortios", role_slug="firewall", netbox_id=21),
     ]
     inv = NetBoxInventory("demo", adapter=FakeAdapter(members))
-    entry = inv.get_device("edge-fw-01")
+    entry = inv.get_device("edge-fw-01")                 # the stem, NOT "FW-HA-GROUP"
     assert entry is not None
+    assert inv.get_device("FW-HA-GROUP") is None
     assert entry["os"] == "fortios" and entry["mgmt_ip"] == "192.0.2.1"
+
+
+def test_ha_cluster_without_positional_names_falls_back_to_cluster_name():
+    # Hand-modeled cluster: member names carry no <stem>-<pos> convention →
+    # the cluster name is the only available logical identity.
+    members = [
+        _dev(name="fw-alpha", mgmt_ip="192.0.2.1", cluster="edge-fw-01",
+             platform_slug="fortinet-fortios", netbox_id=20),
+        _dev(name="fw-beta", mgmt_ip=None, cluster="edge-fw-01",
+             platform_slug="fortinet-fortios", netbox_id=21),
+    ]
+    entry = NetBoxInventory("demo", adapter=FakeAdapter(members)).get_device("edge-fw-01")
+    assert entry is not None and entry["mgmt_ip"] == "192.0.2.1"
 
 
 def test_multiple_members_with_primary_ip_pick_is_deterministic():
     members = [
-        _dev(name="edge-fw-01-2", mgmt_ip="192.0.2.2", cluster="edge-fw-01",
+        _dev(name="edge-fw-01-2", mgmt_ip="192.0.2.2", cluster="FW-HA-GROUP",
              platform_slug="fortinet-fortios", netbox_id=21),
-        _dev(name="edge-fw-01-1", mgmt_ip="192.0.2.1", cluster="edge-fw-01",
+        _dev(name="edge-fw-01-1", mgmt_ip="192.0.2.1", cluster="FW-HA-GROUP",
              platform_slug="fortinet-fortios", netbox_id=20),
     ]
     entry = NetBoxInventory("demo", adapter=FakeAdapter(members)).get_device("edge-fw-01")
