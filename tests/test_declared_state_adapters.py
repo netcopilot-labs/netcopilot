@@ -123,8 +123,11 @@ def _install_fake_pynetbox(monkeypatch, devices=()):
     api.http_session = types.SimpleNamespace(verify=None, timeout=None)
     api.dcim = types.SimpleNamespace(
         devices=Endpoint([Rec(id=1, name="acc-sw-01", primary_ip4=Rec(name="192.0.2.11/24"),
-                              role=Rec(name="access_switch"), platform=Rec(name="iosxe"),
-                              site=Rec(name="demo"), status=Rec(name="active"))] + list(devices)),
+                              role=Rec(name="access_switch", slug="access-switch"),
+                              platform=Rec(name="iosxe", slug="cisco-ios-xe"),
+                              site=Rec(name="demo", slug="demo"),
+                              status=Rec(name="active", value="active"),
+                              config_context={"netcopilot": {"ssh_only": True}})] + list(devices)),
         sites=Endpoint([Rec(id=1, slug="demo", name="demo")]),
         interfaces=Endpoint([Rec(id=7, name="Gi1/0/1", device=Rec(name="acc-sw-01"),
                                  enabled=True, type=Rec(name="1000base-t"),
@@ -154,6 +157,16 @@ def test_netbox_adapter_reads(monkeypatch):
     assert devs[0]["name"] == "acc-sw-01"
     assert devs[0]["mgmt_ip"] == "192.0.2.11"    # /24 stripped
     assert devs[0]["role"] == "access_switch"
+    # s15 slug/value forms for the inventory source
+    assert devs[0]["platform_slug"] == "cisco-ios-xe"
+    assert devs[0]["role_slug"] == "access-switch"
+    assert devs[0]["site_slug"] == "demo"
+    assert devs[0]["status_value"] == "active"
+    assert devs[0]["virtual_chassis"] is None and devs[0]["cluster"] is None
+    assert devs[0]["config_context"] == {"netcopilot": {"ssh_only": True}}
+    # server-side site scoping (fake filter compares str(site) == value)
+    assert [d["name"] for d in a.get_devices(site="demo")] == ["acc-sw-01"]
+    assert a.get_devices(site="other") == []
     assert a.get_device("nope") is None
     assert a.get_sites()[0]["slug"] == "demo"
     ifaces = a.get_interfaces("acc-sw-01")

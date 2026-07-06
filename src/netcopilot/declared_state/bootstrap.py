@@ -48,7 +48,7 @@ _OS_TO_MANUFACTURER = {
 }
 
 # Platform slug + display name. NetBox best-practice is a stable slug.
-_OS_TO_PLATFORM = {
+OS_TO_PLATFORM = {
     "ios-xr": ("cisco-ios-xr", "Cisco IOS-XR"),
     "ios-xe": ("cisco-ios-xe", "Cisco IOS-XE"),
     "fortios": ("fortinet-fortios", "Fortinet FortiOS"),
@@ -324,7 +324,7 @@ def _bootstrap_platforms(yaml_devices, pending_index, result, *, netbox_platform
     seen: set[str] = set()
     for dev in yaml_devices:
         os_name = normalize_os(dev.get("os") or "")
-        platform = _OS_TO_PLATFORM.get(os_name)
+        platform = OS_TO_PLATFORM.get(os_name)
         if not platform:
             continue
         slug, display_name = platform
@@ -481,7 +481,7 @@ def _bootstrap_devices(
         is_ha = _is_fortigate_ha(os_name, members)
 
         # Per-inventory-entry context shared across member candidates
-        platform_slug = _OS_TO_PLATFORM.get(os_name, (None, None))[0]
+        platform_slug = OS_TO_PLATFORM.get(os_name, (None, None))[0]
         role_value = dev.get("role")
         role_slug = role_value.replace("_", "-").lower() if isinstance(role_value, str) else None
         yaml_site = dev.get("site")
@@ -1288,7 +1288,7 @@ def _target_member_for(dev: dict, iface_full_name: str, run_id: str) -> str:
 
 
 def _split_ip_len(ip, plen):
-    """Some sources embed the mask in ip_address ("10.255.1.1/24", plen=None)."""
+    """Some sources embed the mask in ip_address ("192.0.2.5/24", plen=None)."""
     if not ip or ip == "unassigned":
         return None, None
     if plen is None and isinstance(ip, str) and "/" in ip:
