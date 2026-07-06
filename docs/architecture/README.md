@@ -179,10 +179,15 @@ served over MCP. The architecture is deliberately built so that **new context
 sources, triggers, and consumers plug into the same seam (MCP + the graph)** —
 not bolted on. The directions on the roadmap:
 
-- **NetBox, both ways.** Read NetBox as the *intended* source of truth and
-  reconcile it against the *actual* discovered state — or go the other way and
-  **populate NetBox from what NetCopilot discovers**. Intended vs. actual, in one
-  model.
+- **NetBox, both ways — shipped.** Read NetBox as the *intended* source of
+  truth and reconcile it against the *actual* discovered state (drift
+  findings), populate NetBox from what NetCopilot discovers (the staged,
+  human-approved bootstrap), collect straight from it
+  (`--inventory netbox://<site>`) — and join the two into the **service
+  layer**: operator-named IPs (`dns_name`/description in IPAM) located on
+  the real topology via ARP/MAC observation, as `:Service` nodes that
+  `find_service`, `blast_radius`, `trace_path` and the Service topology
+  view all consume. Intended vs. actual, in one model.
 - **Telemetry-driven runs.** Ingest streaming telemetry, and let **telemetry
   events trigger a fresh run** — so the model refreshes when the network changes,
   not only on a schedule.
