@@ -352,3 +352,88 @@ def test_natural_key_resolvers_for_s14_types(writes_on):
     # cable: no reliable natural key → None, never a guessed match
     assert staging._resolve_by_natural_key(
         adapter, "cable", "a:Gi1--b:Gi1", {}) is None
+
+
+# ── s15: device_primary_ip (PATCH device.primary_ip4) ────────────────────────
+
+def _primary_ip_adapter(dev_rec, ip_records=()):
+    adapter = MagicMock()
+    adapter._nb.dcim.devices.get.return_value = dev_rec
+    adapter._nb.ipam.ip_addresses.filter.return_value = list(ip_records)
+    return adapter
+
+
+def test_s15_type_valid_and_ordered_after_ipaddress():
+    assert "device_primary_ip" in VALID_OBJECT_TYPES
+    order = staging._TOPOLOGICAL_ORDER
+    assert order.index("ipaddress") < order.index("device_primary_ip")
+    assert order.index("device_primary_ip") < order.index("cable")
+
+
+def test_write_primary_ip_patches_device(writes_on):
+    dev = MagicMock(id=42)
+    dev.primary_ip4 = None
+    dev.serialize.return_value = {"id": 42, "name": "acc-sw-01"}
+    ip = MagicMock(id=7)
+    ip.assigned_object.device.name = "acc-sw-01"
+    adapter = _primary_ip_adapter(dev, [ip])
+    r = _write_to_netbox(adapter, "device_primary_ip",
+                         {"device": "acc-sw-01", "address": "192.0.2.11/24"})
+    assert r["api_method"] == "PATCH" and r["api_response_status"] == 200
+    assert r["netbox_object_id"] == 42
+    dev.update.assert_called_once_with({"primary_ip4": 7})
+
+
+def test_write_primary_ip_never_overwrites_existing(writes_on):
+    dev = MagicMock(id=42)                       # primary_ip4 auto-Mock = set
+    dev.serialize.return_value = {"id": 42}
+    adapter = _primary_ip_adapter(dev)
+    r = _write_to_netbox(adapter, "device_primary_ip",
+                         {"device": "acc-sw-01", "address": "192.0.2.11/24"})
+    assert r["api_response_status"] == 200 and "kept" in r["reason_append"]
+    dev.update.assert_not_called()               # non-destructive: no PATCH sent
+    adapter._nb.ipam.ip_addresses.filter.assert_not_called()
+
+
+def test_write_primary_ip_device_missing_retryable(writes_on):
+    adapter = _primary_ip_adapter(None)
+    r = _write_to_netbox(adapter, "device_primary_ip",
+                         {"device": "ghost-sw", "address": "192.0.2.11/24"})
+    assert r["api_response_status"] == 422
+    assert "device candidate first" in r["reason_append"]
+
+
+def test_write_primary_ip_ip_missing_retryable(writes_on):
+    dev = MagicMock(id=42)
+    dev.primary_ip4 = None
+    adapter = _primary_ip_adapter(dev, [])
+    r = _write_to_netbox(adapter, "device_primary_ip",
+                         {"device": "acc-sw-01", "address": "192.0.2.11/24"})
+    assert r["api_response_status"] == 422
+    assert "ipaddress candidate first" in r["reason_append"]
+    dev.update.assert_not_called()
+
+
+def test_write_primary_ip_assigned_elsewhere_refuses(writes_on):
+    dev = MagicMock(id=42)
+    dev.primary_ip4 = None
+    ip = MagicMock(id=7)
+    ip.assigned_object.device.name = "other-sw"
+    adapter = _primary_ip_adapter(dev, [ip])
+    r = _write_to_netbox(adapter, "device_primary_ip",
+                         {"device": "acc-sw-01", "address": "192.0.2.11/24"})
+    assert r["api_response_status"] == 422
+    assert "other-sw" in r["reason_append"]
+    dev.update.assert_not_called()
+
+
+def test_write_primary_ip_unassigned_ip_refuses_with_guidance(writes_on):
+    dev = MagicMock(id=42)
+    dev.primary_ip4 = None
+    ip = MagicMock(id=7)
+    ip.assigned_object = None                    # IP exists but floats unassigned
+    adapter = _primary_ip_adapter(dev, [ip])
+    r = _write_to_netbox(adapter, "device_primary_ip",
+                         {"device": "acc-sw-01", "address": "192.0.2.11/24"})
+    assert r["api_response_status"] == 422
+    assert "not assigned" in r["reason_append"]

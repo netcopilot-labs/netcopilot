@@ -64,6 +64,7 @@ VALID_OBJECT_TYPES = frozenset(
         "cluster",          # dcim.Cluster for firewall HA pairs
         "virtual_chassis",  # dcim.VirtualChassis for switch stacks
         "inventory_item",   # dcim.InventoryItem for transceivers/SFPs
+        "device_primary_ip",  # s15: PATCH device.primary_ip4 (the mgmt IP collection used)
     }
 )
 
@@ -382,6 +383,7 @@ _NETBOX_ENDPOINT_MAP = {
     "prefix":          ("ipam",           "prefixes"),
     "ipaddress":       ("ipam",           "ip_addresses"),
     "cable":           ("dcim",           "cables"),
+    "device_primary_ip": ("dcim",         "devices"),  # s15: PATCHes the Device record
 }
 
 # Bulk approve writes parents before dependents. virtual_chassis precedes
@@ -390,7 +392,7 @@ _NETBOX_ENDPOINT_MAP = {
 _TOPOLOGICAL_ORDER = (
     "site", "vrf", "vlan", "prefix",
     "cluster", "virtual_chassis", "manufacturer", "platform",
-    "device", "interface", "ipaddress", "inventory_item", "cable",
+    "device", "interface", "ipaddress", "device_primary_ip", "inventory_item", "cable",
 )
 
 # Mirror of bootstrap's dedup-key fields — kept in sync but local to avoid
@@ -408,8 +410,8 @@ _AUDIT_DEDUP_KEY_FIELD = {
     "prefix": "dedup_key",      # "<vrf-or-global>::<cidr>"
     "ipaddress": "address",     # CIDR string is globally unique enough here
     "cable": "dedup_key",       # order-independent "<a>--<b>" termination pair
-    "ipaddress": "address",
     "inventory_item": "dedup_key",  # device::iface::serial (set at stage time)
+    "device_primary_ip": "device",  # one primary IP per (member) device (s15)
 }
 
 # Hardcoded operator until multi-user has a real driver.
@@ -718,6 +720,84 @@ def _write_to_netbox(
                         "candidates first, then retry"
                     ),
                 }
+
+    # device_primary_ip (s15) PATCHes an existing Device's primary_ip4 with the
+    # NetBox id of an already-written IPAddress. Both FKs resolve at write time
+    # (same pattern as ipaddress/cable hints); unresolvable → retryable 422.
+    # Non-destructive by construction: a primary IP already present in NetBox
+    # is KEPT — the candidate completes as a no-op with the reason recorded.
+    if object_type == "device_primary_ip":
+        payload = dict(payload)
+        dev_name = payload.pop("device", None)
+        address = payload.pop("address", None)
+        if not dev_name or not address:
+            return {
+                "api_method": "PATCH", "api_response_status": 400,
+                "netbox_object_id": None, "after_json": None,
+                "reason_append": " — malformed candidate: needs device + address",
+            }
+        try:
+            dev_rec = adapter._nb.dcim.devices.get(name=dev_name)
+        except Exception:
+            dev_rec = None
+        if dev_rec is None:
+            return {
+                "api_method": "PATCH", "api_response_status": 422,
+                "netbox_object_id": None, "after_json": None,
+                "reason_append": (
+                    f" — device {dev_name!r} not found in NetBox; approve the "
+                    "device candidate first, then retry"
+                ),
+            }
+        if getattr(dev_rec, "primary_ip4", None) is not None:
+            return {
+                "api_method": "PATCH", "api_response_status": 200,
+                "netbox_object_id": dev_rec.id,
+                "after_json": _record_to_after_json(dev_rec),
+                "reason_append": (
+                    f" — primary_ip4 is already {dev_rec.primary_ip4} in NetBox; "
+                    "kept (an operator's value is never overwritten)"
+                ),
+            }
+        try:
+            ip_candidates = list(adapter._nb.ipam.ip_addresses.filter(address=address))
+        except Exception:
+            ip_candidates = []
+        own, foreign_owner = None, None
+        for rec in ip_candidates:
+            assigned = getattr(rec, "assigned_object", None)
+            owner_rec = getattr(assigned, "device", None) if assigned is not None else None
+            owner = str(getattr(owner_rec, "name", "")) if owner_rec is not None else None
+            if owner == dev_name:
+                own = rec
+                break
+            if owner:
+                foreign_owner = owner
+        if own is None:
+            if foreign_owner:
+                hint = (
+                    f" — {address} is assigned to {foreign_owner!r}, not {dev_name!r}; "
+                    "fix the assignment in NetBox, then retry"
+                )
+            elif ip_candidates:
+                hint = (
+                    f" — {address} exists in NetBox but is not assigned to an "
+                    f"interface of {dev_name!r} (NetBox requires the assignment); "
+                    "approve/fix the ipaddress candidate first, then retry"
+                )
+            else:
+                hint = (
+                    f" — {address} not found in NetBox; approve the ipaddress "
+                    "candidate first, then retry"
+                )
+            return {
+                "api_method": "PATCH", "api_response_status": 422,
+                "netbox_object_id": None, "after_json": None,
+                "reason_append": hint,
+            }
+        is_update, existing_id = True, dev_rec.id
+        api_method = "PATCH"
+        payload = {"primary_ip4": own.id}
 
     def _attempt() -> dict[str, Any]:
         """Single write attempt — returns a result dict OR re-raises pynetbox/network errors."""

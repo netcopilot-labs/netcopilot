@@ -244,6 +244,11 @@ def run(run_id: str, inventory_path: str | Path) -> BootstrapResult:
     if model is not None:
         _bootstrap_ipam(yaml_devices, model, run_id, pending_index, result,
                         netbox_adapter=netbox_adapter)
+        # primary_ip4 (s15): the mgmt IP collection used, so NetBox can serve
+        # as the inventory source (netbox://<site>). After _bootstrap_ipam so
+        # the IPAddress candidates it depends on stage first.
+        _bootstrap_primary_ips(yaml_devices, model, run_id, pending_index, result,
+                               netbox_adapter=netbox_adapter)
         _bootstrap_cables(yaml_devices, model, run_id, pending_index, result,
                           netbox_adapter=netbox_adapter)
 
@@ -1086,6 +1091,7 @@ _DEDUP_KEY_FIELD = {
     "cluster": "name",    # dcim.Cluster's natural key is its name
     "virtual_chassis": "name",  # dcim.VirtualChassis natural key
     "inventory_item": "dedup_key",  # <device>::<iface>::<serial>
+    "device_primary_ip": "device",  # one primary IP per (member) device (s15)
 }
 
 
@@ -1474,6 +1480,82 @@ def _bootstrap_ipam(yaml_devices, model, run_id, pending_index, result, *, netbo
             affects_device_site=(dev.get("site") or "").lower() or None,
         )
         result.new["ipaddress"] = result.new.get("ipaddress", 0) + 1
+
+
+def _bootstrap_primary_ips(yaml_devices, model, run_id, pending_index, result,
+                           *, netbox_adapter=None):
+    """Stage ``device_primary_ip`` candidates — NetBox's canonical mgmt-IP field.
+
+    Deterministic contract (s15): the staged value is exactly the inventory
+    ``mgmt_ip`` collection used, matched to the collected interface that
+    carries it (NetBox requires a primary IP to be assigned to one of the
+    device's interfaces). Stack/HA members: the candidate targets the physical
+    member that owns the matching interface. A device whose mgmt IP is not
+    found on any collected interface is skipped with an explicit warning —
+    the assignment is never invented. Devices already carrying a primary IPv4
+    in NetBox are skipped (an operator's value is never overwritten).
+    """
+    from netcopilot.model.interface_normalizer import canonicalize
+
+    yaml_by_name = {d.get("name"): d for d in yaml_devices if d.get("name")}
+    model_ifaces = [i for i in model.get("interfaces", []) if i.get("device_id") in yaml_by_name]
+    full_names = _full_iface_names(yaml_devices, run_id)
+
+    nb_primary_by_name: dict[str, str | None] = {}
+    if netbox_adapter:
+        nb_primary_by_name = {d["name"]: d.get("mgmt_ip") for d in netbox_adapter.get_devices()}
+
+    for dev in yaml_devices:
+        name = dev.get("name")
+        mgmt_ip = dev.get("mgmt_ip")
+        if not name or not mgmt_ip:
+            continue
+
+        match_iface, match_plen = None, None
+        for i in model_ifaces:
+            if i.get("device_id") != name:
+                continue
+            ip, plen = _split_ip_len(i.get("ip_address"), i.get("prefix_length"))
+            if ip == mgmt_ip:
+                match_iface, match_plen = i, plen
+                break
+        if match_iface is None:
+            result.warnings.append(
+                f"{name}: mgmt IP {mgmt_ip} was not found on any collected interface — "
+                "primary_ip4 not staged (NetBox requires the IP assigned to an interface; "
+                "set it manually if the management address lives out of collection scope)."
+            )
+            continue
+        if match_plen is None:
+            result.warnings.append(
+                f"{name}: mgmt IP {mgmt_ip} on {match_iface.get('name')} has no prefix "
+                "length — primary_ip4 not staged."
+            )
+            continue
+        cidr = f"{mgmt_ip}/{match_plen}"
+
+        canon = canonicalize(match_iface.get("name"))
+        full = full_names.get(name, {}).get(canon) or match_iface.get("name")
+        target = _target_member_for(dev, full, run_id)
+
+        if nb_primary_by_name.get(target):
+            result.skipped["device_primary_ip"] = result.skipped.get("device_primary_ip", 0) + 1
+            continue
+        if _already_pending(pending_index, "device_primary_ip", target):
+            result.skipped["device_primary_ip"] = result.skipped.get("device_primary_ip", 0) + 1
+            continue
+
+        stage_candidate(
+            source="bootstrap", object_type="device_primary_ip",
+            payload={"device": target, "address": cidr},
+            reason=(
+                f"management IP the collection used ({cidr} on {target}/{full}, "
+                f"run {run_id}) — makes NetBox usable as the inventory source"
+            ),
+            affects_device_name=name,
+            affects_device_site=(dev.get("site") or "").lower() or None,
+        )
+        result.new["device_primary_ip"] = result.new.get("device_primary_ip", 0) + 1
 
 
 # Link confidences that count as physical-cable evidence. Medium/low

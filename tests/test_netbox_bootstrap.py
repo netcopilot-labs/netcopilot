@@ -626,3 +626,80 @@ def test_vlan_skipped_when_site_unresolvable(env, monkeypatch):
     result = bootstrap.run("demo-run", inventory_path=tmp_path / "lab.yaml")
     assert [c for c in staged if c["object_type"] == "vlan"] == []
     assert any("references site 'branch'" in w and "skipped" in w for w in result.warnings)
+
+
+# ── s15: primary_ip4 candidates (device_primary_ip) ──────────────────────────
+
+def _add_mgmt_interfaces(tmp_path):
+    """Give the model (and genie facts) mgmt SVIs carrying the inventory
+    mgmt_ips, so primary_ip4 candidates can stage deterministically."""
+    for host in ("acc-sw-01", "core-st-01"):
+        f = tmp_path / f"demo-run/facts/{host}/genie_interface.json"
+        gi = json.loads(f.read_text())
+        gi["Vlan100"] = {"oper_status": "up"}
+        f.write_text(json.dumps(gi))
+    mf = tmp_path / "demo-run/model/network_model.json"
+    model = json.loads(mf.read_text())
+    model["interfaces"] += [
+        {"interface_id": "acc-sw-01:Vlan100", "device_id": "acc-sw-01",
+         "name": "Vlan100", "ip_address": "192.0.2.11", "prefix_length": 24,
+         "vrf": None},
+        {"interface_id": "core-st-01:Vlan100", "device_id": "core-st-01",
+         "name": "Vlan100", "ip_address": "192.0.2.21", "prefix_length": 24,
+         "vrf": None},
+    ]
+    mf.write_text(json.dumps(model))
+
+
+def test_primary_ip_staged_from_collection_mgmt_ip(env):
+    tmp_path, staged = env
+    _write_model(tmp_path)
+    _add_mgmt_interfaces(tmp_path)
+
+    result = bootstrap.run("demo-run", inventory_path=tmp_path / "lab.yaml")
+    prim = {c["payload"]["device"]: c["payload"]["address"]
+            for c in _by_type_s14(staged).get("device_primary_ip", [])}
+    # exactly the mgmt IP collection used; stack candidate targets the member
+    # that owns the mgmt interface
+    assert prim == {"acc-sw-01": "192.0.2.11/24", "core-st-01-1": "192.0.2.21/24"}
+    # firewall mgmt IP is on no collected interface → warned, never invented
+    assert any("edge-fw-01" in w and "primary_ip4 not staged" in w
+               for w in result.warnings)
+
+
+def test_primary_ip_skips_when_netbox_already_has_one(env, monkeypatch):
+    tmp_path, staged = env
+    _write_model(tmp_path)
+    _add_mgmt_interfaces(tmp_path)
+
+    class NB:
+        def get_devices(self):
+            # operator already set a primary IP on the standalone switch
+            return [{"name": "acc-sw-01", "mgmt_ip": "192.0.2.99"}]
+
+    import yaml as yaml_mod
+    yaml_devices = yaml_mod.safe_load(INVENTORY)["devices"]
+    model = json.loads((tmp_path / "demo-run/model/network_model.json").read_text())
+    result = bootstrap.BootstrapResult()
+    bootstrap._bootstrap_primary_ips(
+        yaml_devices, model, "demo-run", {}, result, netbox_adapter=NB())
+    prim = [c for c in staged if c["object_type"] == "device_primary_ip"]
+    assert [c["payload"]["device"] for c in prim] == ["core-st-01-1"]
+    assert result.skipped["device_primary_ip"] == 1     # kept the operator's value
+
+
+def test_primary_ip_rerun_dedups_against_pending(env):
+    tmp_path, staged = env
+    _write_model(tmp_path)
+    _add_mgmt_interfaces(tmp_path)
+
+    import yaml as yaml_mod
+    yaml_devices = yaml_mod.safe_load(INVENTORY)["devices"]
+    model = json.loads((tmp_path / "demo-run/model/network_model.json").read_text())
+    result = bootstrap.BootstrapResult()
+    pending = {("device_primary_ip", "acc-sw-01"): "cand-x",
+               ("device_primary_ip", "core-st-01-1"): "cand-y"}
+    bootstrap._bootstrap_primary_ips(
+        yaml_devices, model, "demo-run", pending, result, netbox_adapter=None)
+    assert [c for c in staged if c["object_type"] == "device_primary_ip"] == []
+    assert result.skipped["device_primary_ip"] == 2
