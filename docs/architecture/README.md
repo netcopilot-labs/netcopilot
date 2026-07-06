@@ -34,7 +34,7 @@ replayed or audited.
 
 ```mermaid
 flowchart LR
-  INV["Inventory<br/>(YAML / folder per tenant)"] --> COL
+  INV["Inventory<br/>(YAML / folder per tenant / NetBox site)"] --> COL
   subgraph COL["Collect (read-only)"]
     direction TB
     C1["pyATS"] --> C2["NETCONF"] --> C3["RESTCONF"] --> C4["REST (FortiGate)"] --> C5["SSH"]
@@ -49,7 +49,7 @@ flowchart LR
 
 | Stage | What it does |
 |---|---|
-| **Inventory** | Devices to collect (`name`, `mgmt_ip`, `os`, `role`, `site`). One YAML for a single network, or a self-contained folder per tenant (`lab.yaml` + `credentials.env`). |
+| **Inventory** | Devices to collect (`name`, `mgmt_ip`, `os`, `role`, `site`). One YAML for a single network, a self-contained folder per tenant (`lab.yaml` + `credentials.env`), or **NetBox itself** (`--inventory netbox://<site>`) — the declared-state layer becomes the device list: `mgmt_ip` from `primary_ip4`, `os` from the platform slug, per-device hints from config context (see `inventory/README.md`). |
 | **Collect** | Per device, tries `pyATS → NETCONF → RESTCONF → REST → SSH` until one works. Cisco over the SSH/NETCONF stack; FortiGate over its REST API. Strictly read-only — NetCopilot never changes a device. |
 | **Parse** | Normalizes raw output into canonical JSON facts, so the layers above don't care which protocol or vendor produced them. |
 | **Model** | The link-builder turns per-device facts into a typed, **evidence-backed** topology; the model-builder assembles devices, interfaces, VLANs, routing, and shared services. |
