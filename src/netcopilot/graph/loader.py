@@ -31,6 +31,8 @@ from .schema import (
     FINDING,
     FIREWALL_POLICY,
     HAS_ARP,
+    HAS_MAC,
+    MAC_ENTRY,
     HAS_FINDING,
     HAS_INTERFACE,
     HAS_LSA,
@@ -55,6 +57,7 @@ from .schema import (
     SECURITY_CONFIG,
     SHARED_SERVICE,
     VLAN,
+    ensure_indexes,
 )
 
 logger = logging.getLogger(__name__)
@@ -161,6 +164,11 @@ def load_model(
             f"Network model not found: {model_path}. Run the pipeline first (netcopilot run)."
         )
 
+    # Ensure the schema indexes exist (idempotent CREATE ... IF NOT EXISTS).
+    # INDEX_DEFINITIONS had no caller until s16 — every deployment was running
+    # unindexed; wiring it here fixes that on the next load, everywhere.
+    ensure_indexes(driver)
+
     # -------------------------------------------------------------------------
     # Load model JSON
     # -------------------------------------------------------------------------
@@ -207,6 +215,7 @@ def load_model(
     # Firewall policies (FortiGate policy resolution + Cisco ACLs) and ARP entries.
     counts["firewall_policies"] = _load_firewall_policies(driver, run_dir, site, run_id)
     counts["arp_entries"] = _load_arp_entries(driver, run_dir, site, run_id)
+    counts["mac_entries"] = _load_mac_entries(driver, run_dir, site, run_id)
     counts["isdb_services"] = _load_isdb_services(driver, run_dir, site, run_id)
     # Route-policies + prefix-sets, security configs, and VRFs (as SharedServices).
     rp_count, pse_count = _load_route_policies_and_prefix_sets(driver, run_dir, site, run_id)
@@ -2703,6 +2712,84 @@ def _load_arp_entries(
 
     logger.info("Neo4j: created %d ArpEntry nodes", len(arp_params))
     return len(arp_params)
+
+
+def _load_mac_entries(
+    driver,
+    run_dir: Path,
+    site: str,
+    run_id: str,
+) -> int:
+    """Load MAC-table (FDB) rows as MacEntry nodes in Neo4j (s16).
+
+    Source: Cisco ``genie_fdb.json`` (``mac_table.vlans.<vid>.mac_addresses.
+    <mac>.interfaces.<if>``). FortiGates expose no per-device FDB file — the
+    firewall's MACs are observed FROM the switches' tables, so a Cisco-only
+    load still covers every attached host the fabric has learned. Until now
+    FDB fed only link inference (link_builder); persisting it makes per-port
+    host location graph-queryable (the service join's port-refinement tier).
+
+    Returns:
+        Number of MacEntry nodes created.
+    """
+    facts_dir = run_dir / "facts"
+    if not facts_dir.is_dir():
+        return 0
+
+    mac_params: list[dict[str, Any]] = []
+
+    for device_dir in sorted(facts_dir.iterdir()):
+        if not device_dir.is_dir():
+            continue
+        device = device_dir.name
+
+        genie_fdb = device_dir / "genie_fdb.json"
+        if not genie_fdb.exists():
+            continue
+        try:
+            data = json.loads(genie_fdb.read_text())
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning("Failed to parse Genie FDB for %s: %s", device, exc)
+            continue
+
+        for vlan_key, vlan_data in (data.get("mac_table", {}).get("vlans", {}) or {}).items():
+            if not isinstance(vlan_data, dict):
+                continue
+            vlan = vlan_data.get("vlan", vlan_key)
+            for mac, mac_data in (vlan_data.get("mac_addresses", {}) or {}).items():
+                if not isinstance(mac_data, dict):
+                    continue
+                for intf_name, intf_data in (mac_data.get("interfaces", {}) or {}).items():
+                    entry_type = (
+                        intf_data.get("entry_type", "")
+                        if isinstance(intf_data, dict) else ""
+                    )
+                    mac_params.append({
+                        "mac": _normalize_mac(mac),
+                        "vlan": str(vlan),
+                        "interface": intf_name,
+                        "entry_type": entry_type or "dynamic",
+                        "device": device,
+                        "site": site,
+                        "run_id": run_id,
+                    })
+
+    if not mac_params:
+        return 0
+
+    with driver.session() as session:
+        session.run(
+            f"""
+            UNWIND $entries AS e
+            MATCH (d:{DEVICE} {{site: e.site, run_id: e.run_id, name: e.device}})
+            CREATE (d)-[:{HAS_MAC}]->(m:{MAC_ENTRY})
+            SET m = e
+            """,
+            entries=mac_params,
+        )
+
+    logger.info("Neo4j: created %d MacEntry nodes", len(mac_params))
+    return len(mac_params)
 
 
 def _load_isdb_services(
