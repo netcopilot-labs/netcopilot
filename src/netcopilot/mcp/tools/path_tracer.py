@@ -991,11 +991,67 @@ async def trace_path(
     if not source_device:
         return ToolResult("error", "Specify source_device or service parameter.")
 
+    def _resolve_source_ip_or_service(term: str, run_id: str):
+        """s16: source given as an end-host IP or a :Service name →
+        (owning_device, how, service_ip|None), or None."""
+        import ipaddress as _ipaddr
+
+        from netcopilot.graph.client import get_driver as _get_driver
+        from netcopilot.mcp.tools.shared_services import resolve_ip_owner
+
+        driver = _get_driver()
+        is_ip = True
+        try:
+            _ipaddr.ip_address(term.strip().split("/")[0])
+        except ValueError:
+            is_ip = False
+
+        if is_ip:
+            owner = resolve_ip_owner(term.strip().split("/")[0], run_id, driver)
+            if owner and owner["kind"] in ("interface", "subnet", "arp"):
+                m = owner["matches"][0]  # deterministic: exact/most-specific/first
+                how = {"interface": "an interface of this device",
+                       "subnet": "host in a connected subnet — gateway approximation",
+                       "arp": "host seen in this device's ARP table"}[owner["kind"]]
+                return m["device"], how, term.strip().split("/")[0]
+            return None
+
+        with driver.session() as session:
+            rows = [dict(r) for r in session.run(
+                "MATCH (s:Service {run_id: $run_id}) "
+                "WHERE s.device IS NOT NULL AND ("
+                "  toLower(s.name) CONTAINS toLower($q) "
+                "  OR toLower(coalesce(s.dns_name, '')) CONTAINS toLower($q)) "
+                "RETURN s.name AS name, s.device AS device, s.ip AS ip, "
+                "       s.location_method AS method "
+                "ORDER BY s.name LIMIT 1",
+                run_id=run_id, q=term.strip(),
+            )]
+        if rows:
+            s = rows[0]
+            return s["device"], f"service '{s['name']}' ({s['method']}-located)", s["ip"]
+        return None
+
     resolved = _shared_resolve(source_device, run_id)
     if not resolved:
-        suggestion = suggest_devices(source_device, run_id)
-        return ToolResult("not_found", f"Device '{source_device}' not found.{suggestion}")
-    source_device = resolved
+        # s16: the "source" may be an end-host IP or an operator-named
+        # service (NetBox×observed :Service) — resolve it to the owning
+        # device instead of failing.
+        owner = _resolve_source_ip_or_service(source_device, run_id)
+        if owner is None:
+            suggestion = suggest_devices(source_device, run_id)
+            return ToolResult("not_found", (
+                f"'{source_device}' is not a device name, a known service, or an "
+                f"IP the network has seen.{suggestion}"
+            ))
+        owner_device, how, owner_ip = owner
+        lines.append(f"Source: {source_device} → {owner_device} ({how})")
+        lines.append("")
+        if owner_ip and not src_ip:
+            src_ip = owner_ip  # the service's address is the natural flow source
+        source_device = owner_device
+    else:
+        source_device = resolved
 
     # ── Build IP lookup ─────────────────────────────────────────────
     ip_to_device = _build_ip_to_device(run_id)

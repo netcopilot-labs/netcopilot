@@ -199,18 +199,22 @@ async def get_shared_services(
     return ToolResult("ok", "\n".join(lines))
 
 
-async def _lookup_ip(ip: str, run_id: str, driver) -> ToolResult:
-    """Find which device, interface, and VLAN owns an IP address.
+def resolve_ip_owner(ip: str, run_id: str, driver) -> dict | None:
+    """3-tier IP→owner resolution (the data core behind ``_lookup_ip``).
 
-    Two strategies:
-    1. Exact match: IP is directly assigned to an interface
-    2. Subnet match: IP falls within a connected subnet (same broadcast domain)
+    Tiers, in order (first hit wins — same short-circuiting the rendered
+    lookup always had): (1) ``interface`` — the IP IS an interface;
+    (2) ``subnet`` — a host inside a connected subnet, matches sorted
+    most-specific-first; (3) ``arp`` — a host seen in ARP tables.
+
+    Returns ``{"kind": <tier>, "matches": [rows]}``; ``{"kind": "invalid"}``
+    for an unparseable address; ``None`` when the network has never seen it.
+    Consumers: ``_lookup_ip`` (rendering), ``trace_path`` source resolution
+    (s16). Kept data-only so every consumer renders its own honesty.
     """
     import ipaddress
 
     ip = ip.strip()
-    lines = [f"IP lookup: {ip}", ""]
-
     with driver.session() as session:
         # 1. Exact match — the IP is on an interface
         result = session.run(
@@ -223,31 +227,14 @@ async def _lookup_ip(ip: str, run_id: str, driver) -> ToolResult:
             run_id=run_id, ip=ip, ip_slash=f"{ip}/",
         )
         exact = [dict(r) for r in result]
-
         if exact:
-            lines.append(f"Exact match — {ip} is assigned to:")
-            for m in exact:
-                parts = [f"  {m['device']} {m['interface']}"]
-                if m.get("full_ip"):
-                    parts.append(f"({m['full_ip']})")
-                if m.get("vlan"):
-                    parts.append(f"VLAN:{m['vlan']}")
-                if m.get("vrf"):
-                    parts.append(f"VRF:{m['vrf']}")
-                if m.get("status"):
-                    parts.append(f"[{m['status']}]")
-                if m.get("description"):
-                    parts.append(f"— {m['description']}")
-                lines.append(" ".join(parts))
-            return ToolResult("ok", "\n".join(lines))
+            return {"kind": "interface", "matches": exact}
 
-        # 2. Subnet match — find interfaces whose subnet contains this IP
         try:
             target = ipaddress.ip_address(ip)
         except ValueError:
-            return ToolResult("error", f"Invalid IP address: {ip}")
+            return {"kind": "invalid", "matches": []}
 
-        # Query interfaces with IP and prefix_length (CIDR may be in ip field or separate)
         result = session.run(
             "MATCH (d:Device {run_id: $run_id})-[:HAS_INTERFACE]->(i:Interface) "
             "WHERE i.ip IS NOT NULL "
@@ -265,7 +252,6 @@ async def _lookup_ip(ip: str, run_id: str, driver) -> ToolResult:
             try:
                 raw = c["raw_ip"]
                 pfx = c.get("pfx")
-                # Build CIDR: either "ip/prefix" from field, or "ip/prefix_length" from separate property
                 if "/" in raw:
                     cidr = raw
                 elif pfx:
@@ -280,28 +266,10 @@ async def _lookup_ip(ip: str, run_id: str, driver) -> ToolResult:
                     subnet_matches.append(c)
             except ValueError:
                 continue
-
         if subnet_matches:
-            # Sort by most specific subnet (longest prefix)
             subnet_matches.sort(key=lambda x: -x["prefix_len"])
-            lines.append(f"{ip} is not directly assigned but falls within:")
-            for m in subnet_matches:
-                parts = [f"  {m['device']} {m['interface']}"]
-                parts.append(f"subnet:{m['subnet']}")
-                own_ip = m["full_ip"].split("/")[0]
-                parts.append(f"(interface IP: {own_ip})")
-                if m.get("vlan"):
-                    parts.append(f"VLAN:{m['vlan']}")
-                if m.get("vrf"):
-                    parts.append(f"VRF:{m['vrf']}")
-                if m.get("description"):
-                    parts.append(f"— {m['description']}")
-                lines.append(" ".join(parts))
-            lines.append("")
-            lines.append(f"The IP {ip} is a peer/host in this subnet, reachable via these interfaces.")
-            return ToolResult("ok", "\n".join(lines))
+            return {"kind": "subnet", "matches": subnet_matches}
 
-        # 3. ARP fallback — check ArpEntry nodes for IP seen on device interfaces
         result = session.run(
             "MATCH (d:Device {run_id: $run_id})-[:HAS_ARP]->(a:ArpEntry {ip: $ip}) "
             "RETURN d.name AS device, d.role AS role, "
@@ -310,19 +278,72 @@ async def _lookup_ip(ip: str, run_id: str, driver) -> ToolResult:
             run_id=run_id, ip=ip,
         )
         arp_matches = [dict(r) for r in result]
-
         if arp_matches:
-            lines.append(f"{ip} is not assigned to any interface but found in ARP tables:")
-            for m in arp_matches:
-                parts = [f"  {m['device']} {m['interface']}"]
-                parts.append(f"MAC:{m['mac']}")
-                if m.get("origin"):
-                    parts.append(f"({m['origin']})")
-                if m.get("role"):
-                    parts.append(f"[{m['role']}]")
-                lines.append(" ".join(parts))
-            lines.append("")
-            lines.append(f"This IP belongs to a host/endpoint reachable via these devices.")
-            return ToolResult("ok", "\n".join(lines))
+            return {"kind": "arp", "matches": arp_matches}
 
+    return None
+
+
+async def _lookup_ip(ip: str, run_id: str, driver) -> ToolResult:
+    """Find which device, interface, and VLAN owns an IP address.
+
+    Rendering over :func:`resolve_ip_owner` (the 3-tier data core).
+    """
+    ip = ip.strip()
+    lines = [f"IP lookup: {ip}", ""]
+
+    owner = resolve_ip_owner(ip, run_id, driver)
+    if owner is None:
         return ToolResult("no_data", f"No interface or ARP entry found matching IP {ip} in any device.")
+    if owner["kind"] == "invalid":
+        return ToolResult("error", f"Invalid IP address: {ip}")
+
+    matches = owner["matches"]
+    if owner["kind"] == "interface":
+        lines.append(f"Exact match — {ip} is assigned to:")
+        for m in matches:
+            parts = [f"  {m['device']} {m['interface']}"]
+            if m.get("full_ip"):
+                parts.append(f"({m['full_ip']})")
+            if m.get("vlan"):
+                parts.append(f"VLAN:{m['vlan']}")
+            if m.get("vrf"):
+                parts.append(f"VRF:{m['vrf']}")
+            if m.get("status"):
+                parts.append(f"[{m['status']}]")
+            if m.get("description"):
+                parts.append(f"— {m['description']}")
+            lines.append(" ".join(parts))
+        return ToolResult("ok", "\n".join(lines))
+
+    if owner["kind"] == "subnet":
+        lines.append(f"{ip} is not directly assigned but falls within:")
+        for m in matches:
+            parts = [f"  {m['device']} {m['interface']}"]
+            parts.append(f"subnet:{m['subnet']}")
+            own_ip = m["full_ip"].split("/")[0]
+            parts.append(f"(interface IP: {own_ip})")
+            if m.get("vlan"):
+                parts.append(f"VLAN:{m['vlan']}")
+            if m.get("vrf"):
+                parts.append(f"VRF:{m['vrf']}")
+            if m.get("description"):
+                parts.append(f"— {m['description']}")
+            lines.append(" ".join(parts))
+        lines.append("")
+        lines.append(f"The IP {ip} is a peer/host in this subnet, reachable via these interfaces.")
+        return ToolResult("ok", "\n".join(lines))
+
+    # kind == "arp"
+    lines.append(f"{ip} is not assigned to any interface but found in ARP tables:")
+    for m in matches:
+        parts = [f"  {m['device']} {m['interface']}"]
+        parts.append(f"MAC:{m['mac']}")
+        if m.get("origin"):
+            parts.append(f"({m['origin']})")
+        if m.get("role"):
+            parts.append(f"[{m['role']}]")
+        lines.append(" ".join(parts))
+    lines.append("")
+    lines.append(f"This IP belongs to a host/endpoint reachable via these devices.")
+    return ToolResult("ok", "\n".join(lines))

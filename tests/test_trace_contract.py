@@ -414,3 +414,81 @@ def test_hop_carries_interfaces(monkeypatch):
     res = asyncio.run(path_tracer.trace_path(source_device="r1", destination="198.51.100.9",
                                              context={"run_id": "r", "data_dir": "d"}))
     assert res.status == "ok"
+
+
+# ── s16: source given as an IP or a service name ─────────────────────────────
+
+def _routes_default():
+    return {"default": [{"prefix": "0.0.0.0/0", "protocol": "static",
+                         "next_hop": None, "active": True}]}
+
+
+def test_source_ip_resolves_to_owning_device(monkeypatch):
+    _patch_walk(monkeypatch, routes=_routes_default())
+    # device-name resolution misses → the IP path resolves via resolve_ip_owner
+    monkeypatch.setattr(path_tracer, "_shared_resolve", lambda name, run_id: None)
+    import netcopilot.mcp.tools.shared_services as ss
+    monkeypatch.setattr(ss, "resolve_ip_owner", lambda ip, run_id, driver: {
+        "kind": "arp", "matches": [{"device": "r1", "interface": "Vl10",
+                                    "mac": "aa:aa:aa:aa:aa:01"}]})
+    monkeypatch.setattr("netcopilot.graph.client.get_driver", lambda: object())
+    res = asyncio.run(path_tracer.trace_path(
+        source_device="198.51.100.25", destination="internet",
+        context={"run_id": "r", "data_dir": "."}))
+    assert "198.51.100.25 → r1" in res.text
+    assert "ARP table" in res.text
+
+
+def test_source_service_name_resolves_and_sets_src_ip(monkeypatch):
+    _patch_walk(monkeypatch, routes=_routes_default())
+    monkeypatch.setattr(path_tracer, "_shared_resolve", lambda name, run_id: None)
+
+    class _Sess:
+        def run(self, query, **p):
+            assert p["q"] == "cam-lobby"
+            return [{"name": "cam-lobby-01", "device": "r1",
+                     "ip": "198.51.100.26", "method": "arp+fdb"}]
+
+    class _Drv:
+        def session(self):
+            s = _Sess()
+
+            class C:
+                def __enter__(self):
+                    return s
+
+                def __exit__(self, *a):
+                    return False
+            return C()
+
+    monkeypatch.setattr("netcopilot.graph.client.get_driver", lambda: _Drv())
+    res = asyncio.run(path_tracer.trace_path(
+        source_device="cam-lobby", destination="internet",
+        context={"run_id": "r", "data_dir": "."}))
+    assert "service 'cam-lobby-01'" in res.text and "→ r1" in res.text
+
+
+def test_source_unresolvable_is_honest(monkeypatch):
+    _patch_walk(monkeypatch, routes=_routes_default())
+    monkeypatch.setattr(path_tracer, "_shared_resolve", lambda name, run_id: None)
+    monkeypatch.setattr(path_tracer, "suggest_devices", lambda name, run_id: "")
+
+    class _Drv:
+        def session(self):
+            class C:
+                def __enter__(self):
+                    class S:
+                        def run(self, query, **p):
+                            return []
+                    return S()
+
+                def __exit__(self, *a):
+                    return False
+            return C()
+
+    monkeypatch.setattr("netcopilot.graph.client.get_driver", lambda: _Drv())
+    res = asyncio.run(path_tracer.trace_path(
+        source_device="nonexistent-thing", destination="internet",
+        context={"run_id": "r", "data_dir": "."}))
+    assert res.status == "not_found"
+    assert "not a device name, a known service, or an IP" in res.text
