@@ -14,6 +14,7 @@ from dataclasses import replace
 from .result import ToolResult, VALID_RESULT_STATUSES  # noqa: F401 — re-exported
 from .tools import (
     analysis,
+    find_service as find_service_mod,
     analyze,
     correlation,
     device,
@@ -169,6 +170,24 @@ TOOL_SCHEMAS: list[dict] = [
                 },
             },
             "required": ["device"],
+        },
+    },
+    {
+        "name": "find_service",
+        "description": (
+            "Locate an operator-named service (from NetBox IPAM: dns_name/description) "
+            "on the network: which device and port it lives on, how confidently, and "
+            "its declared metadata. Use for 'where is the lobby camera?', 'find "
+            "service X', 'what is at IP Y?' (named services). Needs the service join "
+            "(netcopilot netbox services <run>)."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Service name / DNS name / description fragment (case-insensitive)."},
+                "ip": {"type": "string", "description": "The service's IP address (exact)."},
+            },
+            "required": [],
         },
     },
     {
@@ -662,6 +681,7 @@ _HANDLERS = {
     "explain_finding": explain.explain_finding,
     "analyze_findings": analyze.analyze_findings,
     "get_device_detail": device.get_device_detail,
+    "find_service": find_service_mod.find_service,
     "get_shared_services": shared_services.get_shared_services,
     "get_network_neighborhood": neighborhood.get_network_neighborhood,
     "get_site_summary": site_summary.get_site_summary,

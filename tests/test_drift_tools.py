@@ -22,7 +22,7 @@ CTX = {"run_id": "demo-run"}
 
 def test_registered_32_tools_with_drift():
     names = [s["name"] for s in TOOL_SCHEMAS]
-    assert len(names) == 32
+    assert len(names) == 33
     for t in ("run_drift_check", "compare_declared_vs_actual"):
         assert t in names and t in _HANDLERS
 
