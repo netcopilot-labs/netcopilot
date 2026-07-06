@@ -190,10 +190,12 @@ class NetBoxAdapter(DeclaredStateSource):
 
     @staticmethod
     def _site_to_dict(site) -> dict:
+        count = getattr(site, "device_count", None)
         return {
             "slug": str(site.slug),
             "name": str(site.name),
             "netbox_id": site.id,
+            "device_count": int(count) if count is not None else None,
         }
 
     @staticmethod
