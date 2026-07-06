@@ -36,7 +36,7 @@ def test_load_mac_entries_genie_shape(tmp_path):
     d = _facts(tmp_path, "acc-sw-01")
     (d / "genie_fdb.json").write_text(json.dumps(_fdb({
         10: [("1234.5678.9abc", "GigabitEthernet1/0/5", "dynamic")],
-        50: [("0c00.b909.e368", "Vlan50", "static")],
+        50: [("aabb.cc00.0001", "Vlan50", "static")],
     })))
     driver = FakeDriver()
     n = _load_mac_entries(driver, tmp_path / "run", SITE, RUN)
@@ -47,7 +47,7 @@ def test_load_mac_entries_genie_shape(tmp_path):
     assert e["vlan"] == "10" and e["interface"] == "Gi1/0/5"   # abbreviated, graph-wide form
     assert e["entry_type"] == "dynamic" and e["device"] == "acc-sw-01"
     assert e["site"] == SITE and e["run_id"] == RUN
-    assert by_mac["0c:00:b9:09:e3:68"]["entry_type"] == "static"
+    assert by_mac["aa:bb:cc:00:00:01"]["entry_type"] == "static"
 
 
 def test_load_mac_entries_absent_file_zero(tmp_path):
