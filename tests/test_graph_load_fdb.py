@@ -44,7 +44,7 @@ def test_load_mac_entries_genie_shape(tmp_path):
     entries = next(p["entries"] for c, p in driver.calls if "[:HAS_MAC]" in c)
     by_mac = {e["mac"]: e for e in entries}
     e = by_mac["12:34:56:78:9a:bc"]                 # normalized dotted → colon
-    assert e["vlan"] == "10" and e["interface"] == "GigabitEthernet1/0/5"
+    assert e["vlan"] == "10" and e["interface"] == "Gi1/0/5"   # abbreviated, graph-wide form
     assert e["entry_type"] == "dynamic" and e["device"] == "acc-sw-01"
     assert e["site"] == SITE and e["run_id"] == RUN
     assert by_mac["0c:00:b9:09:e3:68"]["entry_type"] == "static"

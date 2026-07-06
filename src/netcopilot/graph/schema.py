@@ -25,6 +25,7 @@ ROUTE = "Route"
 FIREWALL_POLICY = "FirewallPolicy"
 ARP_ENTRY = "ArpEntry"
 MAC_ENTRY = "MacEntry"          # s16: FDB/MAC-table row (Cisco genie_fdb)
+SERVICE = "Service"             # s16: operator-named IP (NetBox) joined to its observed location
 FINDING = "Finding"
 SECURITY_CONFIG = "SecurityConfig"
 ROUTE_POLICY = "RoutePolicy"
@@ -66,6 +67,8 @@ HAS_ROUTE = "HAS_ROUTE"                   # Device → Route
 HAS_POLICY = "HAS_POLICY"                 # Device → FirewallPolicy
 HAS_ARP = "HAS_ARP"                       # Device → ArpEntry
 HAS_MAC = "HAS_MAC"                       # Device → MacEntry (s16)
+RESIDES_ON = "RESIDES_ON"                 # Service → Device (observed owner, s16)
+REACHED_VIA = "REACHED_VIA"               # Service → Interface (port-precise, s16)
 HAS_ROUTE_POLICY = "HAS_ROUTE_POLICY"     # Device → RoutePolicy
 HAS_PREFIX_ENTRY = "HAS_PREFIX_ENTRY"     # Device → PrefixSetEntry
 HAS_FINDING = "HAS_FINDING"               # Device → Finding
@@ -120,6 +123,8 @@ INDEX_DEFINITIONS = [
     (ARP_ENTRY, ["site", "run_id", "ip"], "idx_arp_entry_ip"),          # s16: the service-join lookup key
     (MAC_ENTRY, ["site", "run_id", "device"], "idx_mac_entry_site_run"),
     (MAC_ENTRY, ["site", "run_id", "mac"], "idx_mac_entry_mac"),        # s16: ARP→FDB port refinement
+    (SERVICE, ["site", "run_id"], "idx_service_site_run"),              # s16: service layer
+    (SERVICE, ["site", "run_id", "ip"], "idx_service_ip"),
     (FINDING, ["site", "run_id", "device"], "idx_finding_site_run_device"),
     (SECURITY_CONFIG, ["site", "run_id", "device"], "idx_secconfig_site_run"),
     (ISDB_SERVICE, ["site", "run_id", "device"], "idx_isdb_service_site_run"),

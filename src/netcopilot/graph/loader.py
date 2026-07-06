@@ -2732,6 +2732,8 @@ def _load_mac_entries(
     Returns:
         Number of MacEntry nodes created.
     """
+    from netcopilot.model.interface_normalizer import normalize_interface_name
+
     facts_dir = run_dir / "facts"
     if not facts_dir.is_dir():
         return 0
@@ -2767,7 +2769,11 @@ def _load_mac_entries(
                     mac_params.append({
                         "mac": _normalize_mac(mac),
                         "vlan": str(vlan),
-                        "interface": intf_name,
+                        # Abbreviated form — the graph-wide convention
+                        # (Interface.name, link local/remote_interface).
+                        # Raw genie names here would silently break every
+                        # MATCH against Interface (cypher-expert, s16-3).
+                        "interface": normalize_interface_name(intf_name),
                         "entry_type": entry_type or "dynamic",
                         "device": device,
                         "site": site,
