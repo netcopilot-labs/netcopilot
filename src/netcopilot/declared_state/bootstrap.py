@@ -79,6 +79,10 @@ class BootstrapResult:
     new: dict[str, int] = field(default_factory=dict)
     skipped: dict[str, int] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+    #: Total candidates in the queue awaiting approval after this run — the
+    #: actionable STATE (gaps between the network and NetBox), not just what
+    #: this click staged. Set by ``run()``.
+    pending_total: int = 0
 
     @property
     def total_new(self) -> int:
@@ -89,23 +93,30 @@ class BootstrapResult:
         return sum(self.skipped.values())
 
     def format_summary(self) -> str:
+        # Line 1 — what THIS run did.
         if self.total_new == 0:
-            head = "Idempotent re-run: 0 new since last bootstrap."
+            head = "No new candidates — every object in this run is already documented or staged."
         else:
             parts = ", ".join(
                 f"{n} {t}" + ("s" if n != 1 else "") for t, n in sorted(self.new.items()) if n
             )
-            head = f"Staged {self.total_new} candidates ({parts})."
-        skipped_line = (
-            f"Skipped {self.total_skipped} no-op candidates."
-            if self.total_skipped else ""
-        )
+            head = f"Staged {self.total_new} new candidate(s) ({parts})."
+        # Line 2 — the actionable STATE. The pending queue IS the gap between
+        # the network and NetBox: freshly bootstrapped, or things deleted from
+        # NetBox that the network still has. Surfacing it here is the whole
+        # point — "0 new" with a non-empty queue must not read as "all done".
+        if self.pending_total > 0:
+            state = (
+                f"→ {self.pending_total} candidate(s) awaiting your approval in the "
+                f"Reconcile tab — NetBox is missing them."
+            )
+        else:
+            state = "→ NetBox is in sync with this run — nothing to approve."
         warnings_line = (
-            f"{len(self.warnings)} warnings (see logs)."
+            f"{len(self.warnings)} warning(s) — some candidates could not be staged (see logs)."
             if self.warnings else ""
         )
-        tail = "Review in dashboard → Reconcile tab or via the agent: 'list pending NetBox writes'."
-        return "\n".join(line for line in [head, skipped_line, warnings_line, tail] if line)
+        return "\n".join(line for line in [head, state, warnings_line] if line)
 
 
 def _runs_dir() -> Path:
@@ -236,9 +247,18 @@ def run(run_id: str, inventory_path: str | Path) -> BootstrapResult:
         _bootstrap_cables(yaml_devices, model, run_id, pending_index, result,
                           netbox_adapter=netbox_adapter)
 
+    # The actionable state: how many candidates now await approval (the gap
+    # between the network and NetBox). Counted from Neo4j so it reflects
+    # candidates staged before this run too, not just this run's `new`.
+    try:
+        from netcopilot.declared_state.staging import list_pending
+        result.pending_total = len(list_pending())
+    except Exception as exc:  # Neo4j hiccup shouldn't fail a completed bootstrap
+        log.warning("Could not count pending candidates for the summary: %s", exc)
+
     log.info(
-        "Bootstrap done. new=%s skipped=%s warnings=%d",
-        result.new, result.skipped, len(result.warnings),
+        "Bootstrap done. new=%s skipped=%s pending_total=%d warnings=%d",
+        result.new, result.skipped, result.pending_total, len(result.warnings),
     )
     return result
 
@@ -1295,6 +1315,21 @@ def _bootstrap_ipam(yaml_devices, model, run_id, pending_index, result, *, netbo
     nb_vlans = {(v.get("site"), v["vid"]) for v in netbox_adapter.get_vlans()} if netbox_adapter else set()
     nb_prefixes = {(p.get("vrf"), p["prefix"]) for p in netbox_adapter.get_prefixes()} if netbox_adapter else set()
     nb_ips = {ip["address"] for ip in netbox_adapter.get_ip_addresses()} if netbox_adapter else set()
+    nb_sites = {s["slug"] for s in netbox_adapter.get_sites()} if netbox_adapter else set()
+    # Sites the inventory declares — the ones _bootstrap_sites stages this run.
+    inventory_sites = {
+        (d.get("site") or "").lower() for d in yaml_devices if d.get("site")
+    }
+    # Resolvable = a site FK a VLAN write can bind to at approve time: already
+    # in NetBox, or staged from the inventory this run.
+    resolvable_sites = nb_sites | inventory_sites
+
+    def _site_resolvable(slug: str) -> bool:
+        # A site-scoped write (VLAN) needs its site FK to exist. Without one the
+        # write would 400 ("Related object not found") — skip the candidate
+        # honestly rather than stage a doomed one. When NetBox is unreachable
+        # (nb_sites empty) the inventory set still guards the common case.
+        return slug in resolvable_sites
 
     # ── VRFs (name-only records; referenced by prefixes + IPs) ──────────────
     vrf_names = sorted({i.get("vrf") for i in model_ifaces if i.get("vrf")})
@@ -1328,6 +1363,15 @@ def _bootstrap_ipam(yaml_devices, model, run_id, pending_index, result, *, netbo
             seen_vlans[key] = vname or f"VLAN{vid}"
             dedup = f"{site}::{vid}"
             if key in nb_vlans or _already_pending(pending_index, "vlan", dedup):
+                result.skipped["vlan"] = result.skipped.get("vlan", 0) + 1
+                continue
+            if not _site_resolvable(site):
+                result.warnings.append(
+                    f"VLAN {vid} ({seen_vlans[key]}) references site {site!r}, which is "
+                    f"neither in NetBox nor declared by this run's inventory — skipped. A "
+                    f"VLAN's site must exist first; bootstrap that site's devices "
+                    f"(resolvable sites: {', '.join(sorted(resolvable_sites)) or 'none'})."
+                )
                 result.skipped["vlan"] = result.skipped.get("vlan", 0) + 1
                 continue
             stage_candidate(

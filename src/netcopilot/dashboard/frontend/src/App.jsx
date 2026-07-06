@@ -212,6 +212,24 @@ function AppContent() {
   // encapsulated without bubbling it all the way up.
   const reportActionsRef = useRef({ sendEmail: null, downloadPdf: null })
 
+  // S14b — Reconcile is an Audit sub-view. Its filters live in App (same
+  // pattern as the Findings filters above) so the Level-2 toolbar renders the
+  // controls while ReconcilePage owns the table + data-fetch. Actions
+  // (bootstrap / bulk approve|reject) come back up via a ref (ReportPanel
+  // idiom); the reactive bits the toolbar buttons need (count / selection /
+  // busy) mirror into `reconcileUi` via an onUiState callback.
+  const [reconcileSource, setReconcileSource] = useState('')
+  const [reconcileObjectType, setReconcileObjectType] = useState('')
+  const [reconcileMinPriority, setReconcileMinPriority] = useState(0)
+  const [reconcileDedupKey, setReconcileDedupKey] = useState('')
+  const [reconcileUi, setReconcileUi] = useState({
+    count: 0, selectedCount: 0, bootstrapBusy: false, bulkActive: false,
+  })
+  const reconcileActionsRef = useRef({
+    bootstrap: null, approveAllMatching: null,
+    approveSelected: null, rejectSelected: null,
+  })
+
   // S19A-1: Resizable detail panel (percentage of viewport width)
   const [rightPanelPct, setRightPanelPct] = useState(28)
 
@@ -240,7 +258,11 @@ function AppContent() {
   // the left panel from FindingsPage to DriftPanel; diffAgainst = the comparison
   // ("before") run (null = previous same-site run, auto); diffFocus scopes the
   // list + focuses the topology on a clicked element.
-  const [diffMode, setDiffMode] = useState(false)
+  // S14b — the Audit tab has three sub-views (Findings / Drift / Reconcile).
+  // `diffMode` is kept as a derived alias so the S01-5 drift plumbing below
+  // (many reads) stays byte-for-byte unchanged.
+  const [auditView, setAuditView] = useState('findings')  // 'findings' | 'drift' | 'reconcile'
+  const diffMode = auditView === 'drift'
   const [diffAgainst, setDiffAgainst] = useState(null)
   const [diffData, setDiffData] = useState(null)
   const [diffLoading, setDiffLoading] = useState(false)
@@ -456,8 +478,22 @@ function AppContent() {
   const handleDeviceSelect = useCallback((hostname) => {
     setSelectedDevice(hostname)
     setSelectedLink(null)
-    if (hostname) setLeftPanelMode('device')
-  }, [])
+    // s14b: on the Audit tab the device selector (map dropdown or a node
+    // click) STAYS in the current sub-view and scopes it to the device — the
+    // single device control lives on the map, shared by every sub-view.
+    // Selecting a device filters; clearing ("All devices" → null) resets the
+    // sub-view filter. Report stays put; only Topology opens DeviceDetail.
+    if (leftPanelMode === 'findings') {
+      if (auditView === 'findings') setFindingsDeviceFilter(hostname || '')
+      else if (auditView === 'drift') {
+        setDiffFocus(hostname ? { key: hostname, element_type: 'device', element_id: hostname } : null)
+      } else if (auditView === 'reconcile') setReconcileDedupKey(hostname || '')
+      return
+    }
+    if (!hostname) return
+    if (leftPanelMode === 'report') return
+    setLeftPanelMode('device')
+  }, [leftPanelMode, auditView])
 
   // Map-only highlight — selects device on map without switching left panel
   const [highlightPath, setHighlightPath] = useState(null)
@@ -620,7 +656,7 @@ function AppContent() {
   const isTopologyTab = TOPOLOGY_MODES.has(leftPanelMode)
   const isFindingsTab = leftPanelMode === 'findings'
   const isReportTab = leftPanelMode === 'report'
-  const isReconcileTab = leftPanelMode === 'reconcile'  // s12, ADR-0014
+  const isReconcileView = leftPanelMode === 'findings' && auditView === 'reconcile'  // s14b
 
   // 2026-05-18 — Audit + Report force the topology view to Physical via real
   // state mutation (equivalent to clicking the Physical view button on
@@ -637,7 +673,7 @@ function AppContent() {
   // drift view never lingers under Topology/Report.
   useEffect(() => {
     if (leftPanelMode !== 'findings') {
-      setDiffMode(false)
+      setAuditView('findings')
       setDiffFocus(null)
     }
   }, [leftPanelMode])
@@ -801,18 +837,9 @@ function AppContent() {
           >
             Audit
           </button>
-          {/* s12 (ADR-0014): Reconcile tab — NetBox staging + approve + audit */}
-          <button
-            onClick={() => { setLeftPanelMode('reconcile'); setSelectedDevice(null); setSelectedLink(null) }}
-            className="px-3 py-1.5 rounded text-sm font-medium transition-colors"
-            style={
-              leftPanelMode === 'reconcile'
-                ? { background: '#1D9E75', color: '#FFFFFF' }
-                : { background: 'transparent', color: '#64748B' }
-            }
-          >
-            Reconcile
-          </button>
+          {/* s14b (ADR-0017): Reconcile moved under Audit as a sub-view — see
+              the Findings | Drift | Reconcile segmented control in the Audit
+              Level-2 bar. The top bar is now Topology / Audit / Report. */}
           <button
             onClick={() => { setLeftPanelMode('report'); setSelectedDevice(null); setSelectedLink(null) }}
             className="px-3 py-1.5 rounded text-sm font-medium transition-colors"
@@ -826,41 +853,13 @@ function AppContent() {
           </button>
         </nav>
 
+        {/* s14b: the active Run lives in the top bar — global context on every
+            tab ("which run am I looking at"). Starting a NEW run (Inventory +
+            Run Now) moved down to the Topology Level-2 bar — collection is a
+            Topology-tab action. */}
         <div className="flex items-center gap-2 justify-self-end">
-          {/* Inventory picker — what Run Now collects (demo replay or a real inventory) */}
-          <span className="text-xs text-gray-500 font-medium">Inventory:</span>
-          <DropdownPicker
-            items={inventories.map((inv) => ({ id: inv.id, label: inv.label, deletable: inv.kind === 'real' }))}
-            selectedId={selectedInventory}
-            onSelect={setSelectedInventory}
-            onDelete={deleteInventory}
-            disabled={runInProgress}
-            placeholder="Select inventory…"
-            deleteTitle={() => 'Delete inventory'}
-            deleteMessage={(it) =>
-              `Delete the inventory "${it.label}"? This removes the inventory file from ./inventory. Any data it loaded stays until you delete that run.`}
-          />
-          {/* S20-B8: Run Now button */}
-          <button
-            onClick={handleRunNow}
-            disabled={runInProgress}
-            className="px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5"
-            style={
-              runInProgress
-                ? { background: '#334155', color: '#94A3B8', cursor: 'not-allowed' }
-                : { background: '#1D9E75', color: '#FFFFFF' }
-            }
-            title={runInProgress ? 'Run in progress…' : 'Trigger a new pipeline run'}
-          >
-            {runInProgress ? (
-              <>
-                <span className="animate-spin" style={{ display: 'inline-block' }}>⟳</span>
-                Running…
-              </>
-            ) : (
-              '▶ Run Now'
-            )}
-          </button>
+          <span className="text-xs text-gray-500 font-medium">Run:</span>
+          <RunSelector selectedRun={selectedRun} onRunChange={setSelectedRun} refreshKey={refreshSeq} />
         </div>
       </header>
 
@@ -899,9 +898,40 @@ function AppContent() {
             })}
           </div>
 
+          {/* s14b: Inventory picker + Run Now — collection is a Topology action */}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 font-medium">Run:</span>
-            <RunSelector selectedRun={selectedRun} onRunChange={setSelectedRun} refreshKey={refreshSeq} />
+            <span className="text-xs text-gray-500 font-medium">Inventory:</span>
+            <DropdownPicker
+              items={inventories.map((inv) => ({ id: inv.id, label: inv.label, deletable: inv.kind === 'real' }))}
+              selectedId={selectedInventory}
+              onSelect={setSelectedInventory}
+              onDelete={deleteInventory}
+              disabled={runInProgress}
+              placeholder="Select inventory…"
+              deleteTitle={() => 'Delete inventory'}
+              deleteMessage={(it) =>
+                `Delete the inventory "${it.label}"? This removes the inventory file from ./inventory. Any data it loaded stays until you delete that run.`}
+            />
+            <button
+              onClick={handleRunNow}
+              disabled={runInProgress}
+              className="px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5"
+              style={
+                runInProgress
+                  ? { background: '#334155', color: '#94A3B8', cursor: 'not-allowed' }
+                  : { background: '#1D9E75', color: '#FFFFFF' }
+              }
+              title={runInProgress ? 'Run in progress…' : 'Trigger a new pipeline run'}
+            >
+              {runInProgress ? (
+                <>
+                  <span className="animate-spin" style={{ display: 'inline-block' }}>⟳</span>
+                  Running…
+                </>
+              ) : (
+                '▶ Run Now'
+              )}
+            </button>
           </div>
         </div>
       )}
@@ -913,6 +943,21 @@ function AppContent() {
           style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', minHeight: 40 }}
         >
           <div className="flex items-center gap-1 flex-wrap">
+          {/* s14b: Audit sub-view segmented control (Findings | Drift | Reconcile) */}
+          <div className="flex items-center rounded overflow-hidden border border-slate-200 mr-2 shrink-0">
+            {[['findings', 'Findings'], ['drift', 'Drift'], ['reconcile', 'Reconcile']].map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setAuditView(id)}
+                className="px-2.5 py-1 text-xs font-semibold transition-colors"
+                style={auditView === id
+                  ? { background: '#1D9E75', color: '#FFFFFF' }
+                  : { background: '#FFFFFF', color: '#64748B' }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {/* S01-5: in diff mode the severity chips don't apply — show tier counts instead */}
           {diffMode && diffData && (
             <span className="text-xs text-gray-600">
@@ -923,7 +968,33 @@ function AppContent() {
               <span className="text-gray-400">i {diffData.summary.info}</span>
             </span>
           )}
-          {!diffMode && (<>
+          {/* s14b: Reconcile filters (source / object-type / min-priority / target search) */}
+          {auditView === 'reconcile' && (
+            <div className="flex items-center gap-1.5 flex-wrap text-xs">
+              <select value={reconcileSource} onChange={e => setReconcileSource(e.target.value)}
+                className="px-1.5 py-1 rounded border border-slate-200 bg-white text-gray-700">
+                <option value="">all sources</option>
+                {['bootstrap', 'drift', 'manual'].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select value={reconcileObjectType} onChange={e => setReconcileObjectType(e.target.value)}
+                className="px-1.5 py-1 rounded border border-slate-200 bg-white text-gray-700">
+                <option value="">all types</option>
+                {['site', 'manufacturer', 'platform', 'cluster', 'virtual_chassis', 'device',
+                  'interface', 'inventory_item', 'vrf', 'vlan', 'prefix', 'ipaddress', 'cable']
+                  .map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <label className="flex items-center gap-1 text-gray-500">
+                pri≥{reconcileMinPriority}
+                <input type="range" min="0" max="100" value={reconcileMinPriority}
+                  onChange={e => setReconcileMinPriority(parseInt(e.target.value, 10))}
+                  style={{ width: 70 }} />
+              </label>
+              <input type="text" placeholder="🔍 target" value={reconcileDedupKey}
+                onChange={e => setReconcileDedupKey(e.target.value)}
+                className="px-1.5 py-1 rounded border border-slate-200 bg-white text-gray-700" style={{ width: 110 }} />
+            </div>
+          )}
+          {auditView === 'findings' && (<>
           {/* All */}
           <button
             onClick={() => setFindingsSeverityFilter('all')}
@@ -985,22 +1056,10 @@ function AppContent() {
               Cross-Device ({findingsChipCounts.crossDevice})
             </button>
           )}
-          {/* Device filter */}
-          {deviceList.length > 0 && (
-            <>
-              <span className="text-gray-300 mx-1">|</span>
-              <select
-                value={findingsDeviceFilter}
-                onChange={e => setFindingsDeviceFilter(e.target.value)}
-                className="text-xs px-2 py-1 rounded border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
-              >
-                <option value="">All devices</option>
-                {deviceList.map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </>
-          )}
+          {/* s14b: the per-device filter dropdown was removed here — device
+              selection lives on the topology map's "All devices" dropdown,
+              shared across every sub-view (selecting a device scopes the
+              findings list; "All devices" clears it). No duplicate control. */}
           {/* Expected-findings toggle (only shown when a run tags expected findings) */}
           {findingsChipCounts.labExpectedAvailable && (
             <>
@@ -1022,9 +1081,9 @@ function AppContent() {
           </>)}
           </div>
 
-          {/* S01-5: right-aligned Diff toggle + "Compare to" run dropdown */}
+          {/* S01-5: "Compare to" run dropdown (Drift sub-view only) */}
           <div className="flex items-center gap-2 shrink-0">
-            {diffMode && (
+            {auditView === 'drift' && (
               <>
                 <span className="text-xs text-gray-500">Compare to:</span>
                 <select
@@ -1039,14 +1098,54 @@ function AppContent() {
                 </select>
               </>
             )}
-            <button
-              onClick={() => setDiffMode((v) => !v)}
-              className="px-2.5 py-1 rounded text-xs font-medium transition-colors"
-              style={diffMode ? { background: '#1D9E75', color: '#FFFFFF' } : { background: '#F1F5F9', color: '#475569' }}
-              title={diffMode ? 'Exit diff mode' : 'Compare this run to another (drift)'}
-            >
-              {diffMode ? '✓ Diff' : '⇄ Diff'}
-            </button>
+            {/* s14b: Reconcile actions (bootstrap from selected run + bulk approve) */}
+            {auditView === 'reconcile' && (
+              <>
+                {reconcileUi.selectedCount > 0 && (
+                  <>
+                    <button
+                      onClick={() => reconcileActionsRef.current?.approveSelected?.()}
+                      className="px-2.5 py-1 rounded text-xs font-semibold"
+                      style={{ background: '#1D9E75', color: '#FFFFFF' }}
+                    >
+                      Approve {reconcileUi.selectedCount}
+                    </button>
+                    <button
+                      onClick={() => reconcileActionsRef.current?.rejectSelected?.()}
+                      className="px-2.5 py-1 rounded text-xs font-semibold"
+                      style={{ background: '#DC2626', color: '#FFFFFF' }}
+                    >
+                      Reject {reconcileUi.selectedCount}
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => reconcileActionsRef.current?.approveAllMatching?.()}
+                  disabled={reconcileUi.count === 0 || reconcileUi.bulkActive}
+                  className="px-2.5 py-1 rounded text-xs font-semibold"
+                  style={{
+                    background: reconcileUi.count === 0 || reconcileUi.bulkActive ? '#94A3B8' : '#1D4ED8',
+                    color: '#FFFFFF',
+                    cursor: reconcileUi.count === 0 || reconcileUi.bulkActive ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Approve all ({reconcileUi.count})
+                </button>
+                <button
+                  onClick={() => reconcileActionsRef.current?.bootstrap?.()}
+                  disabled={reconcileUi.bootstrapBusy || !selectedRun}
+                  title={selectedRun ? `Stage candidates from ${selectedRun}` : 'Select a run first'}
+                  className="px-2.5 py-1 rounded text-xs font-semibold"
+                  style={{
+                    background: reconcileUi.bootstrapBusy || !selectedRun ? '#94A3B8' : '#1D9E75',
+                    color: '#FFFFFF',
+                    cursor: reconcileUi.bootstrapBusy || !selectedRun ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {reconcileUi.bootstrapBusy ? '⏳' : '↻ Bootstrap'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1144,49 +1243,12 @@ function AppContent() {
       )}
 
       {/* ── Main content ── */}
-      {isReconcileTab ? (
+      {(
         <div
           className="flex-1 overflow-hidden flex"
           style={{ padding: 8, gap: 0 }}
         >
-          {/* s12 (ADR-0014): Reconcile takes the LEFT+CENTER area entirely
-              so the operator has room for the filter sidebar + pending table
-              + history panel. Agent chat stays on the right. */}
-          <div
-            className="flex-1 overflow-hidden flex flex-col"
-            style={{
-              background: 'white',
-              borderRadius: 8,
-              border: '1px solid #E5E7EB',
-              minWidth: 0,
-            }}
-          >
-            <ReconcilePage selectedRun={selectedRun} />
-          </div>
-
-          <DragHandle side="right" onDrag={handleAgentDrag} raw />
-
-          {/* Right panel — Agent Chat (same as other tabs) */}
-          <div
-            className="overflow-hidden flex flex-col shrink-0"
-            style={{
-              width: agentPanelWidth,
-              minWidth: 260,
-              maxWidth: 460,
-              background: 'white',
-              borderRadius: 8,
-              border: '1px solid #E5E7EB',
-            }}
-          >
-            <AgentChatPanel />
-          </div>
-        </div>
-      ) : (
-        <div
-          className="flex-1 overflow-hidden flex"
-          style={{ padding: 8, gap: 0 }}
-        >
-          {/* Left panel — content switches based on leftPanelMode */}
+          {/* Left panel — content switches based on leftPanelMode + auditView */}
           <div
             className="overflow-hidden flex flex-col shrink-0"
             style={{
@@ -1197,7 +1259,21 @@ function AppContent() {
               border: '1px solid #E5E7EB',
             }}
           >
-            {leftPanelMode === 'findings' && diffMode ? (
+            {/* s14b: Reconcile is an Audit sub-view — its table lives in the
+                LEFT panel; topology stays CENTER; the Level-2 bar carries its
+                filters + actions. */}
+            {isReconcileView ? (
+              <ReconcilePage
+                selectedRun={selectedRun}
+                source={reconcileSource}
+                objectType={reconcileObjectType}
+                minPriority={reconcileMinPriority}
+                dedupKey={reconcileDedupKey}
+                actionsRef={reconcileActionsRef}
+                onUiState={setReconcileUi}
+                onDeviceClick={(device) => { setSelectedDevice(device); setSelectedLink(null) }}
+              />
+            ) : leftPanelMode === 'findings' && diffMode ? (
               <DriftPanel
                 diffData={diffData}
                 loading={diffLoading}

@@ -585,3 +585,44 @@ def test_ha_heartbeat_cables_from_hbdev(env):
         assert p["_resolve_b_device"] == "edge-fw-01-2"
         assert p["_resolve_a_interface"] == p["_resolve_b_interface"]
     assert {p["_resolve_a_interface"] for p in cables} == {"ha", "port8"}
+
+
+def test_vlan_skipped_when_site_unresolvable(env, monkeypatch):
+    """A VLAN whose site has neither a NetBox record nor a pending site
+    candidate is skipped with a warning — not staged to fail with a 400 at
+    approve (the branch-VLAN-with-no-branch-site case caught in live e2e)."""
+    tmp_path, staged = env
+    model = {
+        "devices": [
+            {"hostname": "acc-sw-01", "site": "branch",  # site not in inventory/NetBox
+             "vlans": [{"vlan_id": 20, "name": "TRANSIT-BLUE"}]},
+        ],
+        "interfaces": [], "links": [],
+    }
+    mdir = tmp_path / "demo-run" / "model"
+    mdir.mkdir(parents=True, exist_ok=True)
+    (mdir / "network_model.json").write_text(json.dumps(model))
+
+    class NetBoxNoBranch:
+        def ensure_infrastructure(self): return {}
+        def ensure_device_type(self, *a, **k): return 1
+        def get_devices(self): return []
+        def get_sites(self): return [{"slug": "demo", "name": "demo"}]  # no 'branch'
+        def get_clusters(self): return []
+        def get_manufacturers(self): return []
+        def get_platforms(self): return []
+        def get_virtual_chassis(self): return []
+        def get_interfaces(self, d): return []
+        def get_inventory_items(self, d): return []
+        def get_vrfs(self): return []
+        def get_vlans(self): return []
+        def get_prefixes(self): return []
+        def get_ip_addresses(self): return []
+
+    real = bootstrap.get_source
+    monkeypatch.setattr(bootstrap, "get_source",
+                        lambda n, **k: NetBoxNoBranch() if n == "netbox" else real(n, **k))
+
+    result = bootstrap.run("demo-run", inventory_path=tmp_path / "lab.yaml")
+    assert [c for c in staged if c["object_type"] == "vlan"] == []
+    assert any("references site 'branch'" in w and "skipped" in w for w in result.warnings)
