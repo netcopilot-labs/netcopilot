@@ -8,6 +8,7 @@ import DriftPanel from './components/DriftPanel.jsx'
 import ReconcilePage from './components/ReconcilePage.jsx'  // s12, ADR-0014
 import { extractDevices } from './components/FindingsPanel.jsx'
 import ReportPanel from './components/ReportPanel.jsx'
+import ServicesPanel from './components/ServicesPanel.jsx'  // s16, ADR-0019
 import AgentChatPanel from './components/AgentChatPanel.jsx'
 import { AgentProvider, useAgent } from './AgentContext.jsx'
 import { TOPOLOGY_VIEWS } from './topologyUtils.js'
@@ -1303,6 +1304,14 @@ function AppContent() {
               />
             ) : leftPanelMode === 'report' ? (
               <ReportPanel selectedRun={selectedRun} actionsRef={reportActionsRef} />
+            ) : leftPanelMode === 'summary' && selectedView === 'service' ? (
+              /* s16: the Services lens rides the Service topology view —
+                 clicking a device on the map still opens DeviceDetail;
+                 closing it returns here while the view is active. */
+              <ServicesPanel
+                selectedRun={selectedRun}
+                onServiceClick={(device) => { setSelectedDevice(device); setSelectedLink(null) }}
+              />
             ) : (
               <DeviceDetail
                 deviceData={deviceData}

@@ -91,6 +91,31 @@ const CYTOSCAPE_STYLE = [
       'text-max-width': '90px',
     },
   },
+  // ── s16: operator-named service leaf node (Service view only) ──
+  {
+    selector: 'node[role = "service"]',
+    style: {
+      'shape': 'round-rectangle',
+      'color': '#0F4F3A',
+      'border-color': '#5DCAA5',
+      'border-width': 1.5,
+      'width': 86,
+      'height': 30,
+      'font-size': '7px',
+      'background-color': '#ECFDF5',
+      'text-wrap': 'wrap',
+      'text-max-width': '80px',
+    },
+  },
+  {
+    selector: 'edge[linkType = "service_attachment"]',
+    style: {
+      'line-style': 'dotted',
+      'line-color': '#5DCAA5',
+      'width': 1.5,
+      'target-arrow-shape': 'none',
+    },
+  },
   // ── Unreachable device (in inventory but not collected) — red styling ──
   {
     selector: 'node[?isUnreachable]',

@@ -37,6 +37,9 @@ VIEW_REL_TYPES = {
     "mgmt": ["MGMT_LINK", "INFRASTRUCTURE_LINK"],
     "ospf": ["PHYSICAL_CABLE", "INFRASTRUCTURE_LINK"],
     "bgp": ["PHYSICAL_CABLE", "INFRASTRUCTURE_LINK"],
+    # s16: the device graph under the Service view is the physical topology;
+    # :Service leaf nodes + attachment edges are appended on top.
+    "service": ["PHYSICAL_CABLE", "INFRASTRUCTURE_LINK"],
     "all": ["PHYSICAL_CABLE", "MGMT_LINK", "L3_REACHABILITY", "INFERRED_LINK", "INFRASTRUCTURE_LINK"],
 }
 
@@ -337,6 +340,56 @@ def get_topology(
                 {"name": r["name"], "role": r["role"]} for r in unreach_result
             ]
 
+        # ---- s16: Service view — operator-named services as leaf nodes ----
+        # Only LOCATED services draw (they attach to their RESIDES_ON device);
+        # unlocated ones live in the Services lens — nothing to attach to.
+        services_meta = None
+        if view == "service":
+            with driver.session() as svc_session:
+                svc_rows = [dict(r) for r in svc_session.run(
+                    "MATCH (s:Service {run_id: $run_id}) "
+                    "OPTIONAL MATCH (s)-[:RESIDES_ON]->(d:Device {run_id: $run_id}) "
+                    "RETURN s.name AS name, s.ip AS ip, s.location_method AS method, "
+                    "       s.located AS located, d.name AS device, "
+                    "       s.interface AS interface "
+                    "ORDER BY s.name",
+                    run_id=run_id,
+                )]
+            svc_edges = []
+            drawn = 0
+            for s in svc_rows:
+                if not s["device"] or s["device"] not in node_names:
+                    continue
+                sid = f"svc:{s['ip']}"
+                nodes.append({"data": {
+                    "id": sid,
+                    "label": s["name"],
+                    "role": "service",
+                    "device_type": "service",
+                    "collected": False,
+                    "findings_count": 0,
+                    "service_ip": s["ip"],
+                    "location_method": s["method"],
+                    "service_interface": s.get("interface"),
+                }})
+                svc_edges.append({
+                    "id": f"svc-edge:{s['ip']}",
+                    "source": s["device"],
+                    "target": sid,
+                    "linkType": "service_attachment",
+                })
+                drawn += 1
+            if compound_names:
+                svc_edges = _reroute_edges_to_members(svc_edges, compound_names)
+            for e in svc_edges:
+                cyto_edges.append({"data": {**e, "cable_type": "service"}})
+            services_meta = {
+                "joined": bool(svc_rows),
+                "total": len(svc_rows),
+                "drawn": drawn,
+                "unlocated": sum(1 for s in svc_rows if not s["device"]),
+            }
+
         return {
             "nodes": nodes,
             "edges": cyto_edges,
@@ -344,6 +397,7 @@ def get_topology(
             "available_protocols": available_protocols,
             "external_peers": external_peers,
             "unreachable_devices": unreachable_devices,
+            **({"services": services_meta} if services_meta is not None else {}),
         }
 
     except Exception as e:
