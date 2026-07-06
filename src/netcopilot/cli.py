@@ -105,10 +105,21 @@ def _resolve_inventory_path(inventory: str) -> str:
 
 
 def _cmd_run(args: argparse.Namespace) -> None:
-    from .inventory import YAMLInventory
+    from .inventory import NETBOX_SCHEME, NetBoxInventoryError, get_inventory_source
     from .pipeline import PipelineError, run_pipeline
 
-    source = YAMLInventory(_resolve_inventory_path(args.inventory))
+    # netbox://<site> selects the NetBox-backed source; the URI flows verbatim
+    # from the dashboard's run_config.json through the watcher, so a YAML path
+    # and a NetBox spec take the same --inventory argument. YAML tenant folders
+    # still resolve to lab.yaml (+ credentials.env) here, as before.
+    spec = args.inventory
+    if not spec.startswith(NETBOX_SCHEME):
+        spec = _resolve_inventory_path(spec)
+    try:
+        source = get_inventory_source(spec, site=args.site)
+    except (ValueError, NetBoxInventoryError) as exc:
+        print(f"inventory error: {exc}", file=sys.stderr)
+        raise SystemExit(2)
     progress = _progress_writer()
     try:
         result = run_pipeline(
@@ -394,7 +405,9 @@ def main() -> None:
     ask_p.set_defaults(func=_cmd_ask)
 
     run_p = sub.add_parser("run", help="collect → parse → model → load a network")
-    run_p.add_argument("--inventory", required=True, help="path to an inventory YAML")
+    run_p.add_argument("--inventory", required=True,
+                       help="inventory YAML path, or netbox://<site> to read the "
+                            "device list from NetBox (NETBOX_URL + NETBOX_API_TOKEN)")
     run_p.add_argument("--site", required=True, help="site identifier (multi-site isolation)")
     run_p.add_argument("--runs-dir", default="runs", help="base directory for run folders")
     run_p.add_argument("--no-load", action="store_true", help="stop after network_model.json (skip Neo4j)")

@@ -188,6 +188,48 @@ def test_multiple_members_with_primary_ip_pick_is_deterministic():
     assert entry["mgmt_ip"] == "192.0.2.1"               # lowest member name wins
 
 
+# ── factory + netbox:// scheme (S15-2) ───────────────────────────────────────
+
+def test_factory_yaml_path(tmp_path):
+    import netcopilot.inventory as inv_pkg
+    p = tmp_path / "lab.yaml"
+    p.write_text("devices:\n  - {name: acc-sw-01, mgmt_ip: 192.0.2.41, os: ios-xe}\n")
+    src = inv_pkg.get_inventory_source(str(p))
+    assert isinstance(src, inv_pkg.YAMLInventory)
+    assert src.get_device("acc-sw-01")["os"] == "ios-xe"
+
+
+def test_factory_netbox_scheme(monkeypatch):
+    import netcopilot.inventory as inv_pkg
+    built = {}
+
+    class FakeSource:
+        def __init__(self, site):
+            built["site"] = site
+
+    monkeypatch.setattr(inv_pkg, "NetBoxInventory", FakeSource)
+    assert isinstance(inv_pkg.get_inventory_source("netbox://demo"), FakeSource)
+    assert built["site"] == "demo"
+    # site may come from the keyword when the URI leaves it off
+    inv_pkg.get_inventory_source("netbox://", site="t75")
+    assert built["site"] == "t75"
+
+
+def test_factory_netbox_requires_a_site():
+    from netcopilot.inventory import get_inventory_source
+    with pytest.raises(ValueError, match="netbox://<site>"):
+        get_inventory_source("netbox://")
+
+
+def test_factory_netbox_site_mismatch_aborts(monkeypatch):
+    import netcopilot.inventory as inv_pkg
+    monkeypatch.setattr(inv_pkg, "NetBoxInventory", lambda site: site)
+    with pytest.raises(ValueError, match="one site per run"):
+        inv_pkg.get_inventory_source("netbox://demo", site="t75")
+    # agreement passes
+    assert inv_pkg.get_inventory_source("netbox://demo", site="demo") == "demo"
+
+
 # ── writer/reader map cannot drift ───────────────────────────────────────────
 
 def test_slug_map_is_exact_inverse_of_bootstrap_map():
