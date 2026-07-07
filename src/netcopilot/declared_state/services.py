@@ -52,6 +52,12 @@ from netcopilot.graph.schema import (
 
 log = logging.getLogger(__name__)
 
+#: NetBox prefix tag that marks a CLIENT NETWORK (s17): a range the operator
+#: serves without knowing its inner hosts ("I'm their ISP — I know where it
+#: connects"). Tagged prefixes join as ``kind: network`` services located at
+#: their gateway; untagged prefixes (infrastructure subnets) stay out.
+CLIENT_NETWORK_TAG = "client-network"
+
 
 class ServiceSourceUnavailable(RuntimeError):
     """NetBox is unreachable — the service layer is unknown, not empty."""
@@ -252,6 +258,7 @@ def run_service_join(
 
             svc: dict[str, Any] = {
                 "name": name,
+                "kind": "host",
                 "ip": bare,
                 "address": cand["address"],
                 "dns_name": cand.get("dns_name"),
@@ -299,6 +306,59 @@ def run_service_join(
 
             report.services.append(svc)
 
+        # ── Client networks (s17): tagged prefixes located at their gateway ──
+        net_candidates = [
+            p for p in adapter.get_prefixes()
+            if CLIENT_NETWORK_TAG in (p.get("tags") or [])
+            and (p.get("status_value") in (None, "active"))
+        ]
+        for cand in net_candidates:
+            try:
+                pfx_net = ipaddr_mod.ip_network(str(cand["prefix"]), strict=False)
+            except ValueError:
+                report.warnings.append(
+                    f"client network {cand.get('prefix')!r}: not a valid prefix — skipped"
+                )
+                continue
+            name = cand.get("description") or str(cand["prefix"])
+
+            # Gateway ladder: an interface whose connected subnet IS the
+            # prefix (exact) — else one strictly inside it (the operator
+            # declared an aggregate). Every matching gateway attaches
+            # (redundant gateways are real, not a tie to break).
+            exact = sorted(
+                ((dev, intf) for net, dev, intf in subnets if net == pfx_net),
+                key=lambda t: (t[0], t[1]),
+            )
+            containing = sorted(
+                ((dev, intf) for net, dev, intf in subnets
+                 if net != pfx_net and net.subnet_of(pfx_net)),
+                key=lambda t: (t[0], t[1]),
+            ) if not exact else []
+            gateways = exact or containing
+            method = "gateway" if exact else ("gateway-containing" if containing else "none")
+
+            svc = {
+                "name": name,
+                "kind": "network",
+                "ip": str(pfx_net),                      # the CIDR is the key
+                "address": str(pfx_net),
+                "description": cand.get("description"),
+                "role": cand.get("role"),
+                "vrf": cand.get("vrf"),
+                "tags": cand.get("tags") or [],
+                "netbox_id": cand.get("netbox_id"),
+                "located": bool(gateways),
+                "location_method": method,
+                "device": gateways[0][0] if gateways else None,
+                "interface": gateways[0][1] if gateways else None,
+                "gateways": [f"{d}/{i}" for d, i in gateways],
+                "joined_at": joined_at,
+                "site": site,
+                "run_id": run_id,
+            }
+            report.services.append(svc)
+
         _persist(session, report)
 
     log.info(
@@ -321,8 +381,10 @@ def _persist(session, report: ServiceJoinReport) -> None:
 
     # None-valued properties are dropped (Neo4j has no null property values).
     rows = [{k: v for k, v in s.items() if v is not None} for s in report.services]
-    located = [r for r in rows if r.get("device")]
-    unlocated = [r for r in rows if not r.get("device")]
+    networks = [r for r in rows if r.get("kind") == "network"]
+    host_rows = [r for r in rows if r.get("kind") != "network"]
+    located = [r for r in host_rows if r.get("device")]
+    unlocated = [r for r in host_rows if not r.get("device")]
 
     if located:
         session.run(
@@ -354,3 +416,31 @@ def _persist(session, report: ServiceJoinReport) -> None:
             f"UNWIND $rows AS r CREATE (s:{SERVICE}) SET s = r",
             rows=unlocated,
         )
+
+    # Client networks (s17): the node first, then one RESIDES_ON+REACHED_VIA
+    # per gateway — a network with redundant gateways attaches to ALL of them.
+    if networks:
+        session.run(
+            f"UNWIND $rows AS r CREATE (s:{SERVICE}) SET s = r",
+            rows=networks,
+        )
+        attach = []
+        for r in networks:
+            for gw in r.get("gateways") or []:
+                dev, _, intf = gw.partition("/")
+                attach.append({"site": r["site"], "run_id": r["run_id"],
+                               "ip": r["ip"], "device": dev, "interface": intf})
+        if attach:
+            session.run(
+                f"""
+                UNWIND $rows AS r
+                MATCH (s:{SERVICE} {{site: r.site, run_id: r.run_id, ip: r.ip}})
+                MATCH (d:{DEVICE} {{site: r.site, run_id: r.run_id, name: r.device}})
+                CREATE (s)-[:{RESIDES_ON}]->(d)
+                WITH s, d, r
+                OPTIONAL MATCH (d)-[:{HAS_INTERFACE}]->(i:{INTERFACE} {{name: r.interface}})
+                FOREACH (_ IN CASE WHEN i IS NULL THEN [] ELSE [1] END |
+                    CREATE (s)-[:{REACHED_VIA}]->(i))
+                """,
+                rows=attach,
+            )

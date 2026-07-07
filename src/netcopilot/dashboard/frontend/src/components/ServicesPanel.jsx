@@ -11,6 +11,8 @@ const METHOD_LABEL = {
   'arp+fdb': { text: 'port-precise', color: '#1D9E75' },
   arp: { text: 'gateway', color: '#0EA5E9' },
   subnet: { text: 'approximate', color: '#F59E0B' },
+  gateway: { text: 'gateway', color: '#2563EB' },
+  'gateway-containing': { text: 'aggregate', color: '#F59E0B' },
   none: { text: 'never seen', color: '#9CA3AF' },
 }
 
@@ -65,8 +67,10 @@ export default function ServicesPanel({ selectedRun, onServiceClick }) {
     || (s.name || '').toLowerCase().includes(q)
     || (s.ip || '').includes(q)
     || (s.description || '').toLowerCase().includes(q))
-  const located = filtered.filter(s => s.device)
-  const unlocated = filtered.filter(s => !s.device)
+  const networks = filtered.filter(s => s.kind === 'network')
+  const hostsOnly = filtered.filter(s => s.kind !== 'network')
+  const located = hostsOnly.filter(s => s.device)
+  const unlocated = hostsOnly.filter(s => !s.device)
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -115,6 +119,40 @@ export default function ServicesPanel({ selectedRun, onServiceClick }) {
           <div className="p-3 text-xs text-gray-400">No services match.</div>
         )}
 
+        {networks.length > 0 && (
+          <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-blue-500">
+            Client networks
+          </div>
+        )}
+        {networks.map(s => {
+          const m = METHOD_LABEL[s.location_method] || METHOD_LABEL.none
+          const gws = s.gateways || []
+          return (
+            <button
+              key={s.ip}
+              onClick={() => s.device && onServiceClick?.(s.device)}
+              className="w-full text-left px-3 py-2 border-b border-gray-50 hover:bg-blue-50"
+              title={s.device ? `Highlight ${s.device} on the map` : 'Not located'}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-blue-900 truncate">{s.name}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0"
+                      style={{ background: `${m.color}18`, color: m.color }}>
+                  {m.text}
+                </span>
+              </div>
+              <div className="text-[11px] text-gray-500">
+                {s.ip}{gws.length ? ` → ${gws.join(', ')}` : ' — no gateway found'}
+              </div>
+            </button>
+          )
+        })}
+
+        {networks.length > 0 && (located.length > 0 || unlocated.length > 0) && (
+          <div className="px-3 pt-3 pb-1 text-[10px] uppercase tracking-wide text-gray-400">
+            Hosts
+          </div>
+        )}
         {located.map(s => {
           const m = METHOD_LABEL[s.location_method] || METHOD_LABEL.none
           return (

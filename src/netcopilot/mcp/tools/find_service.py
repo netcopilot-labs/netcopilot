@@ -20,11 +20,16 @@ _METHOD_WORDING = {
     "arp+fdb": "port-precise (ARP + MAC table on the access port)",
     "arp": "gateway-resolved (ARP; the exact access port was not derivable)",
     "subnet": "approximate (no ARP seen — placed by the gateway's subnet)",
+    "gateway": "gateway (an interface serves exactly this network)",
+    "gateway-containing": "approximate (a gateway serves part of this range — "
+                          "the declared prefix is an aggregate)",
     "none": "NEVER SEEN by the network (documented in NetBox, no observation)",
 }
 
 
 def _render(svc: dict) -> list[str]:
+    if svc.get("kind") == "network":
+        return _render_network(svc)
     lines = [f"Service: {svc.get('name')}", ""]
     lines.append(f"  IP:          {svc.get('address') or svc.get('ip')}")
     if svc.get("dns_name"):
@@ -54,6 +59,31 @@ def _render(svc: dict) -> list[str]:
         lines.append(f"  Location:    {_METHOD_WORDING['none']}")
         lines.append("               Check whether the device is offline, moved, or the "
                      "NetBox record is stale.")
+    if svc.get("joined_at"):
+        lines.append(f"  Joined:      {svc['joined_at']} (re-run the service join after "
+                     "changes in NetBox)")
+    return lines
+
+
+def _render_network(svc: dict) -> list[str]:
+    """A client network (s17): a range the operator serves — located by its
+    gateway(s), never by inner hosts (the operator declared they don't know
+    them)."""
+    lines = [f"Client network: {svc.get('name')}", ""]
+    lines.append(f"  Prefix:      {svc.get('ip')}")
+    for label, key in (("Role", "role"), ("VRF", "vrf")):
+        if svc.get(key):
+            lines.append(f"  {label + ':':<12} {svc[key]}")
+    lines.append("")
+    if svc.get("located"):
+        gws = svc.get("gateways") or (
+            [f"{svc.get('device')}/{svc.get('interface')}"] if svc.get("device") else [])
+        lines.append(f"  Connected at: {', '.join(gws)}")
+        lines.append(f"  Confidence:  {_METHOD_WORDING.get(svc.get('location_method'), svc.get('location_method'))}")
+    else:
+        lines.append(f"  Location:    {_METHOD_WORDING['none']}")
+        lines.append("               No collected interface serves this range — check "
+                     "whether the gateway device is collected, or the prefix is stale.")
     if svc.get("joined_at"):
         lines.append(f"  Joined:      {svc['joined_at']} (re-run the service join after "
                      "changes in NetBox)")

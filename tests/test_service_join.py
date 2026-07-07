@@ -23,9 +23,10 @@ def _ip(address, dns=None, desc=None, status="active", **kw):
 
 
 class FakeAdapter:
-    def __init__(self, ips, ping_exc=None):
+    def __init__(self, ips, ping_exc=None, prefixes=()):
         self._ips = ips
         self._ping_exc = ping_exc
+        self._prefixes = list(prefixes)
 
     def ping(self):
         if self._ping_exc:
@@ -33,6 +34,15 @@ class FakeAdapter:
 
     def get_ip_addresses(self):
         return list(self._ips)
+
+    def get_prefixes(self):
+        return list(self._prefixes)
+
+
+def _pfx(cidr, desc=None, tags=("client-network",), status="active", **kw):
+    return {"prefix": cidr, "vrf": kw.get("vrf"), "netbox_id": 9,
+            "description": desc, "status_value": status, "role": None,
+            "tags": list(tags)}
 
 
 class FakeSession:
@@ -208,3 +218,65 @@ def test_rerun_deletes_before_reload():
     _join(adapter, session)
     assert "DETACH DELETE" in session.writes[0][0]         # our rows first, only ours
     assert ":Service {site: $site, run_id: $run_id}" in session.writes[0][0]
+
+
+# ── s17: client networks (kind=network) located at their gateway ─────────────
+
+def test_client_network_locates_at_exact_gateway_svi():
+    adapter = FakeAdapter([], prefixes=[
+        _pfx("198.51.100.128/26", desc="Acme Corp — client network")])
+    session = FakeSession(subnets=[
+        {"device": "prov-edge-01", "interface": "Vl302", "ip": "198.51.100.129",
+         "prefix_length": 26}])
+    report = _join(adapter, session)
+    svc = report.services[0]
+    assert svc["kind"] == "network" and svc["located"] is True
+    assert svc["location_method"] == "gateway"
+    assert svc["ip"] == "198.51.100.128/26"          # the CIDR is the key
+    assert svc["name"] == "Acme Corp — client network"
+    assert svc["device"] == "prov-edge-01" and svc["gateways"] == ["prov-edge-01/Vl302"]
+    assert any("RESIDES_ON" in q for q, _ in session.writes)
+    assert any("REACHED_VIA" in q for q, _ in session.writes)
+
+
+def test_client_network_multi_gateway_attaches_all():
+    adapter = FakeAdapter([], prefixes=[_pfx("198.51.100.128/26", desc="Acme")])
+    session = FakeSession(subnets=[
+        {"device": "gw-b", "interface": "Vl302", "ip": "198.51.100.130", "prefix_length": 26},
+        {"device": "gw-a", "interface": "Vl302", "ip": "198.51.100.129", "prefix_length": 26}])
+    svc = _join(adapter, session).services[0]
+    assert svc["gateways"] == ["gw-a/Vl302", "gw-b/Vl302"]   # all + deterministic
+    attach = next(p for q, p in session.writes if "RESIDES_ON" in q)
+    assert {r["device"] for r in attach["rows"]} == {"gw-a", "gw-b"}
+
+
+def test_client_network_containing_fallback_is_labeled():
+    # Operator declared an aggregate /24; the gateway SVI serves a /26 inside it.
+    adapter = FakeAdapter([], prefixes=[_pfx("198.51.100.0/24", desc="Acme agg")])
+    session = FakeSession(subnets=[
+        {"device": "prov-edge-01", "interface": "Vl302", "ip": "198.51.100.129",
+         "prefix_length": 26}])
+    svc = _join(adapter, session).services[0]
+    assert svc["location_method"] == "gateway-containing"     # approximate, said aloud
+    assert svc["device"] == "prov-edge-01"
+
+
+def test_client_network_without_gateway_is_unlocated_honest():
+    adapter = FakeAdapter([], prefixes=[_pfx("203.0.113.0/28", desc="Ghost client")])
+    svc = _join(adapter, FakeSession()).services[0]
+    assert svc["kind"] == "network" and svc["located"] is False
+    assert svc["location_method"] == "none"
+
+
+def test_untagged_and_inactive_prefixes_stay_out():
+    adapter = FakeAdapter([], prefixes=[
+        _pfx("198.51.100.0/30", desc="infra p2p", tags=()),              # no tag
+        _pfx("198.51.100.4/30", desc="old client", status="deprecated"),  # inactive
+    ])
+    assert _join(adapter, FakeSession()).services == []
+
+
+def test_host_rows_are_stamped_kind_host():
+    adapter = FakeAdapter([_ip("198.51.100.26/28", dns="cam-lobby-01")])
+    svc = _join(adapter, FakeSession()).services[0]
+    assert svc["kind"] == "host"

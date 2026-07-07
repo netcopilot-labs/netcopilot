@@ -105,3 +105,26 @@ def test_not_found_names_the_known_services():
                 name="nonexistent")
     assert out.status == "not_found"
     assert "printer-f2" in out.text
+
+
+def test_network_service_renders_prefix_and_gateways():
+    net = {"name": "Acme Corp — client network", "kind": "network",
+           "ip": "198.51.100.128/26", "located": True,
+           "location_method": "gateway", "device": "prov-edge-01",
+           "interface": "Vl302", "gateways": ["prov-edge-01/Vl302"],
+           "joined_at": "2026-07-07T10:00:00+00:00"}
+    out = _call(FakeSession(total=1, rows=[net]), name="Acme")
+    assert out.status == "ok"
+    assert "Client network: Acme Corp" in out.text
+    assert "Prefix:      198.51.100.128/26" in out.text
+    assert "Connected at: prov-edge-01/Vl302" in out.text
+    assert out.highlight == {"device": "prov-edge-01"}
+    assert out.verdict["location_method"] == "gateway"
+
+
+def test_network_without_gateway_is_honest():
+    net = {"name": "Ghost client", "kind": "network", "ip": "203.0.113.0/28",
+           "located": False, "location_method": "none", "device": None}
+    out = _call(FakeSession(total=1, rows=[net]), name="Ghost")
+    assert "No collected interface serves this range" in out.text
+    assert out.highlight is None

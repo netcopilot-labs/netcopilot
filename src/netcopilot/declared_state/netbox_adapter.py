@@ -275,11 +275,29 @@ class NetBoxAdapter(DeclaredStateSource):
             return []
 
     def get_prefixes(self) -> list[dict]:
+        """All prefixes, with the operator's meaning attached (s17).
+
+        ``description``/``tags`` carry the client-network contract (a prefix
+        tagged ``client-network`` joins the service layer as kind=network).
+        Additive; the dedup consumers key on (vrf, prefix).
+        """
         try:
-            return [{"prefix": str(pfx.prefix),
-                     "vrf": str(pfx.vrf) if getattr(pfx, "vrf", None) is not None else None,
-                     "netbox_id": pfx.id}
-                    for pfx in self._nb.ipam.prefixes.all()]
+            out = []
+            for pfx in self._nb.ipam.prefixes.all():
+                status_rec = getattr(pfx, "status", None)
+                status_value = None
+                if status_rec is not None:
+                    status_value = getattr(status_rec, "value", None) or str(status_rec).lower()
+                out.append({
+                    "prefix": str(pfx.prefix),
+                    "vrf": str(pfx.vrf) if getattr(pfx, "vrf", None) is not None else None,
+                    "netbox_id": pfx.id,
+                    "description": str(pfx.description) if getattr(pfx, "description", None) else None,
+                    "status_value": status_value,
+                    "role": str(pfx.role) if getattr(pfx, "role", None) is not None else None,
+                    "tags": [str(getattr(t, "slug", None) or t) for t in (getattr(pfx, "tags", None) or [])],
+                })
+            return out
         except Exception as exc:
             log.error("NetBoxAdapter.get_prefixes() failed: %s", exc)
             return []

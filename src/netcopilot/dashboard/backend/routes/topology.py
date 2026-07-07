@@ -351,34 +351,40 @@ def get_topology(
                     "OPTIONAL MATCH (s)-[:RESIDES_ON]->(d:Device {run_id: $run_id}) "
                     "RETURN s.name AS name, s.ip AS ip, s.location_method AS method, "
                     "       s.located AS located, d.name AS device, "
-                    "       s.interface AS interface "
+                    "       s.interface AS interface, s.kind AS kind "
                     "ORDER BY s.name",
                     run_id=run_id,
                 )]
             svc_edges = []
             drawn = 0
+            seen_svc_nodes: set[str] = set()
             for s in svc_rows:
+                # Multi-gateway networks (s17) return one row per RESIDES_ON:
+                # one node, one attachment edge per gateway.
                 if not s["device"] or s["device"] not in node_names:
                     continue
                 sid = f"svc:{s['ip']}"
-                nodes.append({"data": {
-                    "id": sid,
-                    "label": s["name"],
-                    "role": "service",
-                    "device_type": "service",
-                    "collected": False,
-                    "findings_count": 0,
-                    "service_ip": s["ip"],
-                    "location_method": s["method"],
-                    "service_interface": s.get("interface"),
-                }})
+                if sid not in seen_svc_nodes:
+                    seen_svc_nodes.add(sid)
+                    nodes.append({"data": {
+                        "id": sid,
+                        "label": s["name"],
+                        "role": "service",
+                        "device_type": "service",
+                        "kind": s.get("kind") or "host",
+                        "collected": False,
+                        "findings_count": 0,
+                        "service_ip": s["ip"],
+                        "location_method": s["method"],
+                        "service_interface": s.get("interface"),
+                    }})
+                    drawn += 1
                 svc_edges.append({
-                    "id": f"svc-edge:{s['ip']}",
+                    "id": f"svc-edge:{s['ip']}:{s['device']}",
                     "source": s["device"],
                     "target": sid,
                     "linkType": "service_attachment",
                 })
-                drawn += 1
             if compound_names:
                 svc_edges = _reroute_edges_to_members(svc_edges, compound_names)
             for e in svc_edges:

@@ -108,6 +108,23 @@ const CYTOSCAPE_STYLE = [
     },
   },
   {
+    // s17: client NETWORK — a range the operator serves (drawn as a cloud-ish box)
+    selector: 'node[kind = "network"]',
+    style: {
+      'shape': 'hexagon',
+      'color': '#1E3A8A',
+      'border-color': '#60A5FA',
+      'border-width': 1.5,
+      'border-style': 'dashed',
+      'width': 96,
+      'height': 34,
+      'font-size': '7px',
+      'background-color': '#EFF6FF',
+      'text-wrap': 'wrap',
+      'text-max-width': '88px',
+    },
+  },
+  {
     selector: 'edge[linkType = "service_attachment"]',
     style: {
       'line-style': 'dotted',
