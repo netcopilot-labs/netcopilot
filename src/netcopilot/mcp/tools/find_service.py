@@ -20,6 +20,8 @@ _METHOD_WORDING = {
     "arp+fdb": "port-precise (ARP + MAC table on the access port)",
     "arp": "gateway-resolved (ARP; the exact access port was not derivable)",
     "subnet": "approximate (no ARP seen — placed by the gateway's subnet)",
+    "colocated": "approximate (placed on the switch its VLAN neighbours were "
+                 "observed on — the host itself wasn't seen)",
     "gateway": "gateway (an interface serves exactly this network)",
     "gateway-containing": "approximate (a gateway serves part of this range — "
                           "the declared prefix is an aggregate)",

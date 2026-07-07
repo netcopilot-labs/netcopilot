@@ -338,6 +338,41 @@ def run_service_join(
 
             report.services.append(svc)
 
+        # ── Deterministic VLAN co-location ──────────────────────────────────
+        # A subnet is one L2 broadcast domain = one VLAN = ONE access switch.
+        # If any host of a subnet was directly observed on a switch (arp/
+        # arp+fdb), that VLAN lives on that switch — so its OTHER hosts attach
+        # there too, even ones no device individually observed. This makes a
+        # VLAN's placement consistent regardless of which hosts were powered
+        # on, and keeps the L3 gateway (firewall/router) from being mistaken
+        # for the attachment point. Deterministic: most-observed switch wins,
+        # then device name.
+        gw_devices = {d for d, role in roles.items() if _gateway_rank(role)}
+        subnet_obs: dict = {}   # network → {switch: observed_count}
+        host_svcs = [s for s in report.services
+                     if s.get("kind") == "host" and s.get("located")]
+        for s in host_svcs:
+            if s["location_method"] in ("arp", "arp+fdb") and s["device"] not in gw_devices:
+                a = ipaddr_mod.ip_address(s["ip"])
+                for net, dev, intf in subnets:
+                    if a in net:
+                        subnet_obs.setdefault(net, {})
+                        subnet_obs[net][s["device"]] = subnet_obs[net].get(s["device"], 0) + 1
+        subnet_switch = {
+            net: sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
+            for net, counts in subnet_obs.items()
+        }
+        for s in host_svcs:
+            if s["device"] in gw_devices:   # sitting on an L3 gateway → relocate
+                a = ipaddr_mod.ip_address(s["ip"])
+                best_net = None
+                for net in subnet_switch:
+                    if a in net and (best_net is None or net.prefixlen > best_net.prefixlen):
+                        best_net = net
+                if best_net is not None:
+                    s.update(device=subnet_switch[best_net], interface=None,
+                             mac=None, location_method="colocated")
+
         # ── Client networks (s17): tagged prefixes located at their gateway ──
         net_candidates = [
             p for p in adapter.get_prefixes()

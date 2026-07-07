@@ -329,3 +329,43 @@ def test_gateway_only_host_still_locates_on_the_gateway():
     )
     svc = _join(adapter, session).services[0]
     assert svc["located"] is True and svc["device"] == "fw-01"
+
+
+# ── s17 fix: deterministic VLAN co-location ──────────────────────────────────
+
+def test_unobserved_host_colocates_with_its_vlan_neighbour():
+    # vcenter is observed on the services switch; host-b (same /24, never seen)
+    # has NO switch SVI — only the firewall's gateway SVI. It must follow its
+    # VLAN neighbour onto the switch, not sit on the firewall.
+    adapter = FakeAdapter([
+        _ip("198.51.100.10/24", dns="vcenter"),
+        _ip("198.51.100.11/24", dns="host-b")])
+    session = FakeSession(
+        arp={"198.51.100.10": [
+            {"device": "svc-sw-01", "interface": "Vl210", "mac": "aa:aa:aa:aa:aa:10"}]},
+        mac={"aa:aa:aa:aa:aa:10": [
+            {"device": "svc-sw-01", "interface": "Gi1/0/3", "vlan": "210"}]},
+        # only the firewall has an L3 interface in this subnet (no switch SVI)
+        subnets=[{"device": "fw-01", "interface": "vlan210", "ip": "198.51.100.1",
+                  "prefix_length": 24}],
+        roles={"svc-sw-01": "services_switch", "fw-01": "firewall"},
+    )
+    svcs = {s["name"]: s for s in _join(adapter, session).services}
+    assert svcs["vcenter"]["location_method"] == "arp+fdb"
+    assert svcs["vcenter"]["device"] == "svc-sw-01"
+    # host-b: firewall was its only subnet owner → co-located to the switch
+    assert svcs["host-b"]["device"] == "svc-sw-01"
+    assert svcs["host-b"]["location_method"] == "colocated"
+
+
+def test_gateway_only_vlan_stays_on_gateway_when_no_neighbour_observed():
+    # No host of the VLAN was ever seen on a switch → nothing to co-locate to;
+    # the firewall is the honest, only answer.
+    adapter = FakeAdapter([_ip("198.51.100.20/24", dns="lonely")])
+    session = FakeSession(
+        subnets=[{"device": "fw-01", "interface": "vlan99", "ip": "198.51.100.1",
+                  "prefix_length": 24}],
+        roles={"fw-01": "firewall"},
+    )
+    svc = _join(adapter, session).services[0]
+    assert svc["device"] == "fw-01" and svc["location_method"] == "subnet"

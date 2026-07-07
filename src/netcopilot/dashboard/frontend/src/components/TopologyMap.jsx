@@ -923,7 +923,9 @@ function buildElements(topologyData, findingsData, expandedNodes, selectedView, 
       const badge = `\u00d7${d.memberCount || 2}`
       label = `${d.id}\n${badge}`
     } else {
-      label = d.id
+      // Devices label with their hostname (= id). Service/network nodes carry
+      // a backend-built two-row label (name + IP/CIDR) \u2014 honour it.
+      label = d.label || d.id
     }
 
     const parentHostname = isChild ? d.parent : d.id

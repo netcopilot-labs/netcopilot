@@ -11,6 +11,7 @@ const METHOD_LABEL = {
   'arp+fdb': { text: 'port-precise', color: '#1D9E75' },
   arp: { text: 'gateway', color: '#0EA5E9' },
   subnet: { text: 'approximate', color: '#F59E0B' },
+  colocated: { text: 'VLAN-placed', color: '#F59E0B' },
   gateway: { text: 'gateway', color: '#2563EB' },
   'gateway-containing': { text: 'aggregate', color: '#F59E0B' },
   none: { text: 'never seen', color: '#9CA3AF' },
