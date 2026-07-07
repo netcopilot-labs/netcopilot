@@ -48,12 +48,13 @@ def _pfx(cidr, desc=None, tags=("client-network",), status="active", **kw):
 class FakeSession:
     """Routes the join's queries by substring to canned rows; records writes."""
 
-    def __init__(self, *, infra=(), subnets=(), uplinks=(), arp=None, mac=None):
+    def __init__(self, *, infra=(), subnets=(), uplinks=(), arp=None, mac=None, roles=None):
         self.infra = list(infra)          # rows: {device, interface, ip}
         self.subnets = list(subnets)      # rows: {device, interface, ip} (cidr)
         self.uplinks = list(uplinks)      # rows: {a, ai, b, bi}
         self.arp = arp or {}              # ip → rows {device, interface, mac}
         self.mac = mac or {}              # mac → rows {device, interface, vlan}
+        self.roles = roles or {}          # device → role
         self.writes: list[tuple[str, dict]] = []
 
     def run(self, query, **params):
@@ -61,6 +62,8 @@ class FakeSession:
         if "DETACH DELETE" in q or "CREATE (s:Service)" in q or "REACHED_VIA" in q:
             self.writes.append((q, params))
             return []
+        if "d.role AS role" in q:
+            return [{"name": k, "role": v} for k, v in self.roles.items()]
         if "l.local_interface IS NOT NULL" in q:
             return list(self.uplinks)
         if ":ArpEntry" in q:
@@ -280,3 +283,49 @@ def test_host_rows_are_stamped_kind_host():
     adapter = FakeAdapter([_ip("198.51.100.26/28", dns="cam-lobby-01")])
     svc = _join(adapter, FakeSession()).services[0]
     assert svc["kind"] == "host"
+
+
+# ── s17 fix: role-aware host attachment (switch owns the VLAN, not the gw) ────
+
+def test_switch_beats_gateway_that_only_routes():
+    # A firewall ARPs the host (it IS the VLAN gateway); the services switch
+    # owns the same VLAN subnet. The host hangs on the SWITCH.
+    adapter = FakeAdapter([_ip("198.51.100.50/24", dns="server-a")])
+    session = FakeSession(
+        arp={"198.51.100.50": [
+            {"device": "fw-01", "interface": "vlan200", "mac": "aa:aa:aa:aa:aa:aa"}]},
+        subnets=[
+            {"device": "svc-sw-01", "interface": "Vl200", "ip": "198.51.100.254", "prefix_length": 24},
+            {"device": "fw-01", "interface": "vlan200", "ip": "198.51.100.1", "prefix_length": 24}],
+        roles={"fw-01": "firewall", "svc-sw-01": "services_switch"},
+    )
+    svc = _join(adapter, session).services[0]
+    assert svc["device"] == "svc-sw-01"          # switch, not the routing firewall
+    assert svc["location_method"] == "subnet"
+
+
+def test_arp_fdb_on_switch_still_wins_over_a_gateway_arp():
+    # Even role-first, an exact switch edge port (arp+fdb) is the best answer.
+    adapter = FakeAdapter([_ip("198.51.100.51/24", dns="server-b")])
+    session = FakeSession(
+        arp={"198.51.100.51": [
+            {"device": "fw-01", "interface": "vlan200", "mac": "bb:bb:bb:bb:bb:bb"}]},
+        mac={"bb:bb:bb:bb:bb:bb": [
+            {"device": "acc-sw-02", "interface": "Gi1/0/7", "vlan": "200"}]},
+        roles={"fw-01": "firewall", "acc-sw-02": "access_switch"},
+    )
+    svc = _join(adapter, session).services[0]
+    assert svc["location_method"] == "arp+fdb"
+    assert svc["device"] == "acc-sw-02" and svc["interface"] == "Gi1/0/7"
+
+
+def test_gateway_only_host_still_locates_on_the_gateway():
+    # No switch owns the subnet → the firewall is the honest, only answer.
+    adapter = FakeAdapter([_ip("198.51.100.60/24", dns="dmz-host")])
+    session = FakeSession(
+        arp={"198.51.100.60": [
+            {"device": "fw-01", "interface": "dmz", "mac": "cc:cc:cc:cc:cc:cc"}]},
+        roles={"fw-01": "firewall"},
+    )
+    svc = _join(adapter, session).services[0]
+    assert svc["located"] is True and svc["device"] == "fw-01"

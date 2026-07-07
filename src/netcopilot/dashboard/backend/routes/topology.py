@@ -368,7 +368,7 @@ def get_topology(
                     seen_svc_nodes.add(sid)
                     nodes.append({"data": {
                         "id": sid,
-                        "label": s["name"],
+                        "label": f"{s['name']}\n{s['ip']}",   # two rows: name + IP/CIDR
                         "role": "service",
                         "device_type": "service",
                         "kind": s.get("kind") or "host",

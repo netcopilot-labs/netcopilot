@@ -58,6 +58,19 @@ log = logging.getLogger(__name__)
 #: their gateway; untagged prefixes (infrastructure subnets) stay out.
 CLIENT_NETWORK_TAG = "client-network"
 
+# An L3 gateway (firewall / router) ROUTES for a subnet; the host still
+# ATTACHES to the access/services switch that owns the VLAN. When both could
+# locate a host, prefer the switch — a firewall ARPing a host means "I'm its
+# gateway", not "it hangs off me" (found live: VLAN-200 servers the FortiGate
+# ARP'd as the gateway are physically on the services switch).
+_GATEWAY_ROLES = {"firewall", "border_router", "router"}
+
+
+def _gateway_rank(role: str | None) -> int:
+    """0 for an access/L2 device (preferred host attachment), 1 for an L3
+    gateway (routes for the subnet, isn't where the host hangs)."""
+    return 1 if (role or "").lower() in _GATEWAY_ROLES else 0
+
 
 class ServiceSourceUnavailable(RuntimeError):
     """NetBox is unreachable — the service layer is unknown, not empty."""
@@ -163,6 +176,16 @@ def _link_endpoint_ports(session, site: str, run_id: str) -> set[tuple[str, str]
     return ports
 
 
+def _device_roles(session, site: str, run_id: str) -> dict:
+    """device name → role, for role-aware host attachment."""
+    rows = session.run(
+        f"MATCH (d:{DEVICE} {{site: $site, run_id: $run_id}}) "
+        "RETURN d.name AS name, d.role AS role",
+        site=site, run_id=run_id,
+    )
+    return {r["name"]: r["role"] for r in rows}
+
+
 def _arp_observers(session, site: str, run_id: str, ip: str) -> list[dict]:
     rows = session.run(
         f"MATCH (a:{ARP_ENTRY} {{site: $site, run_id: $run_id, ip: $ip}}) "
@@ -244,6 +267,7 @@ def run_service_join(
         infra = _infra_ips(session, site, run_id)
         subnets = _interface_subnets(session, site, run_id)
         uplinks = _link_endpoint_ports(session, site, run_id)
+        roles = _device_roles(session, site, run_id)
 
         for cand in candidates:
             bare = str(cand["address"]).split("/")[0]
@@ -279,30 +303,38 @@ def run_service_join(
                 "run_id": run_id,
             }
 
+            try:
+                addr = ipaddr_mod.ip_address(bare)
+            except ValueError:
+                report.warnings.append(f"{name}: {cand['address']!r} is not a valid address — skipped")
+                continue
+
+            # Gather every candidate location, then pick role-first: a switch
+            # that owns the VLAN beats a gateway that merely routes for it,
+            # even when the gateway is the only device that ARP'd the host.
+            # Within a role, precision wins (arp+fdb > arp > subnet), then the
+            # most-specific subnet, then name (deterministic).
+            # Key = (gateway_rank, precision, -prefixlen, device, interface).
             observers = _arp_observers(session, site, run_id, bare)
-            if observers:
-                first = observers[0]  # deterministic (sorted by device, interface)
-                svc.update(located=True, location_method="arp",
-                           device=first["device"], interface=first["interface"],
-                           mac=first["mac"], observer_count=len(observers))
-                edge = _edge_ports_for_mac(session, site, run_id, first["mac"], uplinks)
+            cands: list[tuple] = []
+            for o in observers:
+                cands.append((_gateway_rank(roles.get(o["device"])), 1, -32,
+                              o["device"], o["interface"], "arp", o["mac"]))
+                edge = _edge_ports_for_mac(session, site, run_id, o["mac"], uplinks)
                 if len(edge) == 1:
-                    svc.update(location_method="arp+fdb",
-                               device=edge[0]["device"], interface=edge[0]["interface"])
-            else:
-                try:
-                    addr = ipaddr_mod.ip_address(bare)
-                except ValueError:
-                    report.warnings.append(f"{name}: {cand['address']!r} is not a valid address — skipped")
-                    continue
-                containing = sorted(
-                    ((net, dev, intf) for net, dev, intf in subnets if addr in net),
-                    key=lambda t: (-t[0].prefixlen, t[1], t[2]),  # most-specific, then name
-                )
-                if containing:
-                    _net, dev, intf = containing[0]
-                    svc.update(located=True, location_method="subnet",
-                               device=dev, interface=intf)
+                    e = edge[0]
+                    cands.append((_gateway_rank(roles.get(e["device"])), 0, -32,
+                                  e["device"], e["interface"], "arp+fdb", o["mac"]))
+            for net, dev, intf in subnets:
+                if addr in net:
+                    cands.append((_gateway_rank(roles.get(dev)), 2, -net.prefixlen,
+                                  dev, intf, "subnet", None))
+
+            if cands:
+                cands.sort(key=lambda c: c[:5])
+                _, _, _, dev, intf, method, mac = cands[0]
+                svc.update(located=True, location_method=method, device=dev,
+                           interface=intf, mac=mac, observer_count=len(observers))
 
             report.services.append(svc)
 
