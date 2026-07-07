@@ -1100,6 +1100,9 @@ def approve(candidate_id: str, *, adapter=None) -> dict[str, Any] | None:
         outcome = "auto_resolved" if "auto-resolved" in (write_result.get("reason_append") or "") else "success"
     else:
         outcome = "failed"  # pending stays; operator can modify + retry
+        # Stamp WHY it failed onto the candidate so the Reconcile row can show
+        # it inline — the NetBox error otherwise only lived in the audit log.
+        _stamp_pending_failure(candidate_id, write_result)
 
     return {
         "outcome": outcome,
@@ -1107,6 +1110,59 @@ def approve(candidate_id: str, *, adapter=None) -> dict[str, Any] | None:
         "api_response_status": status,
         "netbox_object_id": write_result.get("netbox_object_id"),
     }
+
+
+def _humanize_netbox_error(write_result: dict[str, Any]) -> str:
+    """A one-line, operator-readable rendering of a failed write.
+
+    NetBox nests validation errors as JSON-in-JSON
+    (``{"error": "{\\"__all__\\": [\\"Duplicate termination …\\"]}"}``); flatten
+    them to ``HTTP 400: Duplicate termination found for dcim.interface 1086:
+    cable 53``. Falls back to the reason_append when there's no structured body.
+    """
+    status = write_result.get("api_response_status")
+    body = write_result.get("after_json")
+    parts: list[str] = []
+    if body:
+        try:
+            outer = json.loads(body)
+            err = outer.get("error", outer) if isinstance(outer, dict) else outer
+            if isinstance(err, str):
+                try:
+                    err = json.loads(err)
+                except (ValueError, TypeError):
+                    pass
+            if isinstance(err, dict):
+                for field, msgs in err.items():
+                    msgs = msgs if isinstance(msgs, list) else [msgs]
+                    label = "" if field in ("__all__", "error", "detail") else f"{field}: "
+                    parts.extend(f"{label}{m}" for m in msgs)
+            elif isinstance(err, list):
+                parts.extend(str(m) for m in err)
+            else:
+                parts.append(str(err))
+        except (ValueError, TypeError):
+            parts.append(str(body)[:200])
+    msg = "; ".join(str(p) for p in parts if p)
+    if not msg:
+        msg = (write_result.get("reason_append") or "").strip(" —") or "no detail"
+    return f"HTTP {status}: {msg}"
+
+
+def _stamp_pending_failure(candidate_id: str, write_result: dict[str, Any]) -> None:
+    """Record the last failed-write reason on the pending node (Reconcile UI)."""
+    now_iso = datetime.now(timezone.utc).isoformat()
+    with get_driver().session() as session:
+        session.run(
+            "MATCH (p:NetBoxPendingWrite {id: $id}) "
+            "SET p.last_write_status = $status, "
+            "    p.last_write_error = $error, "
+            "    p.last_attempt_at = $at",
+            id=candidate_id,
+            status=write_result.get("api_response_status"),
+            error=_humanize_netbox_error(write_result),
+            at=now_iso,
+        )
 
 
 def approve_bulk(

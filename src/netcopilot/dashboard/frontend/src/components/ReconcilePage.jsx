@@ -13,7 +13,7 @@
  * human-approved-per-write → audited → non-destructive) is unchanged from
  * s12 — same /api/reconcile/* calls, same modals, same gate banner.
  */
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Fragment } from 'react'
 
 const PAGE_SIZE = 50
 
@@ -44,6 +44,7 @@ export default function ReconcilePage({
   const [modifyTarget, setModifyTarget] = useState(null)
   const [confirmAction, setConfirmAction] = useState(null)
   const [bootstrapBusy, setBootstrapBusy] = useState(false)
+  const [errorDetailId, setErrorDetailId] = useState(null)   // row whose last-write error is expanded
 
   // Reset to page 1 whenever the (toolbar-owned) filters change
   useEffect(() => { setPage(1) }, [source, objectType, minPriority, dedupKey])
@@ -317,8 +318,11 @@ export default function ReconcilePage({
             {!loading && rows.map(r => {
               const dk = dedupKeyForRow(r)
               const device = deviceForRow(r)
+              const failed = Boolean(r.last_write_error)
+              const expanded = errorDetailId === r.id
               return (
-                <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50 group">
+                <Fragment key={r.id}>
+                <tr className={`border-b border-slate-100 hover:bg-slate-50 group ${failed ? 'bg-amber-50' : ''}`}>
                   <td className="px-2 py-1">
                     <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelected(r.id)} />
                   </td>
@@ -329,6 +333,11 @@ export default function ReconcilePage({
                   <td className="px-2 py-1 font-mono truncate" title={`${dk}${r.created_at ? ` · ${relativeTime(r.created_at)}` : ''}`}
                     style={device ? { cursor: 'pointer' } : undefined}
                     onClick={device ? () => onDeviceClick?.(device) : undefined}>
+                    {failed && (
+                      <button onClick={(e) => { e.stopPropagation(); setErrorDetailId(expanded ? null : r.id) }}
+                        title="Last write failed — click to see the NetBox error"
+                        className="mr-1 align-middle" style={{ fontSize: 12 }}>🔍</button>
+                    )}
                     {device ? <span className="text-emerald-700 hover:underline">{dk}</span> : dk}
                   </td>
                   <td className="px-1 py-1 text-center whitespace-nowrap">
@@ -340,6 +349,23 @@ export default function ReconcilePage({
                       className="px-1 mx-0.5 rounded text-white" style={{ background: '#DC2626', fontSize: 11 }}>✕</button>
                   </td>
                 </tr>
+                {expanded && (
+                  <tr className="bg-amber-50 border-b border-amber-200">
+                    <td colSpan={5} className="px-3 py-2">
+                      <div className="text-xs text-amber-900">
+                        <span className="font-semibold">Last write failed</span>
+                        {r.last_attempt_at ? <span className="text-amber-700"> · {relativeTime(r.last_attempt_at)}</span> : null}
+                      </div>
+                      <div className="mt-1 font-mono text-[11px] text-amber-800 whitespace-pre-wrap break-words">
+                        {r.last_write_error}
+                      </div>
+                      <div className="mt-1 text-[11px] text-amber-700">
+                        Fix the cause (or ✎ Modify the payload) and re-approve, or ✕ Reject if this candidate shouldn't exist.
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               )
             })}
           </tbody>
