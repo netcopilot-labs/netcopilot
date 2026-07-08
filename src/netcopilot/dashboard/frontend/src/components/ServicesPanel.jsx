@@ -17,7 +17,72 @@ const METHOD_LABEL = {
   none: { text: 'never seen', color: '#9CA3AF' },
 }
 
-export default function ServicesPanel({ selectedRun, onServiceClick }) {
+const METHOD_WORDING = {
+  'arp+fdb': 'Port-precise — the switch learned this MAC on that physical port.',
+  arp: 'Gateway-resolved via ARP — the exact access port wasn\'t derivable.',
+  subnet: 'Approximate — no ARP seen; placed by the switch\'s VLAN subnet.',
+  colocated: 'Approximate — the host itself wasn\'t observed; placed on the switch its VLAN neighbours were seen on.',
+  gateway: 'An interface serves exactly this network.',
+  'gateway-containing': 'Approximate — a gateway serves part of this range (the declared prefix is an aggregate).',
+  none: 'NEVER SEEN by the network — documented in NetBox, no observation.',
+}
+
+// Left-panel detail for a clicked service or client-network node.
+function ServiceDetail({ svc, onBack, onDevice }) {
+  const isNet = svc.kind === 'network'
+  const m = METHOD_LABEL[svc.location_method] || METHOD_LABEL.none
+  const gws = svc.gateways || (svc.device ? [`${svc.device}${svc.interface ? '/' + svc.interface : ''}`] : [])
+  const Row = ({ k, v }) => v ? (
+    <div className="flex gap-2 py-0.5">
+      <span className="text-[11px] text-gray-400 w-24 shrink-0">{k}</span>
+      <span className="text-[11px] text-gray-800 break-all">{v}</span>
+    </div>
+  ) : null
+  return (
+    <div className="p-3">
+      <button onClick={onBack} className="text-[11px] text-emerald-700 hover:underline mb-2">← back to list</button>
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-sm font-semibold text-gray-800 break-all">{svc.name}</span>
+        <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0"
+              style={{ background: isNet ? '#DBEAFE' : '#DCFCE7', color: isNet ? '#1E3A8A' : '#166534' }}>
+          {isNet ? 'client network' : 'service'}
+        </span>
+      </div>
+      <Row k={isNet ? 'Prefix' : 'IP'} v={svc.address || svc.ip} />
+      <Row k="DNS name" v={svc.dns_name} />
+      <Row k="Description" v={svc.description} />
+      <Row k="Tenant" v={svc.tenant} />
+      <Row k="Role" v={svc.role} />
+      <Row k="VRF" v={svc.vrf} />
+      <Row k="Tags" v={(svc.tags || []).join(', ') || null} />
+      <div className="mt-2 pt-2 border-t border-gray-100">
+        {svc.located ? (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-gray-400">{isNet ? 'Connected at' : 'Located on'}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                    style={{ background: `${m.color}18`, color: m.color }}>{m.text}</span>
+            </div>
+            {gws.map(g => {
+              const dev = g.split('/')[0]
+              return (
+                <button key={g} onClick={() => onDevice?.(dev)}
+                  className="block text-[11px] text-emerald-700 hover:underline py-0.5">{g}</button>
+              )
+            })}
+            <div className="text-[11px] text-gray-500 mt-1">{METHOD_WORDING[svc.location_method]}</div>
+          </>
+        ) : (
+          <div className="text-[11px] text-gray-500">{METHOD_WORDING.none}</div>
+        )}
+        {svc.mac && <Row k="MAC" v={svc.mac} />}
+        {svc.joined_at && <div className="text-[10px] text-gray-400 mt-2">joined {svc.joined_at}</div>}
+      </div>
+    </div>
+  )
+}
+
+export default function ServicesPanel({ selectedRun, onServiceClick, selectedIp, onSelectIp }) {
   const [services, setServices] = useState([])
   const [joined, setJoined] = useState(true)
   const [search, setSearch] = useState('')
@@ -73,6 +138,8 @@ export default function ServicesPanel({ selectedRun, onServiceClick }) {
   const located = hostsOnly.filter(s => s.device)
   const unlocated = hostsOnly.filter(s => !s.device)
 
+  const selected = selectedIp ? services.find(s => s.ip === selectedIp) : null
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between">
@@ -93,16 +160,24 @@ export default function ServicesPanel({ selectedRun, onServiceClick }) {
         </button>
       </div>
 
-      <div className="px-3 py-2 border-b border-gray-100">
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search name / IP / description…"
-          className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded"
-        />
-      </div>
+      {!selected && (
+        <div className="px-3 py-2 border-b border-gray-100">
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search name / IP / description…"
+            className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded"
+          />
+        </div>
+      )}
 
-      <div className="flex-1 overflow-y-auto">
+      {selected && (
+        <div className="flex-1 overflow-y-auto">
+          <ServiceDetail svc={selected} onBack={() => onSelectIp?.(null)} onDevice={onServiceClick} />
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto" style={selected ? { display: 'none' } : undefined}>
         {error && (
           <div className="m-3 p-2 rounded text-[11px]" style={{ background: '#FEF2F2', color: '#B91C1C' }}>
             {error}
@@ -131,7 +206,7 @@ export default function ServicesPanel({ selectedRun, onServiceClick }) {
           return (
             <button
               key={s.ip}
-              onClick={() => s.device && onServiceClick?.(s.device)}
+              onClick={() => { onSelectIp?.(s.ip); if (s.device) onServiceClick?.(s.device) }}
               className="w-full text-left px-3 py-2 border-b border-gray-50 hover:bg-blue-50"
               title={s.device ? `Highlight ${s.device} on the map` : 'Not located'}
             >
@@ -159,7 +234,7 @@ export default function ServicesPanel({ selectedRun, onServiceClick }) {
           return (
             <button
               key={s.ip}
-              onClick={() => onServiceClick?.(s.device)}
+              onClick={() => { onSelectIp?.(s.ip); onServiceClick?.(s.device) }}
               className="w-full text-left px-3 py-2 border-b border-gray-50 hover:bg-gray-50"
               title={`Highlight ${s.device} on the map`}
             >

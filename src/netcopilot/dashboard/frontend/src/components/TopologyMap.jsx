@@ -1280,6 +1280,7 @@ export default function TopologyMap({
   findingsData,
   selectedDevice,
   onDeviceSelect,
+  onServiceSelect,
   deviceList,
   onLinkSelect,
   selectedView,
@@ -1304,8 +1305,10 @@ export default function TopologyMap({
   // S01-6: refs so the cy tap handlers read current diff state without rebinding.
   const diffModeRef = useRef(diffMode)
   const onDriftClickRef = useRef(onDriftElementClick)
+  const onServiceSelectRef = useRef(onServiceSelect)
   useEffect(() => { diffModeRef.current = diffMode }, [diffMode])
   useEffect(() => { onDriftClickRef.current = onDriftElementClick }, [onDriftElementClick])
+  useEffect(() => { onServiceSelectRef.current = onServiceSelect }, [onServiceSelect])
   const [tooltip, setTooltip] = useState(null)
   const [expandedNodes, setExpandedNodes] = useState(() => new Set())
   const compoundNodeIdsRef = useRef(new Set())
@@ -1486,6 +1489,13 @@ export default function TopologyMap({
         return
       }
 
+      // s16: service / client-network nodes open their own detail (they aren't
+      // devices — routing them through onDeviceSelect would 404 the panel).
+      if (nodeData.role === 'service' && onServiceSelectRef.current) {
+        onServiceSelectRef.current(nodeData.service_ip, nodeData.residesOn)
+        return
+      }
+
       // Update React state for right panel
       onDeviceSelect(deviceId)
     })
@@ -1601,6 +1611,13 @@ export default function TopologyMap({
         if (d.link_id) {
           onDriftClickRef.current({ entity_type: 'links', element_type: 'link', element_id: d.link_id, key: d.link_id })
         }
+        return
+      }
+
+      // s16: a service-attachment edge opens the service's detail, not a link
+      // panel (it has no real link data — it's a service→device connector).
+      if (d.linkType === 'service_attachment' && onServiceSelectRef.current) {
+        onServiceSelectRef.current(String(d.target).replace(/^svc:/, ''), d.source)
         return
       }
 

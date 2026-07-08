@@ -377,6 +377,7 @@ def get_topology(
                         "service_ip": s["ip"],
                         "location_method": s["method"],
                         "service_interface": s.get("interface"),
+                        "residesOn": s["device"],   # owning device (highlight on click)
                     }})
                     drawn += 1
                 svc_edges.append({

@@ -254,6 +254,7 @@ function AppContent() {
   )
   // S19A-8: Selected link (mutual exclusion with selectedDevice)
   const [selectedLink, setSelectedLink] = useState(null)
+  const [selectedServiceIp, setSelectedServiceIp] = useState(null)   // s16: clicked service/network node
 
   // S01-5: run-to-run drift ("Diff" mode within the Audit tab). diffMode toggles
   // the left panel from FindingsPage to DriftPanel; diffAgainst = the comparison
@@ -1310,6 +1311,8 @@ function AppContent() {
                  closing it returns here while the view is active. */
               <ServicesPanel
                 selectedRun={selectedRun}
+                selectedIp={selectedServiceIp}
+                onSelectIp={setSelectedServiceIp}
                 onServiceClick={(device) => { setSelectedDevice(device); setSelectedLink(null) }}
               />
             ) : (
@@ -1353,6 +1356,7 @@ function AppContent() {
               findingsData={findingsData}
               selectedDevice={selectedDevice}
               onDeviceSelect={handleDeviceSelect}
+              onServiceSelect={(ip, device) => { setSelectedServiceIp(ip); if (device) { setSelectedDevice(device); setSelectedLink(null) } }}
               deviceList={deviceList}
               onLinkSelect={handleLinkSelect}
               selectedView={selectedView}
