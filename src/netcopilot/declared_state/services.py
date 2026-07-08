@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import ipaddress as ipaddr_mod
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -190,6 +191,54 @@ def _hypervisor_for(macs) -> str | None:
         if vendor:
             return vendor
     return None
+
+
+# A physical server is named in its switch-port description ("Link to
+# <HOST>", "<HOST> (Enterprise port)", "CIMC <HOST>"). The deterministic host
+# identity is the hostname-shaped token — ≥3 hyphen-separated segments, so
+# role labels like "STACK-DAD" don't match. Ports sharing that token are the
+# same physical node (multiple NICs of one server).
+_SERVER_RE = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+){2,}")
+
+
+def _server_from_description(desc: str | None) -> str | None:
+    if not desc:
+        return None
+    m = _SERVER_RE.search(desc)
+    return m.group(0) if m else None
+
+
+def _interface_descriptions(run_id: str) -> dict:
+    """(device, interface) → port description, read from the run's facts.
+
+    The model only carries descriptions for L3 interfaces; the L2 access ports
+    that face the servers (where the host-grouping description lives) lose them.
+    So read genie_interface.json directly (drift.py reads run facts too) and
+    normalize the interface name to the graph-wide abbreviated form.
+    """
+    import json
+    import os
+    from pathlib import Path
+
+    from netcopilot.model.interface_normalizer import normalize_interface_name
+
+    facts = Path(os.environ.get("RUNS_DIR", "runs")) / run_id / "facts"
+    out: dict = {}
+    if not facts.is_dir():
+        return out
+    for dev_dir in facts.iterdir():
+        gi = dev_dir / "genie_interface.json"
+        if not gi.is_file():
+            continue
+        try:
+            data = json.loads(gi.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for raw_name, d in (data or {}).items():
+            desc = (d or {}).get("description")
+            if desc:
+                out[(dev_dir.name, normalize_interface_name(raw_name))] = desc
+    return out
 
 
 def _port_endpoint_macs(session, site: str, run_id: str, device: str, interface: str) -> list[str]:
@@ -401,29 +450,51 @@ def run_service_join(
                              mac=None, location_method="colocated")
 
         # ── Virtualization host detection (s18) ─────────────────────────────
-        # A physical access port carrying ≥2 endpoint MACs — or any MAC with a
-        # known hypervisor OUI — is a virtualization host: VMs bridged behind
-        # one uplink. Deterministic from the FDB; separates ESXi hosts (many
-        # VMware MACs on a port) from bare-metal appliances (one MAC). Services
-        # on such a port are stamped so the view can draw the host box between
-        # the switch port and its VMs.
-        vhost_ports: dict = {}   # (device, interface) → {hypervisor, count}
+        # A physical access port is a virtualization uplink when it carries ≥2
+        # endpoint MACs OR any MAC with a known hypervisor OUI. But a physical
+        # HOST has MULTIPLE uplink NICs — so the deterministic grouping into
+        # nodes is the SERVER named in the port description (e.g. two ports both
+        # "Link to <HOST>" are the same node). We group a server's virtualized
+        # ports into one host, summing endpoints across them, and stamp each VM
+        # with its server + hypervisor. Ports without a server description fall
+        # back to the port itself (honest — we can't name the node). Bare-metal
+        # ports (single non-hypervisor MAC) are left alone: the appliance IS the
+        # service, drawn directly.
+        descriptions = _interface_descriptions(run_id)
+        port_info: dict = {}     # (device, port) → {virt, hypervisor, count, server}
         for s in report.services:
             if (s.get("kind") == "host" and s.get("location_method") == "arp+fdb"
                     and s.get("interface")):
                 key = (s["device"], s["interface"])
-                if key not in vhost_ports:
+                if key not in port_info:
                     macs = _port_endpoint_macs(session, site, run_id, *key)
                     hv = _hypervisor_for(macs)
-                    vhost_ports[key] = ({"hypervisor": hv, "count": len(macs)}
-                                        if (len(macs) >= 2 or hv) else None)
+                    port_info[key] = {
+                        "virt": len(macs) >= 2 or bool(hv),
+                        "hypervisor": hv, "count": len(macs),
+                        "server": _server_from_description(descriptions.get(key)),
+                    }
+        # Aggregate a server's virtualized ports into one node (fall back to the
+        # port id when the port has no server description).
+        server_agg: dict = {}    # server_key → {hypervisor, count, label}
+        for key, pi in port_info.items():
+            if not pi["virt"]:
+                continue
+            server_key = pi["server"] or f"{key[0]}:{key[1]}"
+            agg = server_agg.setdefault(server_key, {"hypervisor": None, "count": 0,
+                                                     "named": pi["server"]})
+            agg["hypervisor"] = agg["hypervisor"] or pi["hypervisor"]
+            agg["count"] += pi["count"]
         for s in report.services:
             key = (s.get("device"), s.get("interface"))
-            vp = vhost_ports.get(key)
-            if vp:
-                s["via_host"] = f"{s['device']}:{s['interface']}"
-                s["hypervisor"] = vp["hypervisor"] or "multi-endpoint"
-                s["host_endpoint_count"] = vp["count"]
+            pi = port_info.get(key)
+            if pi and pi["virt"]:
+                server_key = pi["server"] or f"{key[0]}:{key[1]}"
+                agg = server_agg[server_key]
+                s["server"] = server_key
+                s["server_name"] = agg["named"] or server_key
+                s["hypervisor"] = agg["hypervisor"] or "multi-endpoint"
+                s["server_endpoint_count"] = agg["count"]
 
         # ── Client networks (s17): tagged prefixes located at their gateway ──
         net_candidates = [

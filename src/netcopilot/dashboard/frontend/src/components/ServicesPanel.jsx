@@ -203,7 +203,7 @@ export default function ServicesPanel({ selectedRun, onServiceClick, selectedIp,
       {selectedVhost && (
         <div className="flex-1 overflow-y-auto">
           <VhostDetail vhost={selectedVhost} onBack={onClearVhost} onDevice={onServiceClick}
-            vms={services.filter(s => s.via_host && `vhost:${s.via_host}` === selectedVhost.id)} />
+            vms={services.filter(s => s.server && `vhost:${s.server}` === selectedVhost.id)} />
         </div>
       )}
       {selected && !selectedVhost && (

@@ -56,6 +56,7 @@ class FakeSession:
         self.mac = mac or {}              # mac → rows {device, interface, vlan}
         self.roles = roles or {}          # device → role
         self.port_macs = {}               # (device, interface) → [mac]  (s18)
+        self.descriptions = {}            # (device, interface) → desc   (s18)
         self.writes: list[tuple[str, dict]] = []
 
     def run(self, query, **params):
@@ -72,6 +73,9 @@ class FakeSession:
         if "DISTINCT m.mac AS mac" in q:   # s18: _port_endpoint_macs
             macs = self.port_macs.get((params["device"], params["interface"]), [])
             return [{"mac": m} for m in macs]
+        if "i.description AS description" in q:   # s18: _interface_descriptions
+            return [{"device": d, "interface": i, "description": v}
+                    for (d, i), v in self.descriptions.items()]
         if ":MacEntry" in q:
             return list(self.mac.get(params["mac"], []))
         if "prefix_length" in q:
@@ -384,31 +388,32 @@ def test_hypervisor_oui_and_multiendpoint_detection():
     assert _hypervisor_for(["3c:fd:fe:00:00:01"]) is None   # bare-metal NIC
 
 
-def test_services_on_a_vmware_port_are_stamped(monkeypatch):
-    # Two named VMs share a port whose FDB carries 4 VMware MACs → both stamped
-    # with the same via_host + hypervisor + endpoint count.
+def test_vms_group_by_server_across_ports(monkeypatch):
+    # Two VMs on DIFFERENT ports of the SAME server (per description) group into
+    # one node; endpoint count sums across the server's ports.
     adapter = FakeAdapter([
         _ip("198.51.100.10/24", dns="vcenter"),
-        _ip("198.51.100.11/24", dns="ise")])
+        _ip("198.51.100.11/24", dns="splunk")])
     session = FakeSession(
         arp={"198.51.100.10": [{"device": "svc-sw", "interface": "Vl200", "mac": "00:50:56:00:00:01"}],
              "198.51.100.11": [{"device": "svc-sw", "interface": "Vl200", "mac": "00:0c:29:00:00:02"}]},
-        mac={"00:50:56:00:00:01": [{"device": "svc-sw", "interface": "Te2/1/5", "vlan": "200"}],
-             "00:0c:29:00:00:02": [{"device": "svc-sw", "interface": "Te2/1/5", "vlan": "200"}]},
+        mac={"00:50:56:00:00:01": [{"device": "svc-sw", "interface": "Te1/1/5", "vlan": "200"}],
+             "00:0c:29:00:00:02": [{"device": "svc-sw", "interface": "Te1/1/6", "vlan": "200"}]},
         roles={"svc-sw": "services_switch"},
     )
-    # the port's full FDB (4 VMware MACs — 2 named VMs + 2 unnamed)
-    session.port_macs = {("svc-sw", "Te2/1/5"):
-                         ["00:50:56:00:00:01", "00:0c:29:00:00:02",
-                          "00:50:56:00:00:03", "00:0c:29:00:00:04"]}
+    session.port_macs = {("svc-sw", "Te1/1/5"): ["00:50:56:00:00:01", "00:50:56:00:00:aa"],
+                         ("svc-sw", "Te1/1/6"): ["00:0c:29:00:00:02", "00:0c:29:00:00:bb"]}
+    monkeypatch.setattr("netcopilot.declared_state.services._interface_descriptions",
+                        lambda rid: {("svc-sw", "Te1/1/5"): "Link to SYNTH-SRV-ESX-01",
+                                     ("svc-sw", "Te1/1/6"): "Link to SYNTH-SRV-ESX-01"})
     svcs = {s["name"]: s for s in _join(adapter, session).services}
-    for name in ("vcenter", "ise"):
-        assert svcs[name]["via_host"] == "svc-sw:Te2/1/5"
+    for name in ("vcenter", "splunk"):
+        assert svcs[name]["server"] == "SYNTH-SRV-ESX-01"   # SAME node, both ports
         assert svcs[name]["hypervisor"] == "VMware"
-        assert svcs[name]["host_endpoint_count"] == 4
+        assert svcs[name]["server_endpoint_count"] == 4      # 2 ports x 2 MACs
 
 
-def test_bare_metal_single_mac_port_not_stamped():
+def test_bare_metal_single_mac_port_not_stamped(monkeypatch):
     adapter = FakeAdapter([_ip("198.51.100.20/24", dns="dnac1")])
     session = FakeSession(
         arp={"198.51.100.20": [{"device": "svc-sw", "interface": "Vl200", "mac": "3c:fd:fe:00:00:01"}]},
@@ -416,5 +421,7 @@ def test_bare_metal_single_mac_port_not_stamped():
         roles={"svc-sw": "services_switch"},
     )
     session.port_macs = {("svc-sw", "Te1/1/1"): ["3c:fd:fe:00:00:01"]}   # one MAC
+    monkeypatch.setattr("netcopilot.declared_state.services._interface_descriptions",
+                        lambda rid: {("svc-sw", "Te1/1/1"): "SYNTH-SRV-APP-01 (Enterprise port)"})
     svc = _join(adapter, session).services[0]
-    assert "via_host" not in svc and svc["location_method"] == "arp+fdb"
+    assert "server" not in svc and svc["location_method"] == "arp+fdb"
