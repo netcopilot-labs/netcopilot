@@ -776,7 +776,9 @@ const COLLAPSED_VIEWS = new Set(['l2vlan', 'ospf', 'bgp'])
 // are intentionally retained so the toolbar buttons can come back per-view if
 // needed later (the gate at the toolbar render site checks both predicate
 // sets — adding a 6th view outside both sets would surface the buttons again).
-const EXPANDED_VIEWS = new Set(['physical', 'mgmt'])
+// s18: Service joins them — Carlos wants stacks/HA/LAG members expanded so the
+// port-channels carrying client networks are visible, with no toggle clutter.
+const EXPANDED_VIEWS = new Set(['physical', 'mgmt', 'service'])
 
 // Views that suppress the physical/cable edge layer entirely and render ONLY
 // protocol-adjacency edges. Carlos's mental model: "one BGP cable between the
@@ -1489,10 +1491,14 @@ export default function TopologyMap({
         return
       }
 
-      // s16: service / client-network nodes open their own detail (they aren't
-      // devices — routing them through onDeviceSelect would 404 the panel).
+      // s16/s18: service, client-network and virtualization-host nodes open
+      // their own detail (they aren't devices — onDeviceSelect would 404).
       if (nodeData.role === 'service' && onServiceSelectRef.current) {
         onServiceSelectRef.current(nodeData.service_ip, nodeData.residesOn)
+        return
+      }
+      if (nodeData.role === 'vhost' && onServiceSelectRef.current) {
+        onServiceSelectRef.current({ vhost: nodeData }, nodeData.residesOn)
         return
       }
 
@@ -1527,6 +1533,13 @@ export default function TopologyMap({
           d.platform ? `Platform: ${d.platform}` : null,
           d.serial ? `Serial: ${d.serial}` : null,
           d.state ? `State: ${d.state}` : null,
+        ]
+      } else if (d.role === 'vhost') {
+        content = [
+          `${d.hypervisor} host`,
+          `Port: ${d.host_port}`,
+          `${d.endpoint_count} endpoint MAC(s) — ${d.named_vms} named`,
+          'Deterministic: multiple MACs / hypervisor OUI on one port',
         ]
       } else {
         // Regular or compound parent tooltip

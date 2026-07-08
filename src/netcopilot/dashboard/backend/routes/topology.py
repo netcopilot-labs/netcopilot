@@ -351,19 +351,30 @@ def get_topology(
                     "OPTIONAL MATCH (s)-[:RESIDES_ON]->(d:Device {run_id: $run_id}) "
                     "RETURN s.name AS name, s.ip AS ip, s.location_method AS method, "
                     "       s.located AS located, d.name AS device, "
-                    "       s.interface AS interface, s.kind AS kind "
+                    "       s.interface AS interface, s.kind AS kind, "
+                    "       s.via_host AS via_host, s.hypervisor AS hypervisor, "
+                    "       s.host_endpoint_count AS host_endpoint_count "
                     "ORDER BY s.name",
                     run_id=run_id,
                 )]
             svc_edges = []
             drawn = 0
             seen_svc_nodes: set[str] = set()
+            vhosts: dict = {}   # via_host → {device, port, hypervisor, count}
             for s in svc_rows:
                 # Multi-gateway networks (s17) return one row per RESIDES_ON:
                 # one node, one attachment edge per gateway.
                 if not s["device"] or s["device"] not in node_names:
                     continue
                 sid = f"svc:{s['ip']}"
+                # s18: a virtualized service hangs off its hypervisor host box,
+                # which in turn hangs off the switch port — not the switch.
+                via = s.get("via_host")
+                if via and via not in vhosts:
+                    vhosts[via] = {"device": s["device"], "port": s["interface"],
+                                   "hypervisor": s.get("hypervisor"),
+                                   "count": s.get("host_endpoint_count") or 0}
+                attach_to = f"vhost:{via}" if via else s["device"]
                 if sid not in seen_svc_nodes:
                     seen_svc_nodes.add(sid)
                     nodes.append({"data": {
@@ -378,14 +389,48 @@ def get_topology(
                         "location_method": s["method"],
                         "service_interface": s.get("interface"),
                         "residesOn": s["device"],   # owning device (highlight on click)
+                        "via_host": via,
                     }})
                     drawn += 1
                 svc_edges.append({
-                    "id": f"svc-edge:{s['ip']}:{s['device']}",
-                    "source": s["device"],
+                    "id": f"svc-edge:{s['ip']}:{attach_to}",
+                    "source": attach_to,
                     "target": sid,
                     "linkType": "service_attachment",
                 })
+
+            # s18: one virtualization-host box per detected port; the switch
+            # port connects to the box, the box to its VMs. Named-VM children
+            # are drawn; the label discloses the total endpoint count.
+            for via, v in vhosts.items():
+                vid = f"vhost:{via}"
+                hv = v["hypervisor"] or "multi-endpoint"
+                named = sum(1 for s in svc_rows if s.get("via_host") == via)
+                extra = v["count"] - named
+                label = f"{hv} host\n{v['count']} VM(s)" + (f" · {extra} unnamed" if extra > 0 else "")
+                nodes.append({"data": {
+                    "id": vid,
+                    "label": label,
+                    "role": "vhost",
+                    "device_type": "vhost",
+                    "kind": "vhost",
+                    "collected": False,
+                    "findings_count": 0,
+                    "hypervisor": hv,
+                    "host_port": f"{v['device']}/{v['port']}",
+                    "endpoint_count": v["count"],
+                    "named_vms": named,
+                    "residesOn": v["device"],
+                    "via_host": via,
+                }})
+                svc_edges.append({
+                    "id": f"vhost-edge:{via}",
+                    "source": v["device"],
+                    "target": vid,
+                    "linkType": "service_attachment",
+                    "port": v["port"],
+                })
+
             if compound_names:
                 svc_edges = _reroute_edges_to_members(svc_edges, compound_names)
             for e in svc_edges:

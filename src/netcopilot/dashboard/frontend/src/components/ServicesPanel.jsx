@@ -82,7 +82,36 @@ function ServiceDetail({ svc, onBack, onDevice }) {
   )
 }
 
-export default function ServicesPanel({ selectedRun, onServiceClick, selectedIp, onSelectIp }) {
+// Detail for a clicked virtualization-host box (s18): its port, hypervisor,
+// endpoint count, and the named VMs behind it.
+function VhostDetail({ vhost, vms, onBack, onDevice }) {
+  return (
+    <div className="p-3">
+      <button onClick={onBack} className="text-[11px] text-emerald-700 hover:underline mb-2">← back to list</button>
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-sm font-semibold text-orange-900">{vhost.hypervisor} host</span>
+        <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: '#FFEDD5', color: '#9A3412' }}>
+          virtualization
+        </span>
+      </div>
+      <div className="text-[11px] text-gray-500 mb-2">
+        <button onClick={() => onDevice?.(String(vhost.host_port).split('/')[0])}
+          className="text-emerald-700 hover:underline">{vhost.host_port}</button>
+        {' · '}{vhost.endpoint_count} endpoint MAC(s) — {vhost.named_vms} named
+      </div>
+      <div className="text-[10px] text-gray-400 mb-1">Determined from the FDB: multiple MACs / a hypervisor OUI on one physical port.</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-400 mt-2 mb-1">Named VMs</div>
+      {vms.map(s => (
+        <div key={s.ip} className="text-[11px] text-gray-800 py-0.5">{s.name} <span className="text-gray-400">{s.ip}</span></div>
+      ))}
+      {vhost.endpoint_count - vms.length > 0 && (
+        <div className="text-[11px] text-gray-400 py-0.5">+ {vhost.endpoint_count - vms.length} VM(s) with no NetBox name</div>
+      )}
+    </div>
+  )
+}
+
+export default function ServicesPanel({ selectedRun, onServiceClick, selectedIp, onSelectIp, selectedVhost, onClearVhost }) {
   const [services, setServices] = useState([])
   const [joined, setJoined] = useState(true)
   const [search, setSearch] = useState('')
@@ -160,7 +189,7 @@ export default function ServicesPanel({ selectedRun, onServiceClick, selectedIp,
         </button>
       </div>
 
-      {!selected && (
+      {!selected && !selectedVhost && (
         <div className="px-3 py-2 border-b border-gray-100">
           <input
             value={search}
@@ -171,13 +200,19 @@ export default function ServicesPanel({ selectedRun, onServiceClick, selectedIp,
         </div>
       )}
 
-      {selected && (
+      {selectedVhost && (
+        <div className="flex-1 overflow-y-auto">
+          <VhostDetail vhost={selectedVhost} onBack={onClearVhost} onDevice={onServiceClick}
+            vms={services.filter(s => s.via_host && `vhost:${s.via_host}` === selectedVhost.id)} />
+        </div>
+      )}
+      {selected && !selectedVhost && (
         <div className="flex-1 overflow-y-auto">
           <ServiceDetail svc={selected} onBack={() => onSelectIp?.(null)} onDevice={onServiceClick} />
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto" style={selected ? { display: 'none' } : undefined}>
+      <div className="flex-1 overflow-y-auto" style={(selected || selectedVhost) ? { display: 'none' } : undefined}>
         {error && (
           <div className="m-3 p-2 rounded text-[11px]" style={{ background: '#FEF2F2', color: '#B91C1C' }}>
             {error}

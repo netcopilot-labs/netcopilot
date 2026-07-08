@@ -176,6 +176,33 @@ def _link_endpoint_ports(session, site: str, run_id: str) -> set[tuple[str, str]
     return ports
 
 
+# Known hypervisor / VM MAC OUIs — a MAC in one of these is deterministic
+# proof of virtualization (no heuristic). Extend as new platforms appear.
+_HYPERVISOR_OUIS = {
+    "00:0c:29": "VMware", "00:50:56": "VMware", "00:05:69": "VMware", "00:1c:14": "VMware",
+    "00:15:5d": "Hyper-V", "52:54:00": "KVM/QEMU", "00:16:3e": "Xen", "0a:00:27": "VirtualBox",
+}
+
+
+def _hypervisor_for(macs) -> str | None:
+    for m in macs:
+        vendor = _HYPERVISOR_OUIS.get((m or "")[:8].lower())
+        if vendor:
+            return vendor
+    return None
+
+
+def _port_endpoint_macs(session, site: str, run_id: str, device: str, interface: str) -> list[str]:
+    """Distinct endpoint MACs learned on one physical port (FDB)."""
+    rows = session.run(
+        f"MATCH (m:{MAC_ENTRY} {{site: $site, run_id: $run_id, "
+        "device: $device, interface: $interface}) "
+        "RETURN DISTINCT m.mac AS mac",
+        site=site, run_id=run_id, device=device, interface=interface,
+    )
+    return [r["mac"] for r in rows]
+
+
 def _device_roles(session, site: str, run_id: str) -> dict:
     """device name → role, for role-aware host attachment."""
     rows = session.run(
@@ -372,6 +399,31 @@ def run_service_join(
                 if best_net is not None:
                     s.update(device=subnet_switch[best_net], interface=None,
                              mac=None, location_method="colocated")
+
+        # ── Virtualization host detection (s18) ─────────────────────────────
+        # A physical access port carrying ≥2 endpoint MACs — or any MAC with a
+        # known hypervisor OUI — is a virtualization host: VMs bridged behind
+        # one uplink. Deterministic from the FDB; separates ESXi hosts (many
+        # VMware MACs on a port) from bare-metal appliances (one MAC). Services
+        # on such a port are stamped so the view can draw the host box between
+        # the switch port and its VMs.
+        vhost_ports: dict = {}   # (device, interface) → {hypervisor, count}
+        for s in report.services:
+            if (s.get("kind") == "host" and s.get("location_method") == "arp+fdb"
+                    and s.get("interface")):
+                key = (s["device"], s["interface"])
+                if key not in vhost_ports:
+                    macs = _port_endpoint_macs(session, site, run_id, *key)
+                    hv = _hypervisor_for(macs)
+                    vhost_ports[key] = ({"hypervisor": hv, "count": len(macs)}
+                                        if (len(macs) >= 2 or hv) else None)
+        for s in report.services:
+            key = (s.get("device"), s.get("interface"))
+            vp = vhost_ports.get(key)
+            if vp:
+                s["via_host"] = f"{s['device']}:{s['interface']}"
+                s["hypervisor"] = vp["hypervisor"] or "multi-endpoint"
+                s["host_endpoint_count"] = vp["count"]
 
         # ── Client networks (s17): tagged prefixes located at their gateway ──
         net_candidates = [

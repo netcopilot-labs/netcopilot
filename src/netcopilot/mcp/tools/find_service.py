@@ -55,6 +55,11 @@ def _render(svc: dict) -> list[str]:
         lines.append(f"  Confidence:  {_METHOD_WORDING.get(method, method)}")
         if svc.get("mac"):
             lines.append(f"  MAC:         {svc['mac']}")
+        if svc.get("via_host"):   # s18: virtualized
+            hv = svc.get("hypervisor") or "multi-endpoint"
+            n = svc.get("host_endpoint_count")
+            lines.append(f"  Virtualized: yes — {hv} host on {svc['via_host']}"
+                         + (f" ({n} VMs behind this port)" if n else ""))
         if (svc.get("observer_count") or 0) > 1:
             lines.append(f"  Observers:   {svc['observer_count']} devices resolve this IP")
     else:

@@ -55,6 +55,7 @@ class FakeSession:
         self.arp = arp or {}              # ip → rows {device, interface, mac}
         self.mac = mac or {}              # mac → rows {device, interface, vlan}
         self.roles = roles or {}          # device → role
+        self.port_macs = {}               # (device, interface) → [mac]  (s18)
         self.writes: list[tuple[str, dict]] = []
 
     def run(self, query, **params):
@@ -68,6 +69,9 @@ class FakeSession:
             return list(self.uplinks)
         if ":ArpEntry" in q:
             return list(self.arp.get(params["ip"], []))
+        if "DISTINCT m.mac AS mac" in q:   # s18: _port_endpoint_macs
+            macs = self.port_macs.get((params["device"], params["interface"]), [])
+            return [{"mac": m} for m in macs]
         if ":MacEntry" in q:
             return list(self.mac.get(params["mac"], []))
         if "prefix_length" in q:
@@ -369,3 +373,48 @@ def test_gateway_only_vlan_stays_on_gateway_when_no_neighbour_observed():
     )
     svc = _join(adapter, session).services[0]
     assert svc["device"] == "fw-01" and svc["location_method"] == "subnet"
+
+
+# ── s18: deterministic virtualization host detection ─────────────────────────
+
+def test_hypervisor_oui_and_multiendpoint_detection():
+    from netcopilot.declared_state.services import _hypervisor_for
+    assert _hypervisor_for(["00:50:56:aa:bb:cc"]) == "VMware"
+    assert _hypervisor_for(["52:54:00:11:22:33"]) == "KVM/QEMU"
+    assert _hypervisor_for(["3c:fd:fe:00:00:01"]) is None   # bare-metal NIC
+
+
+def test_services_on_a_vmware_port_are_stamped(monkeypatch):
+    # Two named VMs share a port whose FDB carries 4 VMware MACs → both stamped
+    # with the same via_host + hypervisor + endpoint count.
+    adapter = FakeAdapter([
+        _ip("198.51.100.10/24", dns="vcenter"),
+        _ip("198.51.100.11/24", dns="ise")])
+    session = FakeSession(
+        arp={"198.51.100.10": [{"device": "svc-sw", "interface": "Vl200", "mac": "00:50:56:00:00:01"}],
+             "198.51.100.11": [{"device": "svc-sw", "interface": "Vl200", "mac": "00:0c:29:00:00:02"}]},
+        mac={"00:50:56:00:00:01": [{"device": "svc-sw", "interface": "Te2/1/5", "vlan": "200"}],
+             "00:0c:29:00:00:02": [{"device": "svc-sw", "interface": "Te2/1/5", "vlan": "200"}]},
+        roles={"svc-sw": "services_switch"},
+    )
+    # the port's full FDB (4 VMware MACs — 2 named VMs + 2 unnamed)
+    session.port_macs = {("svc-sw", "Te2/1/5"):
+                         ["00:50:56:00:00:01", "00:0c:29:00:00:02",
+                          "00:50:56:00:00:03", "00:0c:29:00:00:04"]}
+    svcs = {s["name"]: s for s in _join(adapter, session).services}
+    for name in ("vcenter", "ise"):
+        assert svcs[name]["via_host"] == "svc-sw:Te2/1/5"
+        assert svcs[name]["hypervisor"] == "VMware"
+        assert svcs[name]["host_endpoint_count"] == 4
+
+
+def test_bare_metal_single_mac_port_not_stamped():
+    adapter = FakeAdapter([_ip("198.51.100.20/24", dns="dnac1")])
+    session = FakeSession(
+        arp={"198.51.100.20": [{"device": "svc-sw", "interface": "Vl200", "mac": "3c:fd:fe:00:00:01"}]},
+        mac={"3c:fd:fe:00:00:01": [{"device": "svc-sw", "interface": "Te1/1/1", "vlan": "200"}]},
+        roles={"svc-sw": "services_switch"},
+    )
+    session.port_macs = {("svc-sw", "Te1/1/1"): ["3c:fd:fe:00:00:01"]}   # one MAC
+    svc = _join(adapter, session).services[0]
+    assert "via_host" not in svc and svc["location_method"] == "arp+fdb"
