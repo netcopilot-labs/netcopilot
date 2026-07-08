@@ -241,6 +241,48 @@ def _interface_descriptions(run_id: str) -> dict:
     return out
 
 
+_SVI_RE = re.compile(r"[Vv]l(?:an)?(\d+)")
+
+
+def _vlan_of_svi(interface: str | None) -> str | None:
+    """'Vl301' / 'Vlan301' → '301'."""
+    if not interface:
+        return None
+    m = _SVI_RE.fullmatch(interface)
+    return m.group(1) if m else None
+
+
+def _vlan_access_ports(run_id: str) -> dict:
+    """vlan_id → [(device, port)] — the L2 access member ports of each VLAN,
+    read from the run's VLAN databases. A client VLAN's access ports are where
+    its clients physically plug in (on the access switch), even though the L3
+    SVI/gateway lives on the core.
+    """
+    import json
+    import os
+    from pathlib import Path
+
+    from netcopilot.model.interface_normalizer import normalize_interface_name
+
+    facts = Path(os.environ.get("RUNS_DIR", "runs")) / run_id / "facts"
+    out: dict = {}
+    if not facts.is_dir():
+        return out
+    for dev_dir in facts.iterdir():
+        gv = dev_dir / "genie_vlan.json"
+        if not gv.is_file():
+            continue
+        try:
+            data = json.loads(gv.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for vid, vd in (data.get("vlans") or {}).items():
+            for port in (vd.get("interfaces") or []):
+                out.setdefault(str(vid), []).append(
+                    (dev_dir.name, normalize_interface_name(port)))
+    return out
+
+
 def _port_endpoint_macs(session, site: str, run_id: str, device: str, interface: str) -> list[str]:
     """Distinct endpoint MACs learned on one physical port (FDB)."""
     rows = session.run(
@@ -497,6 +539,7 @@ def run_service_join(
                 s["server_endpoint_count"] = agg["count"]
 
         # ── Client networks (s17): tagged prefixes located at their gateway ──
+        vlan_access = _vlan_access_ports(run_id)   # s18: VLAN → access ports
         net_candidates = [
             p for p in adapter.get_prefixes()
             if CLIENT_NETWORK_TAG in (p.get("tags") or [])
@@ -528,6 +571,12 @@ def run_service_join(
             gateways = exact or containing
             method = "gateway" if exact else ("gateway-containing" if containing else "none")
 
+            # s18: the client physically lands on the ACCESS switch — the L2
+            # member ports of its VLAN — while the L3 SVI/gateway is on the
+            # core. Derive the VLAN from the gateway SVI, then its access ports.
+            vlan_id = _vlan_of_svi(gateways[0][1]) if gateways else None
+            access = vlan_access.get(vlan_id, []) if vlan_id else []
+
             svc = {
                 "name": name,
                 "kind": "network",
@@ -543,6 +592,8 @@ def run_service_join(
                 "device": gateways[0][0] if gateways else None,
                 "interface": gateways[0][1] if gateways else None,
                 "gateways": [f"{d}/{i}" for d, i in gateways],
+                "vlan_id": vlan_id,
+                "access_ports": [f"{d}/{p}" for d, p in access],
                 "joined_at": joined_at,
                 "site": site,
                 "run_id": run_id,

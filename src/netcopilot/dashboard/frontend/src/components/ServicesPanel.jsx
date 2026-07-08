@@ -49,6 +49,10 @@ function ServiceDetail({ svc, onBack, onDevice }) {
         </span>
       </div>
       <Row k={isNet ? 'Prefix' : 'IP'} v={svc.address || svc.ip} />
+      {isNet && svc.vlan_id ? <Row k="VLAN" v={svc.vlan_id} /> : null}
+      {isNet && (svc.access_ports || []).length ? (
+        <Row k="Access ports" v={svc.access_ports.join(', ')} />
+      ) : null}
       <Row k="DNS name" v={svc.dns_name} />
       <Row k="Description" v={svc.description} />
       <Row k="Tenant" v={svc.tenant} />

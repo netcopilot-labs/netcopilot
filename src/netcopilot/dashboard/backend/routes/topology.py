@@ -354,7 +354,8 @@ def get_topology(
                     "       s.interface AS interface, s.kind AS kind, "
                     "       s.server AS server, s.server_name AS server_name, "
                     "       s.hypervisor AS hypervisor, "
-                    "       s.server_endpoint_count AS server_endpoint_count "
+                    "       s.server_endpoint_count AS server_endpoint_count, "
+                    "       s.vlan_id AS vlan_id, s.access_ports AS access_ports "
                     "ORDER BY s.name",
                     run_id=run_id,
                 )]
@@ -393,8 +394,33 @@ def get_topology(
                         "service_interface": s.get("interface"),
                         "residesOn": s["device"],   # owning device (highlight on click)
                         "server": server,
+                        "vlan_id": s.get("vlan_id"),
+                        "access_ports": s.get("access_ports") or [],
                     }})
                     drawn += 1
+
+                # s18: a client network physically lands on the ACCESS switch via
+                # its VLAN's member ports (the clients plug in there); the SVI on
+                # the core is the L3 gateway. When we know the access ports, draw
+                # the network down to each access switch/port, VLAN-labelled,
+                # instead of the bare gateway SVI.
+                access_ports = s.get("access_ports") or [] if s.get("kind") == "network" else []
+                drew_access = False
+                for ap in access_ports:
+                    ap_dev, _, ap_port = ap.partition("/")
+                    if ap_dev not in node_names:
+                        continue
+                    svc_edges.append({
+                        "id": f"svc-edge:{s['ip']}:{ap_dev}:{ap_port}",
+                        "source": ap_dev, "target": sid,
+                        "linkType": "service_attachment",
+                        "port": ap_port,
+                        "vlanLabel": (f"VLAN {s['vlan_id']}" if s.get("vlan_id") else None),
+                    })
+                    drew_access = True
+                if drew_access:
+                    continue   # access edges replace the bare gateway edge
+
                 svc_edges.append({
                     "id": f"svc-edge:{s['ip']}:{attach_to}",
                     "source": attach_to,

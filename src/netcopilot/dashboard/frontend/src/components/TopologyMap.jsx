@@ -133,6 +133,21 @@ const CYTOSCAPE_STYLE = [
       'target-arrow-shape': 'none',
     },
   },
+  {
+    // s18: a client-network access edge carries its VLAN + port label
+    selector: 'edge[linkType = "service_attachment"][vlanLabel]',
+    style: {
+      'line-style': 'solid',
+      'line-color': '#60A5FA',
+      'width': 2,
+      'label': ele => `${ele.data('vlanLabel')}${ele.data('port') ? ' · ' + ele.data('port') : ''}`,
+      'font-size': '6px',
+      'color': '#1E3A8A',
+      'text-background-color': '#EFF6FF',
+      'text-background-opacity': 0.9,
+      'text-rotation': 'autorotate',
+    },
+  },
   // ── Unreachable device (in inventory but not collected) — red styling ──
   {
     selector: 'node[?isUnreachable]',
