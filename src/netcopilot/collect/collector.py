@@ -27,7 +27,7 @@ from netcopilot.inventory.base import InventorySource
 #: OS families the pipeline recognises. A device may be valid inventory yet have
 #: no applicable strategy in a given chain — that surfaces as an error manifest
 #: entry, never a silent skip.
-KNOWN_OS = frozenset({"ios-xe", "ios-xr", "fortios"})
+KNOWN_OS = frozenset({"ios-xe", "ios-xr", "fortios", "esxi", "vcenter"})
 
 #: Strategies that authenticate with SSH-style username/password credentials.
 #: (FortiGate REST uses an API token from the environment instead.)
