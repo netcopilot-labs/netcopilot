@@ -278,8 +278,9 @@ cp examples/inventory.yaml inventory/my-network.yaml
 ```
 
 Edit it — each device needs a `name`, a `mgmt_ip` (management address), and an
-`os` (`ios-xe`, `ios-xr`, or `fortios`; the joined spellings `iosxe`/`iosxr` work
-too). Put the device login in `.env`:
+`os` (`ios-xe`, `ios-xr`, `fortios`, `vcenter`, or `esxi`; the joined spellings
+`iosxe`/`iosxr` and `vsphere` for a vCenter work too). Put the device login in
+`.env`:
 
 ```
 NETCOPILOT_SSH_USERNAME=your-username
@@ -326,6 +327,80 @@ inventory in the dashboard, which also removes its files):
 docker compose exec dashboard python -m netcopilot.cli neo4j runs
 docker compose exec dashboard python -m netcopilot.cli neo4j delete <run_id> --site <site>
 ```
+
+### B2. Connect your VMware (vCenter / ESXi) — optional
+
+If some of your services run as VMs, one extra inventory row gives NetCopilot
+the compute layer: which services are virtual, on which host, and how healthy
+— **read-only** (the power/config APIs are never called; a test enforces it).
+
+Add a row to your inventory file:
+
+```yaml
+# a vCenter covers the whole cluster (recommended); a standalone ESXi host
+# covers only itself — use one row per standalone host
+- {name: vc-01, mgmt_ip: 203.0.113.5, os: vcenter, site: my-network}
+```
+
+And the read-only account in `.env` (create a Read-Only role user in
+vCenter/ESXi — never use an admin):
+
+```
+ESXi_USERNAME=administrator@vsphere.example
+ESXi_PASSWORD=your-read-only-password
+```
+
+A vCenter usually needs its SSO user while standalone hosts share a local
+user — a per-device `username:` in the inventory row overrides `.env` for
+that endpoint.
+
+Then **▶ Run Now** as usual. After the run, re-join the service layer (the
+**↻ Re-join** button in the Service view) and every service that is a VM
+shows it: *virtual machine* badge, guest OS, VMware Tools state, CPU/memory,
+its health, and the ESXi node it runs on (health, capacity, VM count). VMs
+the network never saw (idle, no ARP) classify correctly too — that is the
+point of the compute layer.
+
+Privacy note: your ESXi host names are replaced by generic labels
+(`node-1`, `node-2`, …) in everything NetCopilot stores.
+
+You can add VMware at any time — no reinstall. The VM inventory is captured
+per collection, so it applies to runs collected **after** you add the row
+(unlike the NetBox join, which is retroactive against any existing run).
+
+### B3. Connect your NetBox — optional (unlocks Reconcile + the Service view)
+
+NetCopilot works without NetBox, but two features light up with it: the
+**Reconcile** section (one-click **Bootstrap** documents your collected
+network into NetBox, staged → human-approved) and the **Service view**
+(NetBox-named IPs joined against what the network actually observes).
+
+Use your existing NetBox, or start the bundled demo one:
+
+```bash
+docker compose --profile netbox up -d     # local NetBox on http://localhost:8001
+```
+
+Then in `.env` (and restart):
+
+```
+NETBOX_URL=http://localhost:8001          # or your own instance
+NETBOX_API_TOKEN=your-api-token
+NETBOX_WRITE_ENABLED=true                 # only needed for Bootstrap; reads never write
+```
+
+- **Inventory your network into NetBox**: dashboard → **Audit → Reconcile →
+  Bootstrap**, review the staged objects, approve. That's the one-click
+  documentation path.
+- **See your services**: give IPs a `dns_name` or description in NetBox
+  ("lobby camera", "build server"), tag client prefixes `client-network`,
+  then dashboard → **Service** view → **↻ Re-join**. Works retroactively
+  against any run you already collected.
+- **Several sites in one NetBox?** Scope each prefix to its site in NetBox
+  and every run shows only its own site's services.
+
+You can install NetBox **after** NetCopilot at any time — set the two
+variables and re-join; nothing needs reinstalling.
 
 ### C. Add your own documents (RAG)
 

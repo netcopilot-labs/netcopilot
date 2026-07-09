@@ -195,6 +195,31 @@ Telegram bot). Data persists in named volumes across `docker compose down`; add
   `trace_path` takes a service name or end-host IP as its source, and the
   topology gets a **Service view** drawing each located service on the
   device that serves it. Deterministic plumbing below, agent answers above.
+
+  Tag a NetBox prefix **`client-network`** and it joins as a network-shaped
+  service: drawn at its real access switch (its VLAN's member ports), with
+  the VLAN, port-channels and their member links in the detail panel. In a
+  NetBox serving several sites, scope prefixes to their site and each run's
+  Service view shows only its own site's services — an unscoped prefix
+  honestly joins everywhere.
+- **Your VMware (vCenter / ESXi).** Add one inventory row and NetCopilot
+  reads the VM inventory read-only — every VM, its host, vNIC MACs, guest
+  IPs, health — and the service layer classifies services **virtual vs
+  bare-metal deterministically** (an idle VM leaves no ARP/FDB trace; the
+  hypervisor still knows it). The service detail shows guest OS, VMware
+  Tools state, CPU/mem, the VM's health, and its node's health/capacity.
+  ESXi host names never leave your machine — facts carry generic `node-N`
+  labels.
+  ```yaml
+  # inventory row — a vCenter (whole cluster) or a standalone ESXi host
+  - {name: vc-01, mgmt_ip: 192.0.2.5, os: vcenter, site: campus}
+  ```
+  ```bash
+  export ESXi_USERNAME='administrator@vsphere.example'   # read-only account
+  export ESXi_PASSWORD='...'
+  ```
+  One batched read-only API call per collection (`PropertyCollector`);
+  power/config APIs are never used — enforced by tests.
 - **Your Telegram bot.** Set `TELEGRAM_BOT_TOKEN` (from @BotFather) and
   `TELEGRAM_ALLOWED_USERS` in `.env`, then `docker compose up -d telegram`.
 - **Your email (reports).** Set the `SMTP_*` block in `.env` (any SMTP server).

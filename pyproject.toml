@@ -1,6 +1,6 @@
 [project]
 name = "netcopilot"
-version = "1.5.0"
+version = "2.0.0"
 description = "Network Context Intelligence — a deterministic, verifiable model of a multi-vendor network, exposed over MCP."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -26,6 +26,11 @@ dev = ["pytest"]
 # Without it the NetBox adapter raises ImproperlyConfigured and the netbox tools
 # report unavailable; the YAML declared-state path needs nothing extra.
 netbox = ["pynetbox>=7.7"]
+# ESXi/vSphere compute-layer collection — reads VM→host→MAC→IP inventory to
+# classify virtualized services deterministically. Opt-in: `pip install -e .[esxi]`.
+# Without it an `os: esxi` device collects with a clear "install .[esxi]" error;
+# the rest of the pipeline (and the fixture-driven demo) needs nothing extra.
+esxi = ["pyvmomi>=8.0"]
 # pyATS/Genie collection transport — the primary Cisco strategy. Heavy and
 # Linux/macOS only (no Windows wheels), so it is opt-in: `pip install -e .[pyats]`.
 # Without it the strategy chain falls back to NETCONF/RESTCONF/SSH.
