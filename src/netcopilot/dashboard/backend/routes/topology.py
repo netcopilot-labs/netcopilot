@@ -340,9 +340,11 @@ def get_topology(
                 {"name": r["name"], "role": r["role"]} for r in unreach_result
             ]
 
-        # ---- s16: Service view — operator-named services as leaf nodes ----
-        # Only LOCATED services draw (they attach to their RESIDES_ON device);
-        # unlocated ones live in the Services lens — nothing to attach to.
+        # ---- s16/s19: Service view — operator-named services as leaf nodes ----
+        # Collapsed v1 (s19): a service or client network attaches directly to
+        # its switch. No virtualization-host boxes — whether a service is a VM,
+        # and the VLAN / port-channel / member breakdown of a client network,
+        # live in the info panel, not the map. Only LOCATED services draw.
         services_meta = None
         if view == "service":
             with driver.session() as svc_session:
@@ -352,39 +354,40 @@ def get_topology(
                     "RETURN s.name AS name, s.ip AS ip, s.location_method AS method, "
                     "       s.located AS located, d.name AS device, "
                     "       s.interface AS interface, s.kind AS kind, "
-                    "       s.server AS server, s.server_name AS server_name, "
-                    "       s.hypervisor AS hypervisor, "
-                    "       s.server_endpoint_count AS server_endpoint_count, "
-                    "       s.vlan_id AS vlan_id, s.access_ports AS access_ports "
+                    "       s.virtualized AS virtualized, s.host AS host, "
+                    "       s.vm_name AS vm_name, "
+                    "       s.vlan_id AS vlan_id, s.access_ports AS access_ports, "
+                    "       s.access_members AS access_members "
                     "ORDER BY s.name",
                     run_id=run_id,
                 )]
             svc_edges = []
             drawn = 0
             seen_svc_nodes: set[str] = set()
-            vhosts: dict = {}   # server → {device, hypervisor, count, name}
+            # A multi-gateway network (HSRP/VRRP) returns one row per
+            # RESIDES_ON with IDENTICAL access_ports — without id-dedup the
+            # access loop would emit byte-identical edges per gateway row and
+            # rendering would rely on Cytoscape silently dropping duplicates
+            # (with a console.error per collision).
+            seen_edge_ids: set[str] = set()
+
+            def _add_svc_edge(edge: dict) -> None:
+                if edge["id"] not in seen_edge_ids:
+                    seen_edge_ids.add(edge["id"])
+                    svc_edges.append(edge)
+
             for s in svc_rows:
                 # Multi-gateway networks (s17) return one row per RESIDES_ON:
-                # one node, one attachment edge per gateway.
+                # one node, one attachment edge per gateway/access switch.
                 if not s["device"] or s["device"] not in node_names:
                     continue
                 sid = f"svc:{s['ip']}"
-                # s18: a VM hangs off its virtualization HOST (the physical
-                # server, grouped from port descriptions), which hangs off the
-                # switch — not off each individual port.
-                server = s.get("server")
-                if server and server not in vhosts:
-                    vhosts[server] = {"device": s["device"],
-                                      "hypervisor": s.get("hypervisor"),
-                                      "count": s.get("server_endpoint_count") or 0,
-                                      "name": s.get("server_name") or server}
-                attach_to = f"vhost:{server}" if server else s["device"]
                 if sid not in seen_svc_nodes:
                     seen_svc_nodes.add(sid)
                     nodes.append({"data": {
                         "id": sid,
                         "label": f"{s['name']}\n{s['ip']}",   # two rows: name + IP/CIDR
-                        "role": "service",
+                        "role": "network" if s.get("kind") == "network" else "service",
                         "device_type": "service",
                         "kind": s.get("kind") or "host",
                         "collected": False,
@@ -393,71 +396,40 @@ def get_topology(
                         "location_method": s["method"],
                         "service_interface": s.get("interface"),
                         "residesOn": s["device"],   # owning device (highlight on click)
-                        "server": server,
+                        "virtualized": bool(s.get("virtualized")),
+                        "host": s.get("host"),
+                        "vm_name": s.get("vm_name"),
                         "vlan_id": s.get("vlan_id"),
                         "access_ports": s.get("access_ports") or [],
+                        "access_members": s.get("access_members") or [],
                     }})
                     drawn += 1
 
-                # s18: a client network physically lands on the ACCESS switch via
-                # its VLAN's member ports (the clients plug in there); the SVI on
-                # the core is the L3 gateway. When we know the access ports, draw
-                # the network down to each access switch/port, VLAN-labelled,
-                # instead of the bare gateway SVI.
-                access_ports = s.get("access_ports") or [] if s.get("kind") == "network" else []
-                drew_access = False
-                for ap in access_ports:
-                    ap_dev, _, ap_port = ap.partition("/")
-                    if ap_dev not in node_names:
-                        continue
-                    svc_edges.append({
-                        "id": f"svc-edge:{s['ip']}:{ap_dev}:{ap_port}",
-                        "source": ap_dev, "target": sid,
-                        "linkType": "service_attachment",
-                        "port": ap_port,
-                        "vlanLabel": (f"VLAN {s['vlan_id']}" if s.get("vlan_id") else None),
-                    })
-                    drew_access = True
-                if drew_access:
+                # A client network physically lands on the ACCESS switch (its
+                # VLAN's member ports) — collapse to ONE VLAN-labelled edge per
+                # distinct access switch; the per-port / port-channel / member
+                # breakdown is in the info panel. Fall back to the gateway SVI
+                # when no access ports were collected.
+                access_devs: list[str] = []
+                if s.get("kind") == "network":
+                    for ap in (s.get("access_ports") or []):
+                        ap_dev = ap.partition("/")[0]
+                        if ap_dev in node_names and ap_dev not in access_devs:
+                            access_devs.append(ap_dev)
+                if access_devs:
+                    for ap_dev in access_devs:
+                        _add_svc_edge({
+                            "id": f"svc-edge:{s['ip']}:{ap_dev}",
+                            "source": ap_dev, "target": sid,
+                            "linkType": "service_attachment",
+                            "vlanLabel": (f"VLAN {s['vlan_id']}" if s.get("vlan_id") else None),
+                        })
                     continue   # access edges replace the bare gateway edge
 
-                svc_edges.append({
-                    "id": f"svc-edge:{s['ip']}:{attach_to}",
-                    "source": attach_to,
+                _add_svc_edge({
+                    "id": f"svc-edge:{s['ip']}:{s['device']}",
+                    "source": s["device"],
                     "target": sid,
-                    "linkType": "service_attachment",
-                })
-
-            # s18: one virtualization-host box per SERVER (grouped from port
-            # descriptions — a dual-homed node is one host, not two). The switch
-            # connects to the host, the host to its VMs; the label discloses the
-            # total endpoint count vs how many carry a NetBox name.
-            for server, v in vhosts.items():
-                vid = f"vhost:{server}"
-                hv = v["hypervisor"] or "multi-endpoint"
-                named = sum(1 for s in svc_rows if s.get("server") == server)
-                extra = v["count"] - named
-                label = f"{v['name']}\n{hv} · {v['count']} VMs" + (f" ({extra} unnamed)" if extra > 0 else "")
-                nodes.append({"data": {
-                    "id": vid,
-                    "label": label,
-                    "role": "vhost",
-                    "device_type": "vhost",
-                    "kind": "vhost",
-                    "collected": False,
-                    "findings_count": 0,
-                    "hypervisor": hv,
-                    "server_name": v["name"],
-                    "host_port": v["device"],
-                    "endpoint_count": v["count"],
-                    "named_vms": named,
-                    "residesOn": v["device"],
-                    "server": server,
-                }})
-                svc_edges.append({
-                    "id": f"vhost-edge:{server}",
-                    "source": v["device"],
-                    "target": vid,
                     "linkType": "service_attachment",
                 })
 

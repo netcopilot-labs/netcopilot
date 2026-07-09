@@ -255,7 +255,6 @@ function AppContent() {
   // S19A-8: Selected link (mutual exclusion with selectedDevice)
   const [selectedLink, setSelectedLink] = useState(null)
   const [selectedServiceIp, setSelectedServiceIp] = useState(null)   // s16: clicked service/network node
-  const [selectedVhost, setSelectedVhost] = useState(null)           // s18: clicked virtualization-host node
 
   // S01-5: run-to-run drift ("Diff" mode within the Audit tab). diffMode toggles
   // the left panel from FindingsPage to DriftPanel; diffAgainst = the comparison
@@ -327,6 +326,7 @@ function AppContent() {
     fetch(`/api/chat/warmup/${encodeURIComponent(selectedRun)}`).catch(() => {})
     setSelectedDevice(null)
     setSelectedLink(null)
+    setSelectedServiceIp(null)   // s19: a service ip from another run is foreign
     setDeviceData(null)
     setSelectedVlan(null)
     setVlanData(null)
@@ -342,6 +342,7 @@ function AppContent() {
     if (!selectedRun) return
     setSelectedDevice(null)
     setSelectedLink(null)
+    setSelectedServiceIp(null)   // s19: leaving/entering a view drops the stale detail
     setDeviceData(null)
     setSelectedVlan(null)
     loadTopology(selectedRun, selectedView)
@@ -481,6 +482,11 @@ function AppContent() {
   const handleDeviceSelect = useCallback((hostname) => {
     setSelectedDevice(hostname)
     setSelectedLink(null)
+    // s19: selecting a device (or clearing to "All devices" / background tap)
+    // always drops any service selection — the two selections are mutually
+    // exclusive in the left panel, and a stale service ip would otherwise
+    // re-surface its detail when DeviceDetail closes back to the lens.
+    setSelectedServiceIp(null)
     // s14b: on the Audit tab the device selector (map dropdown or a node
     // click) STAYS in the current sub-view and scopes it to the device — the
     // single device control lives on the map, shared by every sub-view.
@@ -651,8 +657,19 @@ function AppContent() {
     if (!topologyData?.nodes) return []
     return topologyData.nodes
       .filter(n => !n.data.parent)
-      .map(n => n.data.id)
-      .sort()
+      .map(n => {
+        const d = n.data
+        const isSvc = d.role === 'service'
+        const isNet = d.role === 'network'
+        // Service / client-network nodes carry a "name\nIP" label — show the
+        // NAME (prefixed) in the focus dropdown, not the raw svc:<ip> id. Carry
+        // role + ip so selecting one routes through the service path, not the
+        // device path (which would corrupt selectedDevice).
+        const name = (isSvc || isNet) && d.label ? String(d.label).split('\n')[0] : d.id
+        const label = isSvc ? `srv:${name}` : isNet ? `net:${name}` : name
+        return { id: d.id, label, role: d.role, service_ip: d.service_ip, residesOn: d.residesOn }
+      })
+      .sort((a, b) => a.label.localeCompare(b.label))
   }, [topologyData])
 
   // 2026-05-18 — per-tab Level-2 toolbar gating.
@@ -819,7 +836,7 @@ function AppContent() {
               "Findings" was renamed to "Audit" in the top-bar label only;
               the internal mode name remains 'findings' to avoid churn. */}
           <button
-            onClick={() => { setLeftPanelMode('summary'); setSelectedDevice(null); setSelectedLink(null) }}
+            onClick={() => { setLeftPanelMode('summary'); setSelectedDevice(null); setSelectedLink(null); setSelectedServiceIp(null) }}
             className="px-3 py-1.5 rounded text-sm font-medium transition-colors"
             style={
               leftPanelMode === 'summary' || leftPanelMode === 'device' || leftPanelMode === 'link'
@@ -830,7 +847,7 @@ function AppContent() {
             Topology
           </button>
           <button
-            onClick={() => { setLeftPanelMode('findings'); setSelectedDevice(null); setSelectedLink(null) }}
+            onClick={() => { setLeftPanelMode('findings'); setSelectedDevice(null); setSelectedLink(null); setSelectedServiceIp(null) }}
             className="px-3 py-1.5 rounded text-sm font-medium transition-colors"
             style={
               leftPanelMode === 'findings'
@@ -844,7 +861,7 @@ function AppContent() {
               the Findings | Drift | Reconcile segmented control in the Audit
               Level-2 bar. The top bar is now Topology / Audit / Report. */}
           <button
-            onClick={() => { setLeftPanelMode('report'); setSelectedDevice(null); setSelectedLink(null) }}
+            onClick={() => { setLeftPanelMode('report'); setSelectedDevice(null); setSelectedLink(null); setSelectedServiceIp(null) }}
             className="px-3 py-1.5 rounded text-sm font-medium transition-colors"
             style={
               leftPanelMode === 'report'
@@ -1313,9 +1330,7 @@ function AppContent() {
               <ServicesPanel
                 selectedRun={selectedRun}
                 selectedIp={selectedServiceIp}
-                onSelectIp={(ip) => { setSelectedServiceIp(ip); setSelectedVhost(null) }}
-                selectedVhost={selectedVhost}
-                onClearVhost={() => setSelectedVhost(null)}
+                onSelectIp={(ip) => setSelectedServiceIp(ip)}
                 onServiceClick={(device) => { setSelectedDevice(device); setSelectedLink(null) }}
               />
             ) : (
@@ -1358,10 +1373,15 @@ function AppContent() {
               topologyData={topologyData}
               findingsData={findingsData}
               selectedDevice={selectedDevice}
+              selectedServiceIp={selectedServiceIp}
               onDeviceSelect={handleDeviceSelect}
               onServiceSelect={(sel, device) => {
-                if (sel && sel.vhost) { setSelectedVhost(sel.vhost); setSelectedServiceIp(null) }
-                else { setSelectedServiceIp(sel); setSelectedVhost(null) }
+                setSelectedServiceIp(sel)
+                // s19: a service selection ALWAYS brings the Services lens
+                // forward — without this, a previously opened DeviceDetail
+                // (leftPanelMode 'device') stays on top and the service detail
+                // never shows (the dropdown/map-click "panel is broken" bug).
+                setLeftPanelMode('summary')
                 if (device) { setSelectedDevice(device); setSelectedLink(null) }
               }}
               deviceList={deviceList}

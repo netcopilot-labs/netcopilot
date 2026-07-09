@@ -27,6 +27,17 @@ const METHOD_WORDING = {
   none: 'NEVER SEEN by the network — documented in NetBox, no observation.',
 }
 
+// vCenter overallStatus → colour dot (green/amber/red/grey).
+function HealthDot({ status }) {
+  const c = status === 'green' ? '#16A34A' : status === 'yellow' ? '#D97706'
+    : status === 'red' ? '#DC2626' : '#9CA3AF'
+  return <span title={status || 'unknown'} style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: c }} />
+}
+
+const TOOLS_LABEL = { toolsOk: 'running', toolsOld: 'outdated', toolsNotRunning: 'not running', toolsNotInstalled: 'not installed' }
+const POWER_LABEL = { poweredOn: 'on', poweredOff: 'off', suspended: 'suspended' }
+const mb2gb = (mb) => (mb == null ? null : Math.round(mb / 1024))
+
 // Left-panel detail for a clicked service or client-network node.
 function ServiceDetail({ svc, onBack, onDevice }) {
   const isNet = svc.kind === 'network'
@@ -51,7 +62,28 @@ function ServiceDetail({ svc, onBack, onDevice }) {
       <Row k={isNet ? 'Prefix' : 'IP'} v={svc.address || svc.ip} />
       {isNet && svc.vlan_id ? <Row k="VLAN" v={svc.vlan_id} /> : null}
       {isNet && (svc.access_ports || []).length ? (
-        <Row k="Access ports" v={svc.access_ports.join(', ')} />
+        <div className="flex gap-2 py-0.5">
+          <span className="text-[11px] text-gray-400 w-24 shrink-0">Access ports</span>
+          <div className="text-[11px] text-gray-800">
+            {(svc.access_ports || []).map(ap => {
+              // "device/port" split at the FIRST slash only — the port itself
+              // may contain slashes (Twe1/0/47).
+              const cut = ap.indexOf('/')
+              const dev = cut === -1 ? ap : ap.slice(0, cut)
+              const port = cut === -1 ? '' : ap.slice(cut + 1)
+              const entry = (svc.access_members || []).find(x => x.startsWith(port + '='))
+              const members = entry ? entry.slice(port.length + 1).split(',') : []
+              return (
+                <div key={ap} className="py-0.5">
+                  <button onClick={() => onDevice?.(dev)} className="text-emerald-700 hover:underline">{ap}</button>
+                  {members.length ? (
+                    <span className="text-gray-400"> · {members.join(', ')}</span>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        </div>
       ) : null}
       <Row k="DNS name" v={svc.dns_name} />
       <Row k="Description" v={svc.description} />
@@ -80,42 +112,48 @@ function ServiceDetail({ svc, onBack, onDevice }) {
           <div className="text-[11px] text-gray-500">{METHOD_WORDING.none}</div>
         )}
         {svc.mac && <Row k="MAC" v={svc.mac} />}
+        {!isNet && svc.virtualized && (
+          <div className="mt-2 pt-2 border-t border-gray-100">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-1.5 py-0.5 rounded-full text-[10px]" style={{ background: '#EDE9FE', color: '#5B21B6' }}>virtual machine</span>
+              {svc.vm_health ? <HealthDot status={svc.vm_health} /> : null}
+            </div>
+            {svc.vm_name && <Row k="VM name" v={svc.vm_name} />}
+            <Row k="Guest OS" v={svc.guest_os} />
+            <Row k="Power" v={POWER_LABEL[svc.power_state] || svc.power_state} />
+            <Row k="VMware Tools" v={TOOLS_LABEL[svc.tools_status] || svc.tools_status} />
+            {(svc.vm_cpu_mhz != null || svc.vm_mem_mb != null) ? (
+              <Row k="Usage" v={[
+                svc.vm_cpu_mhz != null ? `${svc.vm_cpu_mhz} MHz` : null,
+                svc.vm_mem_mb != null ? `${svc.vm_mem_mb} MB` : null,
+              ].filter(Boolean).join(' · ')} />
+            ) : null}
+            {svc.host && (
+              <div className="mt-2">
+                <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-gray-400 mb-1">
+                  <span>Runs on node</span>
+                  <span className="text-gray-700 normal-case font-medium">{svc.host}</span>
+                  {svc.host_health ? <HealthDot status={svc.host_health} /> : null}
+                </div>
+                {svc.host_version && <Row k="ESXi" v={svc.host_version} />}
+                {(svc.host_cpu_mhz != null && svc.host_cpu_capacity_mhz) ? (
+                  <Row k="Host CPU" v={`${svc.host_cpu_mhz} / ${svc.host_cpu_capacity_mhz} MHz`} />
+                ) : null}
+                {(svc.host_mem_mb != null && svc.host_mem_capacity_mb) ? (
+                  <Row k="Host mem" v={`${mb2gb(svc.host_mem_mb)} / ${mb2gb(svc.host_mem_capacity_mb)} GB`} />
+                ) : null}
+                {svc.host_vm_count != null ? <Row k="VMs on host" v={String(svc.host_vm_count)} /> : null}
+              </div>
+            )}
+          </div>
+        )}
         {svc.joined_at && <div className="text-[10px] text-gray-400 mt-2">joined {svc.joined_at}</div>}
       </div>
     </div>
   )
 }
 
-// Detail for a clicked virtualization-host box (s18): its port, hypervisor,
-// endpoint count, and the named VMs behind it.
-function VhostDetail({ vhost, vms, onBack, onDevice }) {
-  return (
-    <div className="p-3">
-      <button onClick={onBack} className="text-[11px] text-emerald-700 hover:underline mb-2">← back to list</button>
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-sm font-semibold text-orange-900">{vhost.hypervisor} host</span>
-        <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: '#FFEDD5', color: '#9A3412' }}>
-          virtualization
-        </span>
-      </div>
-      <div className="text-[11px] text-gray-500 mb-2">
-        <button onClick={() => onDevice?.(String(vhost.host_port).split('/')[0])}
-          className="text-emerald-700 hover:underline">{vhost.host_port}</button>
-        {' · '}{vhost.endpoint_count} endpoint MAC(s) — {vhost.named_vms} named
-      </div>
-      <div className="text-[10px] text-gray-400 mb-1">Determined from the FDB: multiple MACs / a hypervisor OUI on one physical port.</div>
-      <div className="text-[10px] uppercase tracking-wide text-gray-400 mt-2 mb-1">Named VMs</div>
-      {vms.map(s => (
-        <div key={s.ip} className="text-[11px] text-gray-800 py-0.5">{s.name} <span className="text-gray-400">{s.ip}</span></div>
-      ))}
-      {vhost.endpoint_count - vms.length > 0 && (
-        <div className="text-[11px] text-gray-400 py-0.5">+ {vhost.endpoint_count - vms.length} VM(s) with no NetBox name</div>
-      )}
-    </div>
-  )
-}
-
-export default function ServicesPanel({ selectedRun, onServiceClick, selectedIp, onSelectIp, selectedVhost, onClearVhost }) {
+export default function ServicesPanel({ selectedRun, onServiceClick, selectedIp, onSelectIp }) {
   const [services, setServices] = useState([])
   const [joined, setJoined] = useState(true)
   const [search, setSearch] = useState('')
@@ -193,7 +231,7 @@ export default function ServicesPanel({ selectedRun, onServiceClick, selectedIp,
         </button>
       </div>
 
-      {!selected && !selectedVhost && (
+      {!selected && (
         <div className="px-3 py-2 border-b border-gray-100">
           <input
             value={search}
@@ -204,19 +242,13 @@ export default function ServicesPanel({ selectedRun, onServiceClick, selectedIp,
         </div>
       )}
 
-      {selectedVhost && (
-        <div className="flex-1 overflow-y-auto">
-          <VhostDetail vhost={selectedVhost} onBack={onClearVhost} onDevice={onServiceClick}
-            vms={services.filter(s => s.server && `vhost:${s.server}` === selectedVhost.id)} />
-        </div>
-      )}
-      {selected && !selectedVhost && (
+      {selected && (
         <div className="flex-1 overflow-y-auto">
           <ServiceDetail svc={selected} onBack={() => onSelectIp?.(null)} onDevice={onServiceClick} />
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto" style={(selected || selectedVhost) ? { display: 'none' } : undefined}>
+      <div className="flex-1 overflow-y-auto" style={selected ? { display: 'none' } : undefined}>
         {error && (
           <div className="m-3 p-2 rounded text-[11px]" style={{ background: '#FEF2F2', color: '#B91C1C' }}>
             {error}

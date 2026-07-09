@@ -782,7 +782,10 @@ function abbreviateLag(name) {
 // toolbar buttons. L2/L3 has been like this since Sprint 18; OSPF and BGP joined
 // 2026-05-18 — those views are representative protocol diagrams, not literal
 // physical maps, so compound interiors add noise without adding meaning.
-const COLLAPSED_VIEWS = new Set(['l2vlan', 'ospf', 'bgp'])
+// s19: Service joins them (collapsed v1) — devices render as single boxes with
+// services/networks hanging off them; the per-port / port-channel / member
+// detail lives in the info panel, not the map.
+const COLLAPSED_VIEWS = new Set(['l2vlan', 'ospf', 'bgp', 'service'])
 
 // Views that always render every compound expanded and hide the Expand/Collapse
 // toolbar buttons. Carlos 2026-05-18: Physical + MGMT should always show full
@@ -791,9 +794,7 @@ const COLLAPSED_VIEWS = new Set(['l2vlan', 'ospf', 'bgp'])
 // are intentionally retained so the toolbar buttons can come back per-view if
 // needed later (the gate at the toolbar render site checks both predicate
 // sets — adding a 6th view outside both sets would surface the buttons again).
-// s18: Service joins them — Carlos wants stacks/HA/LAG members expanded so the
-// port-channels carrying client networks are visible, with no toggle clutter.
-const EXPANDED_VIEWS = new Set(['physical', 'mgmt', 'service'])
+const EXPANDED_VIEWS = new Set(['physical', 'mgmt'])
 
 // Views that suppress the physical/cable edge layer entirely and render ONLY
 // protocol-adjacency edges. Carlos's mental model: "one BGP cable between the
@@ -1296,6 +1297,7 @@ export default function TopologyMap({
   topologyData,
   findingsData,
   selectedDevice,
+  selectedServiceIp,
   onDeviceSelect,
   onServiceSelect,
   deviceList,
@@ -1506,14 +1508,11 @@ export default function TopologyMap({
         return
       }
 
-      // s16/s18: service, client-network and virtualization-host nodes open
-      // their own detail (they aren't devices — onDeviceSelect would 404).
-      if (nodeData.role === 'service' && onServiceSelectRef.current) {
+      // s16/s19: service + client-network nodes open their own detail (they
+      // aren't devices — onDeviceSelect would 404).
+      if ((nodeData.role === 'service' || nodeData.role === 'network')
+          && onServiceSelectRef.current) {
         onServiceSelectRef.current(nodeData.service_ip, nodeData.residesOn)
-        return
-      }
-      if (nodeData.role === 'vhost' && onServiceSelectRef.current) {
-        onServiceSelectRef.current({ vhost: nodeData }, nodeData.residesOn)
         return
       }
 
@@ -1549,12 +1548,13 @@ export default function TopologyMap({
           d.serial ? `Serial: ${d.serial}` : null,
           d.state ? `State: ${d.state}` : null,
         ]
-      } else if (d.role === 'vhost') {
+      } else if (d.role === 'service' || d.role === 'network') {
         content = [
-          `${d.hypervisor} host`,
-          `Port: ${d.host_port}`,
-          `${d.endpoint_count} endpoint MAC(s) — ${d.named_vms} named`,
-          'Deterministic: multiple MACs / hypervisor OUI on one port',
+          d.label ? String(d.label).split('\n')[0] : d.id,
+          d.role === 'network'
+            ? (d.vlan_id ? `VLAN ${d.vlan_id}` : null)
+            : (d.virtualized ? `Virtual — ESXi host ${d.host || '?'}` : null),
+          d.service_ip || null,
         ]
       } else {
         // Regular or compound parent tooltip
@@ -1699,7 +1699,15 @@ export default function TopologyMap({
       const cy = cyRef.current
       if (!cy) return
 
-      if (selectedDevice) {
+      // s19: a selected SERVICE focuses its own node (svc:<ip>) — painting
+      // only the owning switch left the clicked end-device unhighlighted,
+      // and this effect's unselect() even clobbered the tap's native
+      // selection ~100ms later (the "click twice to illuminate" bug). The
+      // service node's closedNeighborhood naturally includes its attachment
+      // edge + owning device, so the whole chain paints in one pass.
+      const focusId = selectedServiceIp ? `svc:${selectedServiceIp}` : selectedDevice
+      const isServiceFocus = Boolean(selectedServiceIp)
+      if (focusId) {
         // 2026-05-18: Per-view rendering predicates (COLLAPSED_VIEWS /
         // EXPANDED_VIEWS) force the compound state regardless of the
         // `expandedNodes` user-state. The selection effect must reflect
@@ -1719,51 +1727,55 @@ export default function TopologyMap({
 
         // Collect all compound nodes that need expanding
         // Use raw topology data (React props) — NOT Cytoscape API
+        // (skipped for service focus: svc ids contain ':' but are not
+        // member ids, and the service view is force-expanded anyway).
         const toExpand = new Set()
-        const deviceBase = selectedDevice.includes(':')
-          ? selectedDevice.substring(0, selectedDevice.indexOf(':'))
-          : selectedDevice
+        const deviceBase = !isServiceFocus && focusId.includes(':')
+          ? focusId.substring(0, focusId.indexOf(':'))
+          : focusId
 
-        // Expand the selected device if it's compound
-        if (!isEffectivelyExpanded(deviceBase)) {
-          // Check if deviceBase is a compound (has children in topology data)
-          const hasChildren = topologyData?.nodes?.some(n => n.data.parent === deviceBase)
-          if (hasChildren) toExpand.add(deviceBase)
-        }
+        if (!isServiceFocus) {
+          // Expand the selected device if it's compound
+          if (!isEffectivelyExpanded(deviceBase)) {
+            // Check if deviceBase is a compound (has children in topology data)
+            const hasChildren = topologyData?.nodes?.some(n => n.data.parent === deviceBase)
+            if (hasChildren) toExpand.add(deviceBase)
+          }
 
-        // Expand any compound neighbor connected via edges
-        if (topologyData?.edges) {
-          topologyData.edges.forEach(e => {
-            const src = e.data.source || ''
-            const tgt = e.data.target || ''
-            const srcBase = src.includes(':') ? src.substring(0, src.indexOf(':')) : src
-            const tgtBase = tgt.includes(':') ? tgt.substring(0, tgt.indexOf(':')) : tgt
+          // Expand any compound neighbor connected via edges
+          if (topologyData?.edges) {
+            topologyData.edges.forEach(e => {
+              const src = e.data.source || ''
+              const tgt = e.data.target || ''
+              const srcBase = src.includes(':') ? src.substring(0, src.indexOf(':')) : src
+              const tgtBase = tgt.includes(':') ? tgt.substring(0, tgt.indexOf(':')) : tgt
 
-            // If one end belongs to our device, check if the other end's parent needs expanding
-            if (srcBase === deviceBase && tgt.includes(':')) {
-              if (!isEffectivelyExpanded(tgtBase)) toExpand.add(tgtBase)
-            }
-            if (tgtBase === deviceBase && src.includes(':')) {
-              if (!isEffectivelyExpanded(srcBase)) toExpand.add(srcBase)
-            }
-          })
-        }
+              // If one end belongs to our device, check if the other end's parent needs expanding
+              if (srcBase === deviceBase && tgt.includes(':')) {
+                if (!isEffectivelyExpanded(tgtBase)) toExpand.add(tgtBase)
+              }
+              if (tgtBase === deviceBase && src.includes(':')) {
+                if (!isEffectivelyExpanded(srcBase)) toExpand.add(srcBase)
+              }
+            })
+          }
 
-        // Expand all at once, then re-render — but ONLY for views where the
-        // user-state actually controls expansion. Force-expanded views are
-        // already expanded; force-collapsed views ignore expansion anyway.
-        if (toExpand.size > 0 && !isForceExpanded && !isForceCollapsed) {
-          setExpandedNodes(prev => {
-            const next = new Set(prev)
-            toExpand.forEach(id => next.add(id))
-            return next
-          })
-          return
+          // Expand all at once, then re-render — but ONLY for views where the
+          // user-state actually controls expansion. Force-expanded views are
+          // already expanded; force-collapsed views ignore expansion anyway.
+          if (toExpand.size > 0 && !isForceExpanded && !isForceCollapsed) {
+            setExpandedNodes(prev => {
+              const next = new Set(prev)
+              toExpand.forEach(id => next.add(id))
+              return next
+            })
+            return
+          }
         }
 
         // All compounds expanded — find and select the target node
-        let node = cy.getElementById(selectedDevice)
-        if (!node.length && selectedDevice.includes(':')) {
+        let node = cy.getElementById(focusId)
+        if (!node.length && !isServiceFocus && focusId.includes(':')) {
           node = cy.getElementById(deviceBase)
         }
 
@@ -1805,7 +1817,7 @@ export default function TopologyMap({
       }
     }, 100)
     return () => clearTimeout(timer)
-  }, [selectedDevice, expandedNodes, selectedView])
+  }, [selectedDevice, selectedServiceIp, expandedNodes, selectedView])
 
   // Highlight path: multiple devices along a trace_path route
   useEffect(() => {
@@ -2097,15 +2109,25 @@ export default function TopologyMap({
       <div className="absolute top-3 right-3 flex items-center gap-1">
         {/* Device focus selector (moved here from the top bar) */}
         <select
-          value={selectedDevice || ''}
-          onChange={(e) => onDeviceSelect(e.target.value || null)}
+          value={selectedServiceIp ? `svc:${selectedServiceIp}` : (selectedDevice || '')}
+          onChange={(e) => {
+            const id = e.target.value || null
+            const entry = (deviceList || []).find(x => x.id === id)
+            if (entry && (entry.role === 'service' || entry.role === 'network') && onServiceSelect) {
+              // Route a service/network pick exactly like a map click: open its
+              // detail + highlight its owning device — never set it as a device.
+              onServiceSelect(entry.service_ip, entry.residesOn)
+            } else {
+              onDeviceSelect(id)
+            }
+          }}
           className="bg-white border border-gray-300 rounded-md px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-50 shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
           style={{ maxWidth: 170 }}
-          title="Focus a device"
+          title="Focus a device or service"
         >
           <option value="">All devices</option>
           {(deviceList || []).map((d) => (
-            <option key={d} value={d}>{d}</option>
+            <option key={d.id} value={d.id}>{d.label}</option>
           ))}
         </select>
         <div className="w-px h-5 bg-gray-300 mx-0.5" />
