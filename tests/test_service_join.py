@@ -32,10 +32,10 @@ class FakeAdapter:
         if self._ping_exc:
             raise self._ping_exc
 
-    def get_ip_addresses(self):
+    def get_ip_addresses(self, *, strict=False):
         return list(self._ips)
 
-    def get_prefixes(self):
+    def get_prefixes(self, *, strict=False):
         return list(self._prefixes)
 
 
@@ -55,8 +55,6 @@ class FakeSession:
         self.arp = arp or {}              # ip → rows {device, interface, mac}
         self.mac = mac or {}              # mac → rows {device, interface, vlan}
         self.roles = roles or {}          # device → role
-        self.port_macs = {}               # (device, interface) → [mac]  (s18)
-        self.descriptions = {}            # (device, interface) → desc   (s18)
         self.writes: list[tuple[str, dict]] = []
 
     def run(self, query, **params):
@@ -70,12 +68,6 @@ class FakeSession:
             return list(self.uplinks)
         if ":ArpEntry" in q:
             return list(self.arp.get(params["ip"], []))
-        if "DISTINCT m.mac AS mac" in q:   # s18: _port_endpoint_macs
-            macs = self.port_macs.get((params["device"], params["interface"]), [])
-            return [{"mac": m} for m in macs]
-        if "i.description AS description" in q:   # s18: _interface_descriptions
-            return [{"device": d, "interface": i, "description": v}
-                    for (d, i), v in self.descriptions.items()]
         if ":MacEntry" in q:
             return list(self.mac.get(params["mac"], []))
         if "prefix_length" in q:
@@ -379,49 +371,216 @@ def test_gateway_only_vlan_stays_on_gateway_when_no_neighbour_observed():
     assert svc["device"] == "fw-01" and svc["location_method"] == "subnet"
 
 
-# ── s18: deterministic virtualization host detection ─────────────────────────
+# ── s19: deterministic virtualization from the ESXi compute layer ────────────
 
-def test_hypervisor_oui_and_multiendpoint_detection():
-    from netcopilot.declared_state.services import _hypervisor_for
-    assert _hypervisor_for(["00:50:56:aa:bb:cc"]) == "VMware"
-    assert _hypervisor_for(["52:54:00:11:22:33"]) == "KVM/QEMU"
-    assert _hypervisor_for(["3c:fd:fe:00:00:01"]) is None   # bare-metal NIC
-
-
-def test_vms_group_by_server_across_ports(monkeypatch):
-    # Two VMs on DIFFERENT ports of the SAME server (per description) group into
-    # one node; endpoint count sums across the server's ports.
-    adapter = FakeAdapter([
-        _ip("198.51.100.10/24", dns="vcenter"),
-        _ip("198.51.100.11/24", dns="splunk")])
-    session = FakeSession(
-        arp={"198.51.100.10": [{"device": "svc-sw", "interface": "Vl200", "mac": "00:50:56:00:00:01"}],
-             "198.51.100.11": [{"device": "svc-sw", "interface": "Vl200", "mac": "00:0c:29:00:00:02"}]},
-        mac={"00:50:56:00:00:01": [{"device": "svc-sw", "interface": "Te1/1/5", "vlan": "200"}],
-             "00:0c:29:00:00:02": [{"device": "svc-sw", "interface": "Te1/1/6", "vlan": "200"}]},
-        roles={"svc-sw": "services_switch"},
-    )
-    session.port_macs = {("svc-sw", "Te1/1/5"): ["00:50:56:00:00:01", "00:50:56:00:00:aa"],
-                         ("svc-sw", "Te1/1/6"): ["00:0c:29:00:00:02", "00:0c:29:00:00:bb"]}
-    monkeypatch.setattr("netcopilot.declared_state.services._interface_descriptions",
-                        lambda rid: {("svc-sw", "Te1/1/5"): "Link to SYNTH-SRV-ESX-01",
-                                     ("svc-sw", "Te1/1/6"): "Link to SYNTH-SRV-ESX-01"})
-    svcs = {s["name"]: s for s in _join(adapter, session).services}
-    for name in ("vcenter", "splunk"):
-        assert svcs[name]["server"] == "SYNTH-SRV-ESX-01"   # SAME node, both ports
-        assert svcs[name]["hypervisor"] == "VMware"
-        assert svcs[name]["server_endpoint_count"] == 4      # 2 ports x 2 MACs
+def test_esxi_ip_match_stamps_virtualized_even_when_unlocated(monkeypatch):
+    # The money case: an idle VM the network never saw (no ARP → unlocated) is
+    # still classified virtual, because ESXi reports its guest IP directly.
+    monkeypatch.setattr(
+        "netcopilot.declared_state.services._esxi_vms",
+        lambda rid: [{"name": "SYNTH-APP-01", "power_state": "poweredOn",
+                      "host": "esxi-node-1", "macs": ["00:50:56:00:00:01"],
+                      "ips": ["198.51.100.50"]}])
+    adapter = FakeAdapter([_ip("198.51.100.50/24", dns="app-01")])
+    svc = _join(adapter, FakeSession()).services[0]
+    assert svc["located"] is False           # the network never saw it
+    assert svc["virtualized"] is True         # ESXi did
+    assert svc["host"] == "esxi-node-1"
+    assert svc["vm_name"] == "SYNTH-APP-01"
 
 
-def test_bare_metal_single_mac_port_not_stamped(monkeypatch):
-    adapter = FakeAdapter([_ip("198.51.100.20/24", dns="dnac1")])
-    session = FakeSession(
-        arp={"198.51.100.20": [{"device": "svc-sw", "interface": "Vl200", "mac": "3c:fd:fe:00:00:01"}]},
-        mac={"3c:fd:fe:00:00:01": [{"device": "svc-sw", "interface": "Te1/1/1", "vlan": "200"}]},
-        roles={"svc-sw": "services_switch"},
-    )
-    session.port_macs = {("svc-sw", "Te1/1/1"): ["3c:fd:fe:00:00:01"]}   # one MAC
-    monkeypatch.setattr("netcopilot.declared_state.services._interface_descriptions",
-                        lambda rid: {("svc-sw", "Te1/1/1"): "SYNTH-SRV-APP-01 (Enterprise port)"})
+def test_esxi_mac_bridge_when_tools_absent(monkeypatch):
+    # Tools-less VM: ESXi reports no guest IP, only the vNIC MAC. The service's
+    # observed ARP MAC matches it (case-insensitively) → virtual via the bridge.
+    monkeypatch.setattr(
+        "netcopilot.declared_state.services._esxi_vms",
+        lambda rid: [{"name": "SYNTH-DB-01", "power_state": "poweredOn",
+                      "host": "esxi-node-2", "macs": ["00:0c:29:ab:cd:ef"], "ips": []}])
+    adapter = FakeAdapter([_ip("198.51.100.60/24", dns="db-01")])
+    session = FakeSession(arp={"198.51.100.60": [
+        {"device": "acc-sw", "interface": "Vlan200", "mac": "00:0C:29:AB:CD:EF"}]})
     svc = _join(adapter, session).services[0]
-    assert "server" not in svc and svc["location_method"] == "arp+fdb"
+    assert svc["located"] is True and svc["mac"] == "00:0C:29:AB:CD:EF"
+    assert svc["virtualized"] is True and svc["host"] == "esxi-node-2"
+
+
+def test_bare_metal_not_in_esxi_inventory_not_virtualized(monkeypatch):
+    # A DNA/appliance IP absent from every VM inventory is never virtualized —
+    # no collision is possible (bare-metal is not in ESXi).
+    monkeypatch.setattr(
+        "netcopilot.declared_state.services._esxi_vms",
+        lambda rid: [{"name": "SYNTH-APP-01", "host": "esxi-node-1",
+                      "macs": ["00:50:56:00:00:01"], "ips": ["198.51.100.50"]}])
+    adapter = FakeAdapter([_ip("198.51.100.20/24", dns="dnac1")])
+    session = FakeSession(arp={"198.51.100.20": [
+        {"device": "svc-sw", "interface": "Vlan200", "mac": "3c:fd:fe:00:00:01"}]})
+    svc = _join(adapter, session).services[0]
+    assert "virtualized" not in svc
+
+
+def test_no_esxi_layer_leaves_virtualization_unknown():
+    # Default (no ESXi facts for the run) → nothing is stamped virtual, even a
+    # host the network saw. Honest 'unknown', never a bare-metal guess.
+    adapter = FakeAdapter([_ip("198.51.100.11/24", dns="splunk")])
+    session = FakeSession(arp={"198.51.100.11": [
+        {"device": "svc-sw", "interface": "Vlan200", "mac": "00:50:56:00:00:02"}]})
+    svc = _join(adapter, session).services[0]
+    assert svc["located"] is True
+    assert "virtualized" not in svc
+
+
+def test_midpull_ip_failure_raises_and_never_deletes():
+    # Audit A1: ping() succeeds, then the IP pull dies mid-pagination. The
+    # join must raise ServiceSourceUnavailable and MUST NOT touch the graph —
+    # a masked [] here used to DELETE the previous service layer and report
+    # it as honestly empty.
+    class MidPullAdapter(FakeAdapter):
+        def get_ip_addresses(self, *, strict=False):
+            raise TimeoutError("page 2 of ip_addresses timed out")
+
+    session = FakeSession()
+    with pytest.raises(ServiceSourceUnavailable, match="unknown, not empty"):
+        _join(MidPullAdapter([]), session)
+    assert session.writes == []          # no DETACH DELETE, nothing persisted
+
+
+def test_midpull_prefix_failure_raises_and_never_deletes():
+    # Audit A2: a failed prefix pull must fail loud — degrading to [] would
+    # silently disable site scoping (cross-site mixing) and drop every
+    # client network.
+    class MidPullAdapter(FakeAdapter):
+        def get_prefixes(self, *, strict=False):
+            raise ConnectionError("prefixes endpoint reset")
+
+    session = FakeSession()
+    with pytest.raises(ServiceSourceUnavailable, match="unknown, not empty"):
+        _join(MidPullAdapter([_ip("198.51.100.50/24", dns="app-01")]), session)
+    assert session.writes == []
+
+
+def test_truly_empty_netbox_is_a_trustworthy_empty_layer():
+    # Contrast with the mid-pull cases: a SUCCESSFUL pull with zero named IPs
+    # is a legitimate empty layer — stale rows from a previous join are
+    # deleted (delete-then-reload), nothing new written.
+    session = FakeSession()
+    report = _join(FakeAdapter([]), session)
+    assert report.services == []
+    assert any("DETACH DELETE" in q for q, _ in session.writes)
+
+
+def test_ip_of_another_site_is_skipped_not_mixed():
+    # s19: one NetBox, several sites. An IP inside a prefix scoped to ANOTHER
+    # site must not appear in this run's lens (the "mixing sites" bug).
+    adapter = FakeAdapter(
+        [_ip("198.51.100.26/28", dns="other-site-cam"),
+         _ip("203.0.113.50/32", dns="unscoped-svc")],
+        prefixes=[{"prefix": "198.51.100.0/24", "vrf": None, "netbox_id": 5,
+                   "description": None, "status_value": "active", "role": None,
+                   "tags": [], "site": "branch-b"}])
+    report = _join(adapter, FakeSession())
+    names = [s["name"] for s in report.services]
+    assert "other-site-cam" not in names            # scoped to branch-b → skipped
+    assert "unscoped-svc" in names                  # no scoped prefix → joins (honest)
+    assert any("branch-b" in line for line in report.skipped_other_site)
+
+
+def test_ip_of_this_site_joins_and_most_specific_prefix_wins():
+    # Nested scopes: /24 → other site, /28 → THIS site. Longest match decides.
+    adapter = FakeAdapter(
+        [_ip("198.51.100.26/28", dns="cam-lobby-01")],
+        prefixes=[
+            {"prefix": "198.51.100.0/24", "vrf": None, "netbox_id": 5,
+             "description": None, "status_value": "active", "role": None,
+             "tags": [], "site": "branch-b"},
+            {"prefix": "198.51.100.16/28", "vrf": None, "netbox_id": 6,
+             "description": None, "status_value": "active", "role": None,
+             "tags": [], "site": SITE},
+        ])
+    report = _join(adapter, FakeSession())
+    assert [s["name"] for s in report.services] == ["cam-lobby-01"]
+    assert report.skipped_other_site == []
+
+
+def test_client_network_of_another_site_is_skipped():
+    adapter = FakeAdapter(
+        [],
+        prefixes=[
+            {**_pfx("198.51.100.0/27", desc="their clients"), "site": "branch-b"},
+            {**_pfx("198.51.100.32/27", desc="our clients"), "site": SITE},
+        ])
+    report = _join(adapter, FakeSession())
+    names = [s["name"] for s in report.services]
+    assert "our clients" in names and "their clients" not in names
+    assert any("branch-b" in line for line in report.skipped_other_site)
+
+
+def test_esxi_readers_from_disk_single_endpoint(monkeypatch, tmp_path):
+    # The real file-reading path (not monkeypatched): one endpoint → labels
+    # pass through untouched.
+    import json
+    from netcopilot.declared_state.services import _esxi_hosts, _esxi_vms
+    d = tmp_path / "r9" / "facts" / "synth-vc-01"
+    d.mkdir(parents=True)
+    (d / "esxi_vms.json").write_text(json.dumps(
+        [{"name": "SYNTH-01", "host": "node-1", "macs": [], "ips": ["198.51.100.9"]}]))
+    (d / "esxi_hosts.json").write_text(json.dumps(
+        [{"name": "node-1", "health": "green", "vm_count": 1}]))
+    monkeypatch.setenv("RUNS_DIR", str(tmp_path))
+    assert _esxi_vms("r9")[0]["host"] == "node-1"
+    assert _esxi_hosts("r9")[0]["name"] == "node-1"
+    assert _esxi_vms("missing-run") == [] and _esxi_hosts("missing-run") == []
+
+
+def test_esxi_readers_namespace_labels_across_two_endpoints(monkeypatch, tmp_path):
+    # Two VMware endpoints in one run: node-N is only unique per endpoint —
+    # readers namespace labels so host-health can never cross endpoints.
+    import json
+    from netcopilot.declared_state.services import _esxi_hosts, _esxi_vms
+    for ep in ("vc-a", "vc-b"):
+        d = tmp_path / "r9" / "facts" / ep
+        d.mkdir(parents=True)
+        (d / "esxi_vms.json").write_text(json.dumps(
+            [{"name": f"SYNTH-{ep}", "host": "node-1", "macs": [], "ips": []}]))
+        (d / "esxi_hosts.json").write_text(json.dumps(
+            [{"name": "node-1", "health": "green"}]))
+    monkeypatch.setenv("RUNS_DIR", str(tmp_path))
+    vms = {v["name"]: v["host"] for v in _esxi_vms("r9")}
+    assert vms == {"SYNTH-vc-a": "vc-a:node-1", "SYNTH-vc-b": "vc-b:node-1"}
+    assert sorted(h["name"] for h in _esxi_hosts("r9")) == ["vc-a:node-1", "vc-b:node-1"]
+
+
+def test_demo_esxi_fixture_reads_through_the_real_path(monkeypatch):
+    # S19-4: the shipped demo carries a recorded VMware fixture — prove the
+    # REAL disk-reader path consumes it (not a mock), so the feature is
+    # demonstrable offline.
+    from pathlib import Path
+    from netcopilot.declared_state.services import _esxi_hosts, _esxi_vms
+    repo_demo = Path(__file__).resolve().parents[1] / "demo"
+    monkeypatch.setenv("RUNS_DIR", str(repo_demo))
+    vms = _esxi_vms("campus")
+    hosts = _esxi_hosts("campus")
+    assert {h["name"] for h in hosts} == {"node-1", "node-2"}
+    assert all(v["name"].startswith("SYNTH-") for v in vms)
+    assert any(v["ips"] for v in vms)            # IP-match path exercisable
+    assert any(not v["ips"] and v["macs"] for v in vms)   # MAC-bridge path too
+
+
+def test_esxi_health_and_host_stamped(monkeypatch):
+    # s19-6: a matched VM carries its own health/info + its node's health.
+    monkeypatch.setattr(
+        "netcopilot.declared_state.services._esxi_vms",
+        lambda rid: [{"name": "SYNTH-APP-01", "power_state": "poweredOn", "host": "node-1",
+                      "macs": [], "ips": ["198.51.100.50"], "guest_os": "Ubuntu Linux (64-bit)",
+                      "tools_status": "toolsOk", "cpu_mhz": 371, "mem_mb": 12400, "health": "green"}])
+    monkeypatch.setattr(
+        "netcopilot.declared_state.services._esxi_hosts",
+        lambda rid: [{"name": "node-1", "health": "green", "cpu_mhz": 500,
+                      "cpu_capacity_mhz": 32000, "mem_mb": 40000, "mem_capacity_mb": 64000,
+                      "vm_count": 6, "version": "8.0.2"}])
+    adapter = FakeAdapter([_ip("198.51.100.50/24", dns="app-01")])
+    svc = _join(adapter, FakeSession()).services[0]
+    assert svc["virtualized"] is True and svc["host"] == "node-1"
+    assert svc["guest_os"] == "Ubuntu Linux (64-bit)" and svc["tools_status"] == "toolsOk"
+    assert svc["vm_cpu_mhz"] == 371 and svc["vm_mem_mb"] == 12400 and svc["vm_health"] == "green"
+    assert svc["host_health"] == "green" and svc["host_vm_count"] == 6
+    assert svc["host_cpu_capacity_mhz"] == 32000 and svc["host_version"] == "8.0.2"

@@ -83,6 +83,7 @@ class ServiceJoinReport:
     site: str
     services: list[dict] = field(default_factory=list)
     skipped_infrastructure: list[str] = field(default_factory=list)
+    skipped_other_site: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
     def counts_by_method(self) -> dict[str, int]:
@@ -105,6 +106,11 @@ class ServiceJoinReport:
                 f"{len(self.skipped_infrastructure)} named IP(s) are device interfaces "
                 "(infrastructure, not services) — skipped."
             )
+        if self.skipped_other_site:
+            lines.append(
+                f"{len(self.skipped_other_site)} entrie(s) belong to another site "
+                "(prefix scope) — skipped."
+            )
         lines.extend(self.warnings)
         return "\n".join(lines)
 
@@ -118,7 +124,8 @@ def _infra_ips(session, site: str, run_id: str) -> dict[str, tuple[str, str]]:
         f"MATCH (d:{DEVICE} {{site: $site, run_id: $run_id}})"
         f"-[:{HAS_INTERFACE}]->(i:{INTERFACE}) "
         "WHERE i.ip IS NOT NULL "
-        "RETURN d.name AS device, i.name AS interface, i.ip AS ip",
+        "RETURN d.name AS device, i.name AS interface, i.ip AS ip "
+        "ORDER BY d.name, i.name",
         site=site, run_id=run_id,
     )
     out: dict[str, tuple[str, str]] = {}
@@ -177,68 +184,63 @@ def _link_endpoint_ports(session, site: str, run_id: str) -> set[tuple[str, str]
     return ports
 
 
-# Known hypervisor / VM MAC OUIs — a MAC in one of these is deterministic
-# proof of virtualization (no heuristic). Extend as new platforms appear.
-_HYPERVISOR_OUIS = {
-    "00:0c:29": "VMware", "00:50:56": "VMware", "00:05:69": "VMware", "00:1c:14": "VMware",
-    "00:15:5d": "Hyper-V", "52:54:00": "KVM/QEMU", "00:16:3e": "Xen", "0a:00:27": "VirtualBox",
-}
+def _esxi_read(run_id: str, filename: str, label_key: str) -> list[dict]:
+    """Read one ESXi fact file across the run's endpoints, deterministically.
 
-
-def _hypervisor_for(macs) -> str | None:
-    for m in macs:
-        vendor = _HYPERVISOR_OUIS.get((m or "")[:8].lower())
-        if vendor:
-            return vendor
-    return None
-
-
-# A physical server is named in its switch-port description ("Link to
-# <HOST>", "<HOST> (Enterprise port)", "CIMC <HOST>"). The deterministic host
-# identity is the hostname-shaped token — ≥3 hyphen-separated segments, so
-# role labels like "STACK-DAD" don't match. Ports sharing that token are the
-# same physical node (multiple NICs of one server).
-_SERVER_RE = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+){2,}")
-
-
-def _server_from_description(desc: str | None) -> str | None:
-    if not desc:
-        return None
-    m = _SERVER_RE.search(desc)
-    return m.group(0) if m else None
-
-
-def _interface_descriptions(run_id: str) -> dict:
-    """(device, interface) → port description, read from the run's facts.
-
-    The model only carries descriptions for L3 interfaces; the L2 access ports
-    that face the servers (where the host-grouping description lives) lose them.
-    So read genie_interface.json directly (drift.py reads run facts too) and
-    normalize the interface name to the graph-wide abbreviated form.
+    Endpoint dirs are iterated SORTED, and when the run holds more than one
+    VMware endpoint the generic ``node-N`` labels — unique only within one
+    endpoint's file — are namespaced ``<endpoint>:<label>`` on read. Without
+    that, two vCenters both emitting ``node-1`` would collide in the join's
+    ``hosts_by_name`` index and a VM could be stamped with the OTHER
+    endpoint's host health, decided by filesystem iteration order.
     """
     import json
     import os
     from pathlib import Path
 
-    from netcopilot.model.interface_normalizer import normalize_interface_name
-
     facts = Path(os.environ.get("RUNS_DIR", "runs")) / run_id / "facts"
-    out: dict = {}
     if not facts.is_dir():
-        return out
-    for dev_dir in facts.iterdir():
-        gi = dev_dir / "genie_interface.json"
-        if not gi.is_file():
+        return []
+    endpoint_dirs = sorted(
+        d for d in facts.iterdir()
+        if (d / "esxi_vms.json").is_file() or (d / "esxi_hosts.json").is_file()
+    )
+    multi = len(endpoint_dirs) > 1
+    out: list[dict] = []
+    for dev_dir in endpoint_dirs:
+        f = dev_dir / filename
+        if not f.is_file():
             continue
         try:
-            data = json.loads(gi.read_text(encoding="utf-8"))
+            data = json.loads(f.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        for raw_name, d in (data or {}).items():
-            desc = (d or {}).get("description")
-            if desc:
-                out[(dev_dir.name, normalize_interface_name(raw_name))] = desc
+        if not isinstance(data, list):
+            continue
+        for entry in data:
+            if multi and entry.get(label_key):
+                entry[label_key] = f"{dev_dir.name}:{entry[label_key]}"
+            out.append(entry)
     return out
+
+
+def _esxi_vms(run_id: str) -> list[dict]:
+    """Every VM across the run's ESXi endpoints (s19: the compute layer).
+
+    Reads ``facts/<endpoint>/esxi_vms.json`` (written by the read-only ESXi
+    adapter) — each entry ``{name, power_state, host, macs, ips, ...}``. This
+    is the deterministic source for virtualization: it knows a VM regardless
+    of whether the network ever saw it talk. An absent file means the run has
+    no ESXi layer (virtualization unknown, never guessed).
+    """
+    return _esxi_read(run_id, "esxi_vms.json", "host")
+
+
+def _esxi_hosts(run_id: str) -> list[dict]:
+    """ESXi hosts across the run (s19-6: node health), from esxi_hosts.json —
+    written by the VMware adapter alongside esxi_vms.json. Generic ``node-N``
+    labels; each carries overall health + CPU/mem + VM count."""
+    return _esxi_read(run_id, "esxi_hosts.json", "name")
 
 
 _SVI_RE = re.compile(r"[Vv]l(?:an)?(\d+)")
@@ -283,15 +285,37 @@ def _vlan_access_ports(run_id: str) -> dict:
     return out
 
 
-def _port_endpoint_macs(session, site: str, run_id: str, device: str, interface: str) -> list[str]:
-    """Distinct endpoint MACs learned on one physical port (FDB)."""
-    rows = session.run(
-        f"MATCH (m:{MAC_ENTRY} {{site: $site, run_id: $run_id, "
-        "device: $device, interface: $interface}) "
-        "RETURN DISTINCT m.mac AS mac",
-        site=site, run_id=run_id, device=device, interface=interface,
-    )
-    return [r["mac"] for r in rows]
+def _portchannel_members(run_id: str) -> dict:
+    """(device, 'PoN') → [member ports], from each device's genie_lag.json.
+
+    A client VLAN's access port is often a port-channel; the info panel shows
+    its physical member links. Read from the LAG database (like the VLAN DB),
+    normalized to the graph-wide abbreviated interface form.
+    """
+    import json
+    import os
+    from pathlib import Path
+
+    from netcopilot.model.interface_normalizer import normalize_interface_name
+
+    facts = Path(os.environ.get("RUNS_DIR", "runs")) / run_id / "facts"
+    out: dict = {}
+    if not facts.is_dir():
+        return out
+    for dev_dir in facts.iterdir():
+        gl = dev_dir / "genie_lag.json"
+        if not gl.is_file():
+            continue
+        try:
+            data = json.loads(gl.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for po, pd in (data.get("interfaces") or {}).items():
+            members = list((pd.get("members") or {}).keys())
+            if members:
+                key = (dev_dir.name, normalize_interface_name(po))
+                out[key] = [normalize_interface_name(m) for m in members]
+    return out
 
 
 def _device_roles(session, site: str, run_id: str) -> dict:
@@ -308,7 +332,7 @@ def _arp_observers(session, site: str, run_id: str, ip: str) -> list[dict]:
     rows = session.run(
         f"MATCH (a:{ARP_ENTRY} {{site: $site, run_id: $run_id, ip: $ip}}) "
         "RETURN a.device AS device, a.interface AS interface, a.mac AS mac "
-        "ORDER BY a.device, a.interface",
+        "ORDER BY a.device, a.interface, a.mac",
         site=site, run_id=run_id, ip=ip,
     )
     return [dict(r) for r in rows]
@@ -375,11 +399,54 @@ def run_service_join(
     report = ServiceJoinReport(run_id=run_id, site=site)
     joined_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
+    # STRICT source reads (audit A1/A2): the join delete-then-reloads, so a
+    # mid-pull failure masked as [] would WIPE the previous service layer and
+    # report it as honestly empty — and an empty prefix list would silently
+    # disable site scoping (cross-site mixing). ping() only covers total
+    # outage; the reads themselves must fail loud. Nothing is deleted unless
+    # both pulls succeeded.
+    try:
+        all_ips = adapter.get_ip_addresses(strict=True)
+        all_prefixes = adapter.get_prefixes(strict=True)
+    except Exception as exc:
+        raise ServiceSourceUnavailable(
+            f"Declared-state read failed mid-pull — the service layer is "
+            f"unknown, not empty (previous rows kept): {exc}"
+        ) from exc
+
     candidates = [
-        ip for ip in adapter.get_ip_addresses()
+        ip for ip in all_ips
         if (ip.get("dns_name") or ip.get("description"))
         and (ip.get("status_value") in (None, "active"))
     ]
+
+    # ── Site scoping (s19) ──────────────────────────────────────────────────
+    # NetBox IPs carry no site; a prefix carries a site scope. An IP's site is
+    # the site of the LONGEST scoped prefix containing it (most-specific wins,
+    # the NetBox containment model). One NetBox serving several sites would
+    # otherwise mix every site's services into every run's lens. An IP inside
+    # no scoped prefix has an unknown site and honestly joins every run —
+    # single-site setups that never scope prefixes are unaffected.
+    scoped_nets: list[tuple] = []
+    for p in all_prefixes:
+        if p.get("site"):
+            try:
+                scoped_nets.append(
+                    (ipaddr_mod.ip_network(str(p["prefix"]), strict=False), p["site"]))
+            except ValueError:
+                continue
+
+    def _ip_site(addr) -> str | None:
+        # Longest prefix wins; equal-length overlaps (a NetBox modeling error,
+        # but possible) tie-break on (site, prefix) lexicographically so the
+        # answer never depends on NetBox result order.
+        best = None
+        for net, pfx_site in scoped_nets:
+            if addr in net:
+                key = (-net.prefixlen, pfx_site, str(net))
+                if best is None or key < best[0]:
+                    best = (key, pfx_site)
+        return best[1] if best else None
 
     with driver.session() as session:
         infra = _infra_ips(session, site, run_id)
@@ -390,6 +457,18 @@ def run_service_join(
         for cand in candidates:
             bare = str(cand["address"]).split("/")[0]
             name = cand.get("dns_name") or cand.get("description")
+
+            try:
+                cand_addr = ipaddr_mod.ip_address(bare)
+            except ValueError:
+                report.warnings.append(
+                    f"{name}: {cand['address']!r} is not a valid address — skipped")
+                continue
+            ip_site = _ip_site(cand_addr)
+            if ip_site is not None and ip_site != site:
+                report.skipped_other_site.append(
+                    f"{name} ({bare}) belongs to site {ip_site!r}, not {site!r}")
+                continue
 
             if bare in infra:
                 dev, intf = infra[bare]
@@ -421,11 +500,7 @@ def run_service_join(
                 "run_id": run_id,
             }
 
-            try:
-                addr = ipaddr_mod.ip_address(bare)
-            except ValueError:
-                report.warnings.append(f"{name}: {cand['address']!r} is not a valid address — skipped")
-                continue
+            addr = cand_addr   # parsed (and site-checked) above
 
             # Gather every candidate location, then pick role-first: a switch
             # that owns the VLAN beats a gateway that merely routes for it,
@@ -483,68 +558,82 @@ def run_service_join(
         for s in host_svcs:
             if s["device"] in gw_devices:   # sitting on an L3 gateway → relocate
                 a = ipaddr_mod.ip_address(s["ip"])
+                # Most-specific containing subnet; equal-length ties break on
+                # the prefix string, never on dict iteration order.
                 best_net = None
                 for net in subnet_switch:
-                    if a in net and (best_net is None or net.prefixlen > best_net.prefixlen):
+                    if a in net and (
+                        best_net is None
+                        or (-net.prefixlen, str(net)) < (-best_net.prefixlen, str(best_net))
+                    ):
                         best_net = net
                 if best_net is not None:
                     s.update(device=subnet_switch[best_net], interface=None,
                              mac=None, location_method="colocated")
 
-        # ── Virtualization host detection (s18) ─────────────────────────────
-        # A physical access port is a virtualization uplink when it carries ≥2
-        # endpoint MACs OR any MAC with a known hypervisor OUI. But a physical
-        # HOST has MULTIPLE uplink NICs — so the deterministic grouping into
-        # nodes is the SERVER named in the port description (e.g. two ports both
-        # "Link to <HOST>" are the same node). We group a server's virtualized
-        # ports into one host, summing endpoints across them, and stamp each VM
-        # with its server + hypervisor. Ports without a server description fall
-        # back to the port itself (honest — we can't name the node). Bare-metal
-        # ports (single non-hypervisor MAC) are left alone: the appliance IS the
-        # service, drawn directly.
-        descriptions = _interface_descriptions(run_id)
-        port_info: dict = {}     # (device, port) → {virt, hypervisor, count, server}
+        # ── Virtualization from the ESXi compute layer (s19) ────────────────
+        # Deterministic: a service is virtualized iff its IP is a known VM guest
+        # IP, OR its observed ARP MAC is a known VM vNIC MAC (the bridge for VMs
+        # without VMware Tools). The network alone cannot see an idle VM — ESXi
+        # can. No ESXi facts for the run ⇒ virtualization stays unknown, never
+        # guessed as bare-metal. This replaces the s18 network-inferred guess
+        # (MAC-OUI + port-description grouping), which mislabelled idle VMs.
+        vms = _esxi_vms(run_id)
+        hosts_by_name = {h.get("name"): h for h in _esxi_hosts(run_id)}
+        ip_to_vm: dict[str, dict] = {}
+        mac_to_vm: dict[str, dict] = {}
+        for vm in vms:
+            for ip in (vm.get("ips") or []):
+                ip_to_vm.setdefault(ip, vm)
+            for mac in (vm.get("macs") or []):
+                mac_to_vm.setdefault(str(mac).lower(), vm)
         for s in report.services:
-            if (s.get("kind") == "host" and s.get("location_method") == "arp+fdb"
-                    and s.get("interface")):
-                key = (s["device"], s["interface"])
-                if key not in port_info:
-                    macs = _port_endpoint_macs(session, site, run_id, *key)
-                    hv = _hypervisor_for(macs)
-                    port_info[key] = {
-                        "virt": len(macs) >= 2 or bool(hv),
-                        "hypervisor": hv, "count": len(macs),
-                        "server": _server_from_description(descriptions.get(key)),
-                    }
-        # Aggregate a server's virtualized ports into one node (fall back to the
-        # port id when the port has no server description).
-        server_agg: dict = {}    # server_key → {hypervisor, count, label}
-        for key, pi in port_info.items():
-            if not pi["virt"]:
+            if s.get("kind") == "network":
                 continue
-            server_key = pi["server"] or f"{key[0]}:{key[1]}"
-            agg = server_agg.setdefault(server_key, {"hypervisor": None, "count": 0,
-                                                     "named": pi["server"]})
-            agg["hypervisor"] = agg["hypervisor"] or pi["hypervisor"]
-            agg["count"] += pi["count"]
-        for s in report.services:
-            key = (s.get("device"), s.get("interface"))
-            pi = port_info.get(key)
-            if pi and pi["virt"]:
-                server_key = pi["server"] or f"{key[0]}:{key[1]}"
-                agg = server_agg[server_key]
-                s["server"] = server_key
-                s["server_name"] = agg["named"] or server_key
-                s["hypervisor"] = agg["hypervisor"] or "multi-endpoint"
-                s["server_endpoint_count"] = agg["count"]
+            vm = ip_to_vm.get(s["ip"])
+            if vm is None and s.get("mac"):
+                vm = mac_to_vm.get(str(s["mac"]).lower())
+            if vm is not None:
+                s["virtualized"] = True
+                s["host"] = vm.get("host")
+                s["vm_name"] = vm.get("name")
+                # s19-6: VM health/info for the info panel.
+                s["guest_os"] = vm.get("guest_os")
+                s["tools_status"] = vm.get("tools_status")
+                s["power_state"] = vm.get("power_state")
+                s["vm_cpu_mhz"] = vm.get("cpu_mhz")
+                s["vm_mem_mb"] = vm.get("mem_mb")
+                s["vm_health"] = vm.get("health")
+                # Host (node) health, denormalized onto the VM for the panel's
+                # node section (Neo4j has no nested values; the host label ties
+                # them). Only present with a vCenter host inventory.
+                host = hosts_by_name.get(vm.get("host"))
+                if host:
+                    s["host_health"] = host.get("health")
+                    s["host_cpu_mhz"] = host.get("cpu_mhz")
+                    s["host_cpu_capacity_mhz"] = host.get("cpu_capacity_mhz")
+                    s["host_mem_mb"] = host.get("mem_mb")
+                    s["host_mem_capacity_mb"] = host.get("mem_capacity_mb")
+                    s["host_vm_count"] = host.get("vm_count")
+                    s["host_version"] = host.get("version")
 
         # ── Client networks (s17): tagged prefixes located at their gateway ──
         vlan_access = _vlan_access_ports(run_id)   # s18: VLAN → access ports
-        net_candidates = [
-            p for p in adapter.get_prefixes()
-            if CLIENT_NETWORK_TAG in (p.get("tags") or [])
-            and (p.get("status_value") in (None, "active"))
-        ]
+        pc_members = _portchannel_members(run_id)  # s19: PoN → member links
+        # Site scoping (s19): a client-network prefix carries its own site
+        # scope — join it only into that site's runs (unscoped = every run).
+        net_candidates = []
+        for p in all_prefixes:
+            if CLIENT_NETWORK_TAG not in (p.get("tags") or []):
+                continue
+            if p.get("status_value") not in (None, "active"):
+                continue
+            if p.get("site") is not None and p["site"] != site:
+                report.skipped_other_site.append(
+                    f"client network {p.get('description') or p['prefix']} "
+                    f"({p['prefix']}) belongs to site {p['site']!r}, not {site!r}")
+                continue
+            net_candidates.append(p)
         for cand in net_candidates:
             try:
                 pfx_net = ipaddr_mod.ip_network(str(cand["prefix"]), strict=False)
@@ -576,6 +665,13 @@ def run_service_join(
             # core. Derive the VLAN from the gateway SVI, then its access ports.
             vlan_id = _vlan_of_svi(gateways[0][1]) if gateways else None
             access = vlan_access.get(vlan_id, []) if vlan_id else []
+            # s19: for each access port that is a port-channel, its member links
+            # ("Po101=Twe1/0/1,Twe2/0/1") — flat strings (Neo4j has no nested
+            # list values); the info panel parses them.
+            access_members = [
+                f"{p}={','.join(pc_members[(d, p)])}"
+                for d, p in access if (d, p) in pc_members
+            ]
 
             svc = {
                 "name": name,
@@ -594,6 +690,7 @@ def run_service_join(
                 "gateways": [f"{d}/{i}" for d, i in gateways],
                 "vlan_id": vlan_id,
                 "access_ports": [f"{d}/{p}" for d, p in access],
+                "access_members": access_members,
                 "joined_at": joined_at,
                 "site": site,
                 "run_id": run_id,

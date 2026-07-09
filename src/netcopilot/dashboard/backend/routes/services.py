@@ -64,6 +64,7 @@ async def run_join(req: JoinRequest):
         "services": len(report.services),
         "by_method": report.counts_by_method(),
         "skipped_infrastructure": len(report.skipped_infrastructure),
+        "skipped_other_site": report.skipped_other_site,
         "summary": report.format_summary(),
         "warnings": report.warnings,
     }
