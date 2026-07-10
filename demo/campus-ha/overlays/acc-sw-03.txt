@@ -1,0 +1,53 @@
+! campus-ha overlay — acc-sw-03 (IOS-XE) — standby/backup FHRP + LAG member + dot1x
+!
+vlan 60
+ name HSRP-CAMPUS
+!
+vlan 61
+ name VRRP-CAMPUS
+!
+! LAG member side (bundle the existing Gi1/0/1 trunk into Port-channel1).
+interface Port-channel1
+ description LAG uplink to core-sw-01
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,60,61
+ no shutdown
+!
+interface GigabitEthernet1/0/1
+ switchport trunk allowed vlan 10,20,60,61
+ channel-group 1 mode active
+!
+! HSRP standby (default priority 100 -> standby behind core's 120).
+interface Vlan60
+ description HSRP-CAMPUS gateway (standby)
+ ip address 198.51.100.131 255.255.255.240
+ standby version 2
+ standby 60 ip 198.51.100.129
+ no autostate
+!
+! VRRP backup (default priority 100 -> backup behind core's 120). Needs the
+! global 'fhrp version vrrp v3' for the address-family syntax (see core overlay).
+fhrp version vrrp v3
+!
+interface Vlan61
+ description VRRP-CAMPUS gateway (backup)
+ ip address 198.51.100.147 255.255.255.240
+ no autostate
+ vrrp 61 address-family ipv4
+  address 198.51.100.145 primary
+!
+! dot1x (config-only in this scenario; no supplicant host yet). NOTE: enabling
+! aaa new-model on a device that had 'no aaa new-model' — the login-default-local
+! + authorization lines below preserve SSH/vty access (lockout guard).
+aaa new-model
+aaa authentication login default local
+aaa authorization exec default local
+aaa authentication dot1x default group radius
+dot1x system-auth-control
+radius server CAMPUS-AUTH
+ address ipv4 198.51.100.253 auth-port 1812 acct-port 1813
+ key clab-radius
+!
+interface GigabitEthernet1/0/2
+ authentication port-control auto
+ dot1x pae authenticator

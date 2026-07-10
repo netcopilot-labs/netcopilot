@@ -66,7 +66,9 @@ async def get_shared_services(
                 "-[:MEMBER_OF]->(s:SharedService) "
                 "RETURN s.service_type AS stype, s.identifier AS ident, "
                 "s.name AS name, s.vrf AS vrf, s.area_type AS area_type, "
-                "s.process_id AS process_id "
+                "s.process_id AS process_id, s.protocol AS protocol, "
+                "s.vip AS vip, s.active_device AS active_device, "
+                "s.group_number AS group_number, s.interface AS fhrp_interface "
                 "ORDER BY s.service_type, s.identifier",
                 run_id=run_id, device=device,
             )
@@ -89,6 +91,15 @@ async def get_shared_services(
                         extra += f" VRF:{item['vrf']}"
                     if item.get("area_type"):
                         extra += f" type:{item['area_type']}"
+                    if item.get("protocol"):  # fhrp_group: gateway VIP + active router
+                        extra += f" {item['protocol'].upper()}"
+                        if item.get("group_number") is not None:
+                            extra += f" grp {item['group_number']}"
+                        if item.get("fhrp_interface"):
+                            extra += f" on {item['fhrp_interface']}"
+                        extra += f" VIP:{item.get('vip')}"
+                        if item.get("active_device"):
+                            extra += f" active:{item['active_device']}"
                     if item.get("name"):
                         extra += f" ({item['name']})"
                     lines.append(f"  {item['ident']}{extra}")
@@ -151,7 +162,9 @@ async def get_shared_services(
                 "OPTIONAL MATCH (d:Device)-[:MEMBER_OF]->(s) "
                 "WITH s, collect(d.name) AS members "
                 "RETURN s.identifier AS ident, s.name AS name, "
-                "s.vrf AS vrf, s.area_type AS area_type, members "
+                "s.vrf AS vrf, s.area_type AS area_type, members, "
+                "s.protocol AS protocol, s.vip AS vip, s.active_device AS active_device, "
+                "s.group_number AS group_number, s.interface AS fhrp_interface "
                 "ORDER BY s.identifier",
                 stype=service_type, run_id=run_id,
             )
@@ -169,6 +182,15 @@ async def get_shared_services(
                     extra += f" VRF:{s['vrf']}"
                 if s.get("area_type"):
                     extra += f" {s['area_type']}"
+                if s.get("protocol"):  # fhrp_group: gateway VIP + active router
+                    extra += f" {s['protocol'].upper()}"
+                    if s.get("group_number") is not None:
+                        extra += f" grp {s['group_number']}"
+                    if s.get("fhrp_interface"):
+                        extra += f" on {s['fhrp_interface']}"
+                    extra += f" VIP:{s.get('vip')}"
+                    if s.get("active_device"):
+                        extra += f" active:{s['active_device']}"
                 if s.get("name"):
                     extra += f" ({s['name']})"
                 lines.append(f"  {s['ident']}{extra}")
@@ -192,7 +214,7 @@ async def get_shared_services(
             for c in counts:
                 lines.append(f"  {c['stype']}: {c['cnt']}")
             lines.append("")
-            lines.append("Use service_type filter for details (ospf_area, vlan, subnet, bgp_asn).")
+            lines.append("Use service_type filter for details (ospf_area, vlan, subnet, bgp_asn, fhrp_group).")
             lines.append("Use name filter for specific service membership (e.g., name='0.0.0.8' for OSPF area).")
             lines.append("Use device filter for all services on a device.")
 
@@ -229,6 +251,24 @@ def resolve_ip_owner(ip: str, run_id: str, driver) -> dict | None:
         exact = [dict(r) for r in result]
         if exact:
             return {"kind": "interface", "matches": exact}
+
+        # FHRP virtual IP — the IP is a gateway VIP (HSRP/VRRP). Resolve to the
+        # ACTIVE router that currently owns it, not the subnet: a VIP is virtual
+        # (on no single interface), so without this tier it would fall through
+        # to the subnet match and read as "a host in a connected subnet" instead
+        # of "the shared gateway, answered by the active router".
+        result = session.run(
+            "MATCH (s:SharedService {service_type: 'fhrp_group', run_id: $run_id, vip: $ip}) "
+            "OPTIONAL MATCH (a:Device {run_id: $run_id, name: s.active_device}) "
+            "RETURN s.protocol AS protocol, s.group_number AS group, s.vip AS vip, "
+            "s.interface AS interface, s.active_device AS active_device, "
+            "s.members_json AS members_json, a.role AS active_role "
+            "ORDER BY s.identifier LIMIT 1",
+            run_id=run_id, ip=ip,
+        )
+        rec = result.single()
+        if rec is not None:
+            return {"kind": "fhrp_vip", "matches": [dict(rec)]}
 
         try:
             target = ipaddress.ip_address(ip)
@@ -299,6 +339,29 @@ async def _lookup_ip(ip: str, run_id: str, driver) -> ToolResult:
         return ToolResult("error", f"Invalid IP address: {ip}")
 
     matches = owner["matches"]
+    if owner["kind"] == "fhrp_vip":
+        import json
+        m = matches[0]
+        proto = (m.get("protocol") or "fhrp").upper()
+        active = m.get("active_device")
+        lines.append(f"{ip} is a virtual gateway IP — {proto} group {m.get('group')} "
+                     f"on {m.get('interface')}:")
+        lines.append(f"  Active router: {active or 'unknown'}"
+                     + (f" ({m['active_role']})" if m.get("active_role") else ""))
+        try:
+            members = json.loads(m["members_json"]) if m.get("members_json") else []
+        except (json.JSONDecodeError, TypeError):
+            members = []
+        for mem in members:
+            state = mem.get("state") or "participant"
+            mip = f" {mem.get('ip')}" if mem.get("ip") else ""
+            marker = "→" if mem.get("hostname") == active else " "
+            lines.append(f"  {marker} {mem.get('hostname')}{mip} — {state}")
+        lines.append("")
+        lines.append(f"Traffic to {ip} is answered by the active router "
+                     f"({active or 'unknown'}); it fails over to a standby without renumbering.")
+        return ToolResult("ok", "\n".join(lines))
+
     if owner["kind"] == "interface":
         lines.append(f"Exact match — {ip} is assigned to:")
         for m in matches:

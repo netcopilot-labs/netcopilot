@@ -1,0 +1,41 @@
+{
+  "Vlan60": {
+    "delay": {
+      "minimum_delay": 1,
+      "reload_delay": 5
+    },
+    "address_family": {
+      "ipv4": {
+        "version": {
+          "2": {
+            "groups": {
+              "60": {
+                "timers": {
+                  "hello_msec_flag": false,
+                  "hello_sec": 3,
+                  "hold_msec_flag": false,
+                  "hold_sec": 10
+                },
+                "primary_ipv4_address": {
+                  "address": "198.51.100.129"
+                },
+                "priority": 120,
+                "preempt": true,
+                "session_name": "hsrp-Vl60-60",
+                "virtual_mac_address": "0000.0c9f.f03c",
+                "group_number": 60,
+                "standby_ip_address": "198.51.100.131",
+                "hsrp_router_state": "active",
+                "active_router": "local",
+                "standby_router": "198.51.100.131"
+              }
+            }
+          }
+        }
+      }
+    },
+    "use_bia": false,
+    "redirects_disable": false,
+    "interface": "Vlan60"
+  }
+}

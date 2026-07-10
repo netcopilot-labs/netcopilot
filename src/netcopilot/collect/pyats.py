@@ -814,6 +814,41 @@ class PyATSAdapter(CollectionStrategy):
                         )
 
             # -----------------------------------------------------------------
+            # Step 2d-bis: VRRP via parse fallback (Genie ships a `show vrrp`
+            # parser but NO vrrp Ops model, so learn('vrrp') is impossible).
+            # Mirrors the LAG fallback: gate on running-config keyword, parse.
+            # `show vrrp all` parses on IOS XE 17.x; `show vrrp detail` does not
+            # (schema mismatch on cat9kv). IOS XR uses the global `router vrrp`.
+            # -----------------------------------------------------------------
+            has_vrrp_config = (
+                (os_family == "ios-xe"
+                 and re.search(r"^\s+vrrp \d+", running_config_text, re.MULTILINE))
+                or (os_family == "ios-xr"
+                    and re.search(r"^router vrrp\b", running_config_text, re.MULTILINE))
+            )
+
+            if has_vrrp_config:
+                vrrp_cmd = "show vrrp all" if os_family == "ios-xe" else "show vrrp"
+                try:
+                    vrrp_raw = pyats_device.execute(vrrp_cmd)
+                    vrrp_parsed = pyats_device.parse(vrrp_cmd, output=vrrp_raw)
+                    vrrp_file = facts_dir / "genie_vrrp.json"
+                    vrrp_file.write_text(
+                        json.dumps(vrrp_parsed, indent=2, default=str),
+                        encoding="utf-8",
+                    )
+                    files_created.append(str(vrrp_file))
+                    log.debug("%s: parsed VRRP (%s) — %s", device_hostname, vrrp_cmd, os_family)
+                except Exception as vrrp_exc:  # noqa: BLE001
+                    # No VRRP data is not fatal — surface at debug and move on.
+                    log.debug(
+                        "%s: VRRP parse skipped: %s: %s",
+                        device_hostname,
+                        type(vrrp_exc).__name__,
+                        vrrp_exc,
+                    )
+
+            # -----------------------------------------------------------------
             # Step 2e: Running config structured parsers
             # -----------------------------------------------------------------
             # Four pure-function parsers convert running config text into

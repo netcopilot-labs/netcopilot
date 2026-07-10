@@ -1063,6 +1063,20 @@ def _load_shared_services(
             "area_type": svc.get("area_type"),
             "spf_runs": svc.get("spf_runs"),
             "lsa_count": svc.get("lsa_count"),
+            # FHRP (HSRP/VRRP) group metadata
+            "protocol": svc.get("protocol"),
+            "vip": svc.get("vip"),
+            "virtual_mac": svc.get("virtual_mac"),
+            "group_number": svc.get("group_number"),
+            "interface": svc.get("interface"),
+            "active_device": svc.get("active_device"),
+            # Per-member detail (hostname, role/state, priority, real IP) as a
+            # flat JSON string — Neo4j props can't hold nested objects.
+            "members_json": (
+                json.dumps(svc["members"])
+                if svc.get("service_type") == "fhrp_group" and svc.get("members")
+                else None
+            ),
         })
         svc_params.append(props)
 

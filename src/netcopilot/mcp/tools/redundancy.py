@@ -14,6 +14,40 @@ from netcopilot.mcp.result import ToolResult
 log = logging.getLogger(__name__)
 
 
+def _fhrp_gateway_block(driver, run_id: str) -> tuple[list[str], dict]:
+    """Gateway (FHRP) redundancy section for the network-wide assessment.
+
+    Reads the fhrp_group SharedServices; a group with fewer than 2 members (or no
+    active router) is an unprotected gateway.
+    """
+    with driver.session() as session:
+        result = session.run(
+            "MATCH (svc:SharedService {service_type: 'fhrp_group', run_id: $run_id}) "
+            "OPTIONAL MATCH (d:Device)-[:MEMBER_OF]->(svc) "
+            "WITH svc, count(d) AS members "
+            "RETURN svc.protocol AS proto, svc.group_number AS grp, svc.vip AS vip, "
+            "svc.interface AS intf, svc.active_device AS active, members "
+            "ORDER BY svc.vip",
+            run_id=run_id,
+        )
+        rows = [dict(r) for r in result]
+    if not rows:
+        return [], {"fhrp_groups": 0, "fhrp_unprotected": 0}
+
+    unprotected = [r for r in rows if (r["members"] or 0) < 2 or not r["active"]]
+    lines = ["", f"Gateway redundancy (FHRP) — {len(rows)} group(s):"]
+    for r in rows:
+        proto = (r["proto"] or "fhrp").upper()
+        if (r["members"] or 0) < 2:
+            status = "⚠ UNPROTECTED (no standby peer)"
+        elif not r["active"]:
+            status = "⚠ no active router"
+        else:
+            status = f"redundant (active {r['active']})"
+        lines.append(f"  {r['intf']} {proto} grp {r['grp']} VIP {r['vip']} — {status}")
+    return lines, {"fhrp_groups": len(rows), "fhrp_unprotected": len(unprotected)}
+
+
 async def get_redundancy_assessment(
     *,
     device: str | None = None,
@@ -234,7 +268,12 @@ async def get_redundancy_assessment(
         "single_uplink": sum(1 for a in assessments if a["status"] == "single_uplink"),
         "unreachable": sum(1 for a in assessments if a["status"] == "unreachable"),
     }
-    return ToolResult("ok", _format_network_assessment(assessments), verdict=verdict)
+    fhrp_lines, fhrp_verdict = _fhrp_gateway_block(driver, run_id)
+    verdict.update(fhrp_verdict)
+    text = _format_network_assessment(assessments)
+    if fhrp_lines:
+        text += "\n" + "\n".join(fhrp_lines)
+    return ToolResult("ok", text, verdict=verdict)
 
 
 def _is_upstream(device_role: str, neighbor_role: str) -> bool:

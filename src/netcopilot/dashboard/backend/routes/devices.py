@@ -168,6 +168,42 @@ def _query_device(driver, run_id: str, hostname: str) -> dict | None:
         if bgp_row and bgp_row["asn"]:
             device["bgp_as"] = bgp_row["asn"]
 
+        # FHRP (HSRP/VRRP) groups from SharedService membership — surfaced so the
+        # Overview shows the device's gateway role (active/backup) per group.
+        fhrp_cypher = (
+            "MATCH (d:Device {name: $hostname, run_id: $run_id})"
+            "-[:MEMBER_OF]->(s:SharedService {service_type: 'fhrp_group'}) "
+            "RETURN s.protocol AS protocol, s.group_number AS group_number, "
+            "s.vip AS vip, s.interface AS interface, s.active_device AS active, "
+            "s.members_json AS members_json "
+            "ORDER BY s.interface, s.group_number"
+        )
+        fhrp_groups = []
+        for r in session.run(fhrp_cypher, hostname=hostname, run_id=run_id):
+            try:
+                members = json.loads(r["members_json"]) if r["members_json"] else []
+            except (json.JSONDecodeError, TypeError):
+                members = []
+            fhrp_groups.append({
+                "protocol": r["protocol"],
+                "group": r["group_number"],
+                "vip": r["vip"],
+                "interface": r["interface"],
+                "active_device": r["active"],
+                "is_active": r["active"] == hostname,
+                "members": [
+                    {
+                        "hostname": m.get("hostname"),
+                        "state": m.get("state"),
+                        "priority": m.get("priority"),
+                        "ip": m.get("ip"),
+                    }
+                    for m in members
+                ],
+            })
+        if fhrp_groups:
+            device["fhrp_groups"] = fhrp_groups
+
         return device
 
 

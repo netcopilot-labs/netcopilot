@@ -1,0 +1,147 @@
+{
+  "http_method": "GET",
+  "size": 4,
+  "limit_reached": false,
+  "matched_count": 4,
+  "next_idx": 3,
+  "revision": "82974037e9987894ae2c13102d858bcd",
+  "results": [
+    {
+      "name": "Email Access",
+      "q_origin_key": "Email Access",
+      "uuid": "7afbf030-6c95-51f1-ecf0-33139e978a8f",
+      "uuid-idx": 15842,
+      "proxy": "disable",
+      "member": [
+        {
+          "name": "DNS",
+          "q_origin_key": "DNS"
+        },
+        {
+          "name": "IMAP",
+          "q_origin_key": "IMAP"
+        },
+        {
+          "name": "IMAPS",
+          "q_origin_key": "IMAPS"
+        },
+        {
+          "name": "POP3",
+          "q_origin_key": "POP3"
+        },
+        {
+          "name": "POP3S",
+          "q_origin_key": "POP3S"
+        },
+        {
+          "name": "SMTP",
+          "q_origin_key": "SMTP"
+        },
+        {
+          "name": "SMTPS",
+          "q_origin_key": "SMTPS"
+        }
+      ],
+      "comment": "",
+      "color": 0,
+      "fabric-object": "disable"
+    },
+    {
+      "name": "Exchange Server",
+      "q_origin_key": "Exchange Server",
+      "uuid": "7afbfee0-6c95-51f1-3077-eb3e44a7dd13",
+      "uuid-idx": 15845,
+      "proxy": "disable",
+      "member": [
+        {
+          "name": "DCE-RPC",
+          "q_origin_key": "DCE-RPC"
+        },
+        {
+          "name": "DNS",
+          "q_origin_key": "DNS"
+        },
+        {
+          "name": "HTTPS",
+          "q_origin_key": "HTTPS"
+        }
+      ],
+      "comment": "",
+      "color": 0,
+      "fabric-object": "disable"
+    },
+    {
+      "name": "Web Access",
+      "q_origin_key": "Web Access",
+      "uuid": "7afbf710-6c95-51f1-75fb-11df8db97ed6",
+      "uuid-idx": 15843,
+      "proxy": "disable",
+      "member": [
+        {
+          "name": "DNS",
+          "q_origin_key": "DNS"
+        },
+        {
+          "name": "HTTP",
+          "q_origin_key": "HTTP"
+        },
+        {
+          "name": "HTTPS",
+          "q_origin_key": "HTTPS"
+        }
+      ],
+      "comment": "",
+      "color": 0,
+      "fabric-object": "disable"
+    },
+    {
+      "name": "Windows AD",
+      "q_origin_key": "Windows AD",
+      "uuid": "7afbfa3a-6c95-51f1-3ef2-61bfef706823",
+      "uuid-idx": 15844,
+      "proxy": "disable",
+      "member": [
+        {
+          "name": "DCE-RPC",
+          "q_origin_key": "DCE-RPC"
+        },
+        {
+          "name": "DNS",
+          "q_origin_key": "DNS"
+        },
+        {
+          "name": "KERBEROS",
+          "q_origin_key": "KERBEROS"
+        },
+        {
+          "name": "LDAP",
+          "q_origin_key": "LDAP"
+        },
+        {
+          "name": "LDAP_UDP",
+          "q_origin_key": "LDAP_UDP"
+        },
+        {
+          "name": "SAMBA",
+          "q_origin_key": "SAMBA"
+        },
+        {
+          "name": "SMB",
+          "q_origin_key": "SMB"
+        }
+      ],
+      "comment": "",
+      "color": 0,
+      "fabric-object": "disable"
+    }
+  ],
+  "vdom": "root",
+  "path": "firewall.service",
+  "name": "group",
+  "action": "",
+  "status": "success",
+  "http_status": 200,
+  "serial": "FGVMEVJ7_ORGXTCC",
+  "version": "v7.4.12",
+  "build": 2902
+}

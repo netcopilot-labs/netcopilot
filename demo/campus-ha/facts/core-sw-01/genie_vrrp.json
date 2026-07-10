@@ -1,0 +1,24 @@
+{
+  "interface": {
+    "Vlan61": {
+      "group": {
+        "61": {
+          "state": "MASTER",
+          "description": "State duration 1 hours 44 mins 3 secs",
+          "virtual_ip_address": "198.51.100.145",
+          "virtual_mac_address": "0000.5E00.013D",
+          "advertise_interval_secs": 1.0,
+          "preemption": "enabled",
+          "priority": 120,
+          "master_router_ip": "198.51.100.146",
+          "master_router": "local",
+          "master_router_priority": 120,
+          "master_advertisement_interval_secs": 1.0,
+          "master_advertisement_expiration_secs": 0.023,
+          "master_down_interval_secs": 3531.0,
+          "flags": "1/1"
+        }
+      }
+    }
+  }
+}

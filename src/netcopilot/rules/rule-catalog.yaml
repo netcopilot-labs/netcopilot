@@ -12453,6 +12453,7 @@
       !   ping <NTP_SERVER>
       ! Verify firewall/ACL allows UDP 123.
 - rule_id: HSRP_GROUP_NOT_ACTIVE
+  implemented_by: fhrp_health.py  # executable Python rule (S20)
   severity: critical
   category: routing_health
   protocol: hsrp
@@ -12491,6 +12492,7 @@
   notes: HSRP groups in Init state usually indicate a configuration problem (no active peer). Groups stuck in Speak state
     indicate an election dispute. Fires once HSRP is configured.
 - rule_id: HSRP_NO_STANDBY_PEER
+  implemented_by: fhrp_health.py  # executable Python rule (S20)
   severity: critical
   category: routing_health
   protocol: hsrp
@@ -12534,6 +12536,7 @@
   notes: 'A missing standby peer means the HSRP group provides no redundancy — it is a single point of failure. Common cause:
     standby device not yet configured or link between HSRP peers is down.'
 - rule_id: HSRP_PREEMPT_DISABLED
+  implemented_by: fhrp_health.py  # executable Python rule (S20)
   severity: informational
   category: routing_health
   protocol: hsrp
@@ -12572,6 +12575,7 @@
     active. This is sometimes intentional to avoid flapping but is generally considered a misconfiguration for mission-critical
     networks.
 - rule_id: HSRP_TRACKING_MISSING
+  implemented_by: fhrp_health.py  # executable Python rule (S20)
   severity: warning
   category: routing_health
   protocol: hsrp
@@ -12611,6 +12615,7 @@
   notes: Without tracking, if the WAN uplink fails but the HSRP link is intact, the gateway remains "active" but has no path
     to forward traffic. Tracking on the uplink interface ensures HSRP failover matches actual connectivity.
 - rule_id: HSRP_AUTH_MISSING
+  implemented_by: fhrp_health.py  # executable Python rule (S20)
   severity: warning
   category: routing_health
   protocol: hsrp
@@ -12649,6 +12654,7 @@
   notes: Use MD5 authentication (HSRPv2) rather than plain text. A rogue device advertising a higher priority can hijack the
     active role and redirect all gateway traffic.
 - rule_id: HSRP_VIP_NOT_IN_SUBNET
+  implemented_by: fhrp_health.py  # executable Python rule (S20)
   severity: critical
   category: routing_health
   protocol: hsrp
@@ -12695,6 +12701,7 @@
   notes: A VIP outside the subnet will not be reachable via ARP from hosts on that subnet. This is typically a misconfiguration
     error (typo in IP address or wrong subnet).
 - rule_id: HSRP_PRIORITY_CONFLICT
+  implemented_by: fhrp_health.py  # executable Python rule (S20)
   severity: warning
   category: routing_health
   protocol: hsrp
@@ -12734,6 +12741,7 @@
   notes: When priorities are equal, HSRP uses the higher IP address as a tiebreaker. This is non-deterministic from a design
     perspective. One peer should have a higher priority (e.g., 110 vs 100) to designate the intended active router.
 - rule_id: HSRP_HELLO_TIMER_MISMATCH
+  implemented_by: fhrp_health.py  # executable Python rule (S20)
   severity: warning
   category: routing_health
   protocol: hsrp
@@ -12778,6 +12786,7 @@
     hello / 10s hold). Both peers must have matching timers. Mismatched hold timers can cause the active router to be declared
     dead prematurely.
 - rule_id: HSRP_VERSION_MISMATCH
+  implemented_by: fhrp_health.py  # executable Python rule (S20)
   severity: warning
   category: routing_health
   protocol: hsrp
@@ -12818,6 +12827,7 @@
   notes: HSRPv1 and HSRPv2 are NOT compatible. If one peer uses v1 and the other v2, they cannot form a group. HSRPv2 is recommended
     as it supports IPv6 and sub-second timers.
 - rule_id: VRRP_GROUP_NOT_MASTER
+  implemented_by: fhrp_health.py  # executable Python rule (S20)
   severity: critical
   category: routing_health
   protocol: vrrp
@@ -12855,6 +12865,7 @@
   notes: No Genie Ops source file exists for VRRP — this rule is derived from YANG path knowledge and HSRP pattern. VRRP state
     in init = no master elected. must validate the YANG path against lab devices running VRRP.
 - rule_id: VRRP_PRIORITY_CONFLICT
+  implemented_by: fhrp_health.py  # executable Python rule (S20)
   severity: warning
   category: routing_health
   protocol: vrrp
@@ -12906,6 +12917,7 @@
 
     '
 - rule_id: VRRP_ADVERTISEMENT_INTERVAL_MISMATCH
+  implemented_by: fhrp_health.py  # executable Python rule (S20)
   severity: warning
   category: routing_health
   protocol: vrrp
@@ -12956,6 +12968,7 @@
 
     '
 - rule_id: VRRP_PREEMPT_DISABLED
+  implemented_by: fhrp_health.py  # executable Python rule (S20)
   severity: informational
   category: routing_health
   protocol: vrrp
@@ -12999,6 +13012,7 @@
 
     '
 - rule_id: VRRP_VIP_NOT_IN_SUBNET
+  implemented_by: fhrp_health.py  # executable Python rule (S20)
   severity: critical
   category: routing_health
   protocol: vrrp
@@ -21084,4 +21098,30 @@
       ! (see the finding's drift detail for per-interface values).
       ! Use the finding's [Update NetBox] action to stage the observed
       ! values, then approve in the Reconcile tab.
+  genie_source: null
+- rule_id: INTENT_FHRP_UNKNOWN_IN_NETBOX
+  severity: info
+  category: intent
+  protocol: any
+  tier: drift
+  status: external
+  description: An HSRP/VRRP gateway group is running in the network but has no NetBox FHRPGroup record — the first-hop redundancy is undocumented. S20 (ADR-0022).
+  remediation:
+    generic: |
+      ! An observed FHRP (HSRP/VRRP) gateway group is undocumented in NetBox.
+      ! Document it under IPAM -> FHRP Groups and assign its virtual IP.
+      ! No device CLI change.
+  genie_source: null
+- rule_id: INTENT_FHRP_MISSING_IN_NETWORK
+  severity: low
+  category: intent
+  protocol: any
+  tier: drift
+  status: external
+  description: NetBox declares an FHRP (HSRP/VRRP) group whose protocol/group/VIP no running group in the collected run matches — the record is stale or the group is down. S20 (ADR-0022).
+  remediation:
+    generic: |
+      ! NetBox declares an FHRP group the network does not run.
+      ! 1. Verify on-device:  show standby brief   (HSRP)  /  show vrrp brief   (VRRP)
+      ! 2. If the group was retired, delete the stale NetBox FHRPGroup record.
   genie_source: null

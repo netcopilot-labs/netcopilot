@@ -1,0 +1,10 @@
+! campus-ha overlay — bdr-rtr-01 (IOS-XR)
+! ECMP: originate a shared anycast /32 into OSPF area 0. bdr-rtr-02 originates the
+! same /32, so core-sw-01 installs two equal-cost intra-area routes to 198.51.100.200.
+interface Loopback1
+ ipv4 address 198.51.100.200 255.255.255.255
+!
+router ospf 1
+ area 0
+  interface Loopback1
+   passive enable

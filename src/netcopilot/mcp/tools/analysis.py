@@ -6,6 +6,7 @@ later phase (it needs cluster modelling the synthetic seed doesn't carry).
 
 from __future__ import annotations
 
+import json
 import logging
 
 from netcopilot.correlation import blast_radius as _blast_radius
@@ -132,8 +133,48 @@ async def blast_radius(
             svc_lines.extend(f"    {s['name']} ({s['ip']}) on {s['device']}"
                              for s in svc_at_risk)
 
+    # First-hop gateway redundancy (s20): if the failed device is an FHRP
+    # member, a surviving peer keeps the gateway VIP alive on failover — the
+    # blast to gateways is smaller than the link list suggests. If it is the
+    # only member, the VIP is LOST: a distinct, often worse, impact than a
+    # plain neighbour count conveys.
+    with driver.session() as session:
+        fhrp_rows = [dict(r) for r in session.run(
+            "MATCH (d:Device {run_id: $run_id, name: $name})"
+            "-[:MEMBER_OF]->(s:SharedService {service_type: 'fhrp_group', run_id: $run_id}) "
+            "RETURN s.protocol AS protocol, s.group_number AS grp, s.vip AS vip, "
+            "s.interface AS interface, s.members_json AS members_json "
+            "ORDER BY s.interface, s.group_number",
+            run_id=run_id, name=device,
+        )]
+    fhrp_protected: list[str] = []
+    fhrp_lost: list[str] = []
+    fhrp_lines: list[str] = []
+    if fhrp_rows:
+        fhrp_lines.append("")
+        fhrp_lines.append("First-hop gateway redundancy (FHRP):")
+        for g in fhrp_rows:
+            try:
+                members = json.loads(g["members_json"]) if g.get("members_json") else []
+            except (json.JSONDecodeError, TypeError):
+                members = []
+            proto = (g.get("protocol") or "fhrp").upper()
+            survivors = [m.get("hostname") for m in members if m.get("hostname") != device]
+            label = f"{proto} group {g.get('grp')} (VIP {g.get('vip')}) on {g.get('interface')}"
+            if survivors:
+                fhrp_lines.append(
+                    f"  ✓ {label}: PROTECTED — {', '.join(survivors)} still serve(s) the VIP on failover.")
+                fhrp_protected.append(g.get("vip"))
+            else:
+                fhrp_lines.append(
+                    f"  ⚠ {label}: GATEWAY LOST — {device} is the only FHRP member; "
+                    "no standby survives the failure.")
+                fhrp_lost.append(g.get("vip"))
+
     text = _analyze_full_failure(device, all_links, device_insights)
     text += "\n" + "\n".join(svc_lines)
+    if fhrp_lines:
+        text += "\n" + "\n".join(fhrp_lines)
     # Link/neighbour analysis still models a FULL device failure; interface=
     # scopes the service attribution only, max_hops remains unmodelled.
     disclosures = []
@@ -154,6 +195,8 @@ async def blast_radius(
         "services_lost": len(svc_on_device),
         "services_at_risk": len(svc_at_risk),
         "service_layer_joined": svc_total > 0,
+        "fhrp_gateways_protected": len(fhrp_protected),
+        "fhrp_gateways_lost": len(fhrp_lost),
     }
 
     return ToolResult(

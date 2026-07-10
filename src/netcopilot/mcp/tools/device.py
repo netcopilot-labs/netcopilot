@@ -15,7 +15,7 @@ from netcopilot.mcp.result import ToolResult
 
 log = logging.getLogger(__name__)
 
-VALID_SECTIONS = {"interfaces", "routing", "bgp", "ospf", "findings", "security"}
+VALID_SECTIONS = {"interfaces", "routing", "bgp", "ospf", "fhrp", "findings", "security"}
 
 
 async def get_device_detail(
@@ -245,6 +245,36 @@ async def get_device_detail(
                     lines.append(f"  {a['peer']}  {a.get('state', '?')}{area}{vrf}")
             else:
                 lines.append("  No OSPF adjacencies.")
+
+        if "fhrp" in requested:
+            result = session.run(
+                "MATCH (d:Device {run_id: $run_id, name: $name})"
+                "-[:MEMBER_OF]->(svc:SharedService {service_type: 'fhrp_group', run_id: $run_id}) "
+                "RETURN svc.protocol AS proto, svc.group_number AS grp, svc.vip AS vip, "
+                "svc.interface AS intf, svc.active_device AS active, "
+                "svc.members_json AS members_json "
+                "ORDER BY svc.interface, svc.group_number",
+                run_id=run_id, name=device,
+            )
+            fhrp = [dict(r) for r in result]
+            lines.extend(["", f"FHRP groups ({len(fhrp)}):"])
+            if fhrp:
+                for g in fhrp:
+                    proto = (g.get("proto") or "fhrp").upper()
+                    lines.append(
+                        f"  {g.get('intf')} {proto} grp {g.get('grp')} VIP {g.get('vip')}:"
+                    )
+                    try:
+                        members = json.loads(g["members_json"]) if g.get("members_json") else []
+                    except (json.JSONDecodeError, TypeError):
+                        members = []
+                    for m in members:
+                        role = m.get("state") or "participant"
+                        ip = f" {m.get('ip')}" if m.get("ip") else ""
+                        pri = f" pri {m.get('priority')}" if m.get("priority") is not None else ""
+                        lines.append(f"      {m.get('hostname')}{ip} — {role}{pri}")
+            else:
+                lines.append("  No FHRP (HSRP/VRRP) groups.")
 
     # ── Routing (from facts) ─────────────────────────────────────────
     # A requested section must always speak — a silent skip when data_dir is

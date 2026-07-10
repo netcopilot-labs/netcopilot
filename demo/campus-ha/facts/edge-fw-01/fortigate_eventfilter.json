@@ -1,0 +1,33 @@
+{
+  "http_method": "GET",
+  "revision": "9ff95c6977e170f5f6c0de84619548b1",
+  "results": {
+    "event": "enable",
+    "system": "enable",
+    "vpn": "enable",
+    "user": "enable",
+    "router": "enable",
+    "wireless-activity": "enable",
+    "wan-opt": "enable",
+    "endpoint": "enable",
+    "ha": "enable",
+    "security-rating": "enable",
+    "fortiextender": "enable",
+    "connector": "enable",
+    "sdwan": "enable",
+    "cifs": "enable",
+    "switch-controller": "enable",
+    "rest-api": "enable",
+    "web-svc": "enable",
+    "webproxy": "enable"
+  },
+  "vdom": "root",
+  "path": "log",
+  "name": "eventfilter",
+  "action": "",
+  "status": "success",
+  "http_status": 200,
+  "serial": "FGVMEVJ7_ORGXTCC",
+  "version": "v7.4.12",
+  "build": 2902
+}

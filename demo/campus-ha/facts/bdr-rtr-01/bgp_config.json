@@ -1,0 +1,44 @@
+{
+  "as_number": 64496,
+  "router_id": "198.51.100.101",
+  "cluster_id": null,
+  "graceful_restart": false,
+  "log_neighbor_changes": false,
+  "bestpath": null,
+  "network_statements": [
+    "198.51.100.101/32"
+  ],
+  "redistribute": [],
+  "neighbors": {
+    "203.0.113.2": {
+      "remote_as": 64497,
+      "description": "eBGP-isp-01",
+      "bfd": false,
+      "password_configured": false,
+      "graceful_restart": false,
+      "send_community": false,
+      "update_source": null,
+      "route_policy_in": "PASS",
+      "route_policy_out": "PASS",
+      "maximum_prefix": null,
+      "next_hop_self": false,
+      "soft_reconfiguration": false,
+      "route_reflector_client": false
+    },
+    "198.51.100.100": {
+      "remote_as": 64496,
+      "description": "iBGP-RR-core-sw-01",
+      "bfd": false,
+      "password_configured": false,
+      "graceful_restart": false,
+      "send_community": false,
+      "update_source": "Loopback0",
+      "route_policy_in": null,
+      "route_policy_out": null,
+      "maximum_prefix": null,
+      "next_hop_self": true,
+      "soft_reconfiguration": false,
+      "route_reflector_client": false
+    }
+  }
+}

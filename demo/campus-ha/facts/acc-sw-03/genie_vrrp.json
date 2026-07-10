@@ -1,0 +1,23 @@
+{
+  "interface": {
+    "Vlan61": {
+      "group": {
+        "61": {
+          "state": "BACKUP",
+          "description": "State duration 1 hours 43 mins 42 secs",
+          "virtual_ip_address": "198.51.100.145",
+          "virtual_mac_address": "0000.5E00.013D",
+          "advertise_interval_secs": 1.0,
+          "preemption": "enabled",
+          "priority": 100,
+          "master_router_ip": "198.51.100.146",
+          "master_router_priority": 120,
+          "master_advertisement_interval_secs": 1.0,
+          "master_down_interval_secs": 3609.0,
+          "master_down_expiration_secs": 3.524,
+          "flags": "1/1"
+        }
+      }
+    }
+  }
+}

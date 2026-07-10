@@ -108,10 +108,12 @@ _CATEGORY_RENDER: dict[str, dict] = {
             "What is connected to a device, and how",
             "Operational summary of a site",
             "VLANs, subnets, OSPF areas, BGP ASNs, IP lookups",
+            "HSRP/VRRP gateway groups — which router is the active gateway",
         ],
         "examples": [
             "What devices are in my network?",
             "What is connected to core-rtr-01?",
+            "Which router is the active gateway for VLAN 60?",
         ],
     },
     _CAT_TROUBLESHOOT: {
@@ -138,7 +140,7 @@ _CATEGORY_RENDER: dict[str, dict] = {
         "bullets": [
             "Hop-by-hop path tracing across the network",
             "What breaks if a device or member fails",
-            "Single points of failure and HA status",
+            "Single points of failure, HA status, and HSRP/VRRP gateway redundancy",
             "Routing table for any device or VRF",
             "OSPF processes, areas, neighbors, and timers",
         ],

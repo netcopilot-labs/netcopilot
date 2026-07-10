@@ -376,6 +376,55 @@ class NetBoxAdapter(DeclaredStateSource):
             "assigned_interface": assigned_interface,
         }
 
+    @staticmethod
+    def _fhrp_family(protocol: str | None) -> str | None:
+        """NetBox protocol value → the FHRP family the run observes.
+
+        NetBox distinguishes ``vrrp2``/``vrrp3``; the collected model normalizes
+        both to ``vrrp`` (HSRP stays ``hsrp``). Comparing on the family keeps a
+        v2-vs-v3 documentation detail from being manufactured as drift.
+        """
+        if not protocol:
+            return None
+        p = protocol.lower()
+        if p.startswith("vrrp"):
+            return "vrrp"
+        if p.startswith("hsrp"):
+            return "hsrp"
+        return p
+
+    def get_fhrp_groups(self) -> list[dict]:
+        """Declared FHRP (HSRP/VRRP) groups from NetBox (``ipam.fhrp-groups``).
+
+        Each dict carries the group's protocol family + group id + assigned
+        virtual IP(s) — the identity the drift comparator (s20) joins on against
+        the run's observed ``fhrp_group`` services. Read-only; swallows errors
+        into ``[]`` like the other dedup-read helpers: FHRP drift is additive, so
+        an empty read means 'nothing declared' (every observed group surfaces as
+        UNKNOWN_IN_NETBOX), never a crash.
+        """
+        try:
+            out = []
+            for g in self._nb.ipam.fhrp_groups.all():
+                proto = str(g.protocol) if getattr(g, "protocol", None) else None
+                vips = [
+                    str(ip).split("/")[0]
+                    for ip in (getattr(g, "ip_addresses", None) or [])
+                ]
+                out.append({
+                    "protocol": proto,
+                    "protocol_family": self._fhrp_family(proto),
+                    "group_id": g.group_id if getattr(g, "group_id", None) is not None else None,
+                    "vips": vips,
+                    "name": str(g.name) if getattr(g, "name", None) else None,
+                    "description": str(g.description) if getattr(g, "description", None) else None,
+                    "netbox_id": g.id,
+                })
+            return out
+        except Exception as exc:
+            log.error("NetBoxAdapter.get_fhrp_groups() failed: %s", exc)
+            return []
+
     # ---------------------------------------------------------------- probe
 
     def ping(self) -> None:

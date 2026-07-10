@@ -1438,6 +1438,38 @@ function OverviewTab({ deviceData, selectedMemberId }) {
         </div>
       )}
 
+      {/* FHRP gateway groups */}
+      {device.fhrp_groups?.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Gateway (FHRP)</p>
+          <div className="space-y-1.5">
+            {device.fhrp_groups.map(g => (
+              <div key={`${g.interface}-${g.group}`} className="text-xs">
+                <p className="text-gray-700">
+                  <span className="font-medium">{(g.protocol || 'fhrp').toUpperCase()}</span>
+                  <span className="text-gray-400 ml-1">{g.interface} grp {g.group}</span>
+                  <span className="text-gray-500 ml-1">VIP {g.vip}</span>
+                </p>
+                <div className="ml-3 mt-0.5 space-y-0.5">
+                  {(g.members || []).map(m => {
+                    const active = ['active', 'master'].includes((m.state || '').toLowerCase())
+                    return (
+                      <p key={m.hostname} className="text-gray-600">
+                        <span style={{ color: active ? '#22C55E' : '#9CA3AF' }}>{active ? '●' : '○'}</span>
+                        <span className={`ml-1 ${m.hostname === device.hostname ? 'font-semibold text-gray-800' : 'text-gray-700'}`}>{m.hostname}</span>
+                        {m.ip && <span className="text-gray-500 ml-1">{m.ip}</span>}
+                        {m.state && <span className="text-gray-400 ml-1 capitalize">{m.state}</span>}
+                        {m.priority != null && <span className="text-gray-400 ml-1">pri {m.priority}</span>}
+                      </p>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Interface summary */}
       <div>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Interfaces</p>

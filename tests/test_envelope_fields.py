@@ -150,6 +150,7 @@ def test_blast_radius_verdict_and_highlight(monkeypatch):
         [],                     # neighbor links
         [{"n": 0}],             # s16: Service row count (layer not joined)
         [],                     # s16: services on device + neighbours
+        [],                     # s20: FHRP groups the device is a member of
     ]))
     monkeypatch.setattr(analysis, "_blast_radius", lambda run_id: [
         {"device": "core-x", "risk_score": 60, "finding_count": 2,
@@ -159,11 +160,12 @@ def test_blast_radius_verdict_and_highlight(monkeypatch):
                                             context={"run_id": "r"}))
     # S08-2: verdict + highlight carry the affected-neighbour / internet
     # impact; s16 adds the service dimension (layer not joined here → honest
-    # "unknown, not zero" note + joined=False).
+    # "unknown, not zero" note + joined=False); s20 adds FHRP gateway impact.
     assert res.verdict == {"risk_level": "HIGH", "score": 60,
                            "affected_neighbors": 0, "internet_impact": 0,
                            "services_lost": 0, "services_at_risk": 0,
-                           "service_layer_joined": False}
+                           "service_layer_joined": False,
+                           "fhrp_gateways_protected": 0, "fhrp_gateways_lost": 0}
     assert res.highlight == {"device": "core-x", "affected": [], "failedMember": 1}
     assert "Blast radius — core-x" in res.text
     assert "unknown, not zero" in res.text        # absent layer ≠ no services
@@ -175,7 +177,7 @@ def test_blast_radius_discloses_scope_semantics(monkeypatch):
     # max_hops remains unmodelled and disclosed.
     monkeypatch.setattr(analysis, "is_available", lambda: True)
     monkeypatch.setattr(analysis, "get_driver", lambda: _FakeDriver([
-        [{"name": "core-x"}], [], [{"n": 0}], []]))
+        [{"name": "core-x"}], [], [{"n": 0}], [], []]))
     monkeypatch.setattr(analysis, "_blast_radius", lambda run_id: [])
     res = asyncio.run(analysis.blast_radius(device="core-x", interface="Gi0/1",
                                             max_hops=5, context={"run_id": "r"}))
@@ -199,6 +201,7 @@ def test_blast_radius_enumerates_services(monkeypatch):
           "bgp_type": None, "local_as": None, "remote_as": None}],
         [{"n": 3}],
         svc_rows,
+        [],                     # s20: FHRP groups the device is a member of
     ]))
     monkeypatch.setattr(analysis, "_blast_radius", lambda run_id: [])
     res = asyncio.run(analysis.blast_radius(device="core-x", context={"run_id": "r"}))
@@ -262,9 +265,12 @@ def test_redundancy_network_verdict(monkeypatch):
         {"dev": "core-x", "neighbor": "acc-1", "cables": 1},
     ]
     monkeypatch.setattr(redundancy, "is_available", lambda: True)
+    # 4th script entry feeds the FHRP gateway-redundancy query (no FHRP groups here);
+    # the first 3 feed the device/neighbor/HA-affinity queries.
     monkeypatch.setattr(redundancy, "get_driver",
-                        lambda: _FakeDriver([devices, neighbors, []]))
+                        lambda: _FakeDriver([devices, neighbors, [], []]))
     res = asyncio.run(redundancy.get_redundancy_assessment(context={"run_id": "r"}))
     assert res.verdict == {"devices": 2, "ha_protected": 1, "spof_no_ha": 0,
-                           "single_uplink": 1, "unreachable": 0}
+                           "single_uplink": 1, "unreachable": 0,
+                           "fhrp_groups": 0, "fhrp_unprotected": 0}
     assert "Redundancy assessment — Network overview" in res.text

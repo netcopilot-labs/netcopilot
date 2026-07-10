@@ -37,9 +37,9 @@ NetCopilot answers questions about your network from one deterministic,
 evidence-backed model — organized by what you're trying to do. *(Or just ask it:
 "what can you do?")*
 
-- 🔍 **Explore** — devices, links, topology, per-device detail; VLANs / subnets / OSPF areas / BGP ASNs / IP lookups.
+- 🔍 **Explore** — devices, links, topology, per-device detail; VLANs / subnets / OSPF areas / BGP ASNs / IP lookups; HSRP/VRRP gateway groups (which router is the active gateway).
 - 🔥 **Troubleshoot** — active findings & compliance violations, why they matter and how to fix them, priority ranking, systemic multi-device issues, **what changed between two runs (drift)**, and **change validation**: a deterministic pass/warn/fail verdict on whether only the intended devices changed (CLI exit codes make it a pipeline gate).
-- 🛣 **Trace** — hop-by-hop path tracing, blast radius ("what breaks if X fails"), SPOF / HA status, routing tables, OSPF detail.
+- 🛣 **Trace** — hop-by-hop path tracing, blast radius ("what breaks if X fails"), SPOF / HA status, HSRP/VRRP gateway redundancy, routing tables, OSPF detail.
 - 🛡 **Security** — AAA / SSH / SNMP / NTP / logging posture, firewall rules & ACLs, QoS shaping.
 - 📚 **Vendor docs** — Cisco IOS-XE / IOS-XR / FortiOS CLI reference + conceptual networking knowledge (works with no network loaded).
 - 📊 **Reports** — shift-handover report, investigation case-file; email or PDF.

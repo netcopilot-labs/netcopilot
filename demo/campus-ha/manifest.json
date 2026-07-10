@@ -1,0 +1,88 @@
+{
+  "run_id": "campus-ha",
+  "collection_mode": "synthetic",
+  "device_count": 8,
+  "demo_label": "Demo \u2014 Campus HA (FHRP + LAG + multi-area OSPF + ECMP + dot1x)",
+  "devices": [
+    {
+      "inventory_name": "bdr-rtr-01",
+      "target": "192.0.2.11",
+      "hostname": "bdr-rtr-01",
+      "os": "ios-xr",
+      "role": "border_router",
+      "site": "demo",
+      "collection_strategy": "pyats",
+      "status": "success"
+    },
+    {
+      "inventory_name": "bdr-rtr-02",
+      "target": "192.0.2.12",
+      "hostname": "bdr-rtr-02",
+      "os": "ios-xr",
+      "role": "border_router",
+      "site": "demo",
+      "collection_strategy": "pyats",
+      "status": "success"
+    },
+    {
+      "inventory_name": "bdr-rtr-03",
+      "target": "192.0.2.13",
+      "hostname": "bdr-rtr-03",
+      "os": "ios-xr",
+      "role": "border_router",
+      "site": "demo",
+      "collection_strategy": "pyats",
+      "status": "success"
+    },
+    {
+      "inventory_name": "core-sw-01",
+      "target": "192.0.2.31",
+      "hostname": "core-sw-01",
+      "os": "ios-xe",
+      "role": "core_switch",
+      "site": "demo",
+      "collection_strategy": "pyats",
+      "status": "success"
+    },
+    {
+      "inventory_name": "acc-sw-01",
+      "target": "192.0.2.41",
+      "hostname": "acc-sw-01",
+      "os": "ios-xe",
+      "role": "access_switch",
+      "site": "demo",
+      "collection_strategy": "pyats",
+      "status": "success"
+    },
+    {
+      "inventory_name": "acc-sw-03",
+      "target": "192.0.2.43",
+      "hostname": "acc-sw-03",
+      "os": "ios-xe",
+      "role": "access_switch",
+      "site": "demo",
+      "collection_strategy": "pyats",
+      "status": "success"
+    },
+    {
+      "inventory_name": "acc-sw-04",
+      "target": "192.0.2.44",
+      "hostname": "acc-sw-04",
+      "os": "ios-xe",
+      "role": "access_switch",
+      "site": "demo",
+      "collection_strategy": "pyats",
+      "status": "success"
+    },
+    {
+      "inventory_name": "edge-fw-01",
+      "target": "192.0.2.51",
+      "hostname": "edge-fw-01",
+      "os": "fortios",
+      "role": "firewall",
+      "site": "demo",
+      "collection_strategy": "rest",
+      "status": "success"
+    }
+  ]
+}

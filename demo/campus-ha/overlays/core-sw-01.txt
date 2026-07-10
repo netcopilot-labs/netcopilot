@@ -1,0 +1,56 @@
+! campus-ha overlay — core-sw-01 (IOS-XE) — active/master FHRP + LAG + OSPF ABR
+!
+! New campus VLANs ride the existing core<->acc-sw-03 trunk.
+vlan 60
+ name HSRP-CAMPUS
+!
+vlan 61
+ name VRRP-CAMPUS
+!
+! LAG: bundle the existing Gi1/0/5 trunk into Port-channel1 (LACP). Single member
+! in this scenario (a 2-member bundle needs a second physical link = topology change).
+interface Port-channel1
+ description LAG uplink to acc-sw-03
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,60,61
+ no shutdown
+!
+interface GigabitEthernet1/0/5
+ switchport trunk allowed vlan 10,20,60,61
+ channel-group 1 mode active
+!
+! HSRP campus gateway (core = active, priority 120, preempt).
+interface Vlan60
+ description HSRP-CAMPUS gateway (active)
+ ip address 198.51.100.130 255.255.255.240
+ standby version 2
+ standby 60 ip 198.51.100.129
+ standby 60 priority 120
+ standby 60 preempt
+ no autostate
+!
+! VRRP campus gateway (core = master, priority 120). IOS-XE 17.x requires the
+! global 'fhrp version vrrp v3' to expose the address-family VRRP syntax; the
+! classic 'vrrp N ip' form is not present on the cat9kv image.
+fhrp version vrrp v3
+!
+interface Vlan61
+ description VRRP-CAMPUS gateway (master)
+ ip address 198.51.100.146 255.255.255.240
+ no autostate
+ vrrp 61 address-family ipv4
+  address 198.51.100.145 primary
+  priority 120
+!
+! Advertise the two FHRP subnets into the global backbone.
+router ospf 1
+ passive-interface Vlan60
+ passive-interface Vlan61
+ network 198.51.100.128 0.0.0.15 area 0
+ network 198.51.100.144 0.0.0.15 area 0
+!
+! Multi-area OSPF: the BLUE link to acc-sw-04 moves into area 1, so core-sw-01 is a
+! genuine ABR for VRF BLUE (area 0 toward acc-sw-03, area 1 toward acc-sw-04).
+router ospf 20 vrf BLUE
+ no network 198.51.100.28 0.0.0.3 area 0
+ network 198.51.100.28 0.0.0.3 area 1
