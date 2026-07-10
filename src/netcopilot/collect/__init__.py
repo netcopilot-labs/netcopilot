@@ -14,6 +14,7 @@ from netcopilot.collect.collector import (
     resolve_credentials,
     run_collection,
 )
+from netcopilot.collect.esxi import EsxiAdapter
 from netcopilot.collect.netconf import NetconfAdapter
 from netcopilot.collect.rest import RestAdapter
 from netcopilot.collect.restconf import RestconfAdapter
@@ -26,6 +27,7 @@ __all__ = [
     "NetconfAdapter",
     "RestconfAdapter",
     "RestAdapter",
+    "EsxiAdapter",
     "default_chain",
     "applicable_strategies",
     "run_collection",

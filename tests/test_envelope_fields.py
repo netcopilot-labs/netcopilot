@@ -148,6 +148,8 @@ def test_blast_radius_verdict_and_highlight(monkeypatch):
     monkeypatch.setattr(analysis, "get_driver", lambda: _FakeDriver([
         [{"name": "core-x"}],   # exact-name lookup
         [],                     # neighbor links
+        [{"n": 0}],             # s16: Service row count (layer not joined)
+        [],                     # s16: services on device + neighbours
     ]))
     monkeypatch.setattr(analysis, "_blast_radius", lambda run_id: [
         {"device": "core-x", "risk_score": 60, "finding_count": 2,
@@ -155,23 +157,56 @@ def test_blast_radius_verdict_and_highlight(monkeypatch):
     ])
     res = asyncio.run(analysis.blast_radius(device="core-x", member=1,
                                             context={"run_id": "r"}))
-    # S08-2: verdict + highlight now carry the affected-neighbour / internet
-    # impact the tool already computes (0 here — no neighbour links).
+    # S08-2: verdict + highlight carry the affected-neighbour / internet
+    # impact; s16 adds the service dimension (layer not joined here → honest
+    # "unknown, not zero" note + joined=False).
     assert res.verdict == {"risk_level": "HIGH", "score": 60,
-                           "affected_neighbors": 0, "internet_impact": 0}
+                           "affected_neighbors": 0, "internet_impact": 0,
+                           "services_lost": 0, "services_at_risk": 0,
+                           "service_layer_joined": False}
     assert res.highlight == {"device": "core-x", "affected": [], "failedMember": 1}
     assert "Blast radius — core-x" in res.text
+    assert "unknown, not zero" in res.text        # absent layer ≠ no services
 
 
-def test_blast_radius_discloses_ignored_scope(monkeypatch):
-    # S08-2: interface/max_hops are not modelled — passing them must be disclosed,
-    # not silently ignored (over-stating the analysis scope).
+def test_blast_radius_discloses_scope_semantics(monkeypatch):
+    # S08-2 → s16: interface= now scopes the SERVICE attribution (real), but
+    # the link analysis still models a full device failure — both said aloud;
+    # max_hops remains unmodelled and disclosed.
     monkeypatch.setattr(analysis, "is_available", lambda: True)
-    monkeypatch.setattr(analysis, "get_driver", lambda: _FakeDriver([[{"name": "core-x"}], []]))
+    monkeypatch.setattr(analysis, "get_driver", lambda: _FakeDriver([
+        [{"name": "core-x"}], [], [{"n": 0}], []]))
     monkeypatch.setattr(analysis, "_blast_radius", lambda run_id: [])
     res = asyncio.run(analysis.blast_radius(device="core-x", interface="Gi0/1",
-                                            context={"run_id": "r"}))
-    assert "not applied" in res.text and "interface=Gi0/1" in res.text
+                                            max_hops=5, context={"run_id": "r"}))
+    assert "interface=Gi0/1 scopes the service list only" in res.text
+    assert "max_hops=5 not applied" in res.text
+
+
+def test_blast_radius_enumerates_services(monkeypatch):
+    # s16: services on the failed device are LOST; services on affected
+    # neighbours are at risk; port-precise ones survive interface scoping.
+    monkeypatch.setattr(analysis, "is_available", lambda: True)
+    svc_rows = [
+        {"name": "cam-lobby-01", "ip": "198.51.100.26", "method": "arp+fdb",
+         "device": "core-x", "port": "Gi1/0/5"},
+        {"name": "printer-f2", "ip": "198.51.100.60", "method": "subnet",
+         "device": "acc-y", "port": None},
+    ]
+    monkeypatch.setattr(analysis, "get_driver", lambda: _FakeDriver([
+        [{"name": "core-x"}],
+        [{"neighbor": "acc-y", "role": "access_switch", "link_type": "PHYSICAL_CABLE",
+          "bgp_type": None, "local_as": None, "remote_as": None}],
+        [{"n": 3}],
+        svc_rows,
+    ]))
+    monkeypatch.setattr(analysis, "_blast_radius", lambda run_id: [])
+    res = asyncio.run(analysis.blast_radius(device="core-x", context={"run_id": "r"}))
+    assert "LOST with core-x" in res.text and "cam-lobby-01" in res.text
+    assert "At risk on affected neighbours" in res.text and "printer-f2" in res.text
+    assert res.verdict["services_lost"] == 1
+    assert res.verdict["services_at_risk"] == 1
+    assert res.verdict["service_layer_joined"] is True
 
 
 # ── highlight (get_device_detail canonical name) ─────────────────────────────

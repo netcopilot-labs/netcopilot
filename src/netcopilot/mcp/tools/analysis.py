@@ -81,29 +81,85 @@ async def blast_radius(
     if member is not None:
         highlight["failedMember"] = member
 
-    text = _analyze_full_failure(device, all_links, device_insights)
-    # This analysis models a full device failure. Interface-level and
-    # multi-hop scoping are not modelled — say so rather than let a scoped
-    # request read as if it were honoured.
-    if interface is not None or max_hops != 3:
-        scoped = []
+    # Operator-named services (s16, ADR-0019): what actually DIES when this
+    # device fails, in the operator's own words — services residing on the
+    # failed device, plus services on the affected neighbours (at risk).
+    with driver.session() as session:
+        svc_total = session.run(
+            "MATCH (s:Service {run_id: $run_id}) RETURN count(s) AS n",
+            run_id=run_id,
+        ).single()["n"]
+        svc_rows = [dict(r) for r in session.run(
+            "MATCH (s:Service {run_id: $run_id})-[:RESIDES_ON]->(d:Device {run_id: $run_id}) "
+            "WHERE d.name IN $names "
+            "OPTIONAL MATCH (s)-[:REACHED_VIA]->(i:Interface) "
+            "RETURN s.name AS name, s.ip AS ip, s.location_method AS method, "
+            "       d.name AS device, i.name AS port "
+            "ORDER BY s.name",
+            run_id=run_id, names=[device] + affected,
+        )]
+
+    svc_on_device = [s for s in svc_rows if s["device"] == device]
+    svc_at_risk = [s for s in svc_rows if s["device"] != device]
+    if interface is not None:
+        # Port scoping: only port-precise services can be attributed to one
+        # interface — approximate (arp/subnet) locations honestly can't.
+        from netcopilot.model.interface_normalizer import normalize_interface_name
+        want = normalize_interface_name(interface)
+        svc_on_device = [s for s in svc_on_device if s.get("port") == want]
+
+    svc_lines: list[str] = ["", "Operator-named services (NetBox × observed):"]
+    if svc_total == 0:
+        svc_lines.append(
+            "  Service layer not joined for this run — impact on named services is "
+            "unknown, not zero (run `netcopilot netbox services <run_id>`)."
+        )
+    else:
         if interface is not None:
-            scoped.append(f"interface={interface}")
-        if max_hops != 3:
-            scoped.append(f"max_hops={max_hops}")
-        text = (f"Note: {', '.join(scoped)} not applied — blast_radius models a "
-                f"full device failure (interface/hop scoping is not yet "
-                f"supported).\n\n") + text
+            svc_lines.append(f"  On port {interface} of {device}: "
+                             + (", ".join(f"{s['name']} ({s['ip']})" for s in svc_on_device)
+                                or "none port-precise (approximate locations can't be "
+                                   "attributed to a single port)"))
+        elif svc_on_device:
+            svc_lines.append(f"  LOST with {device}:")
+            svc_lines.extend(f"    {s['name']} ({s['ip']}, {s['method']}"
+                             + (f", port {s['port']}" if s.get("port") else "") + ")"
+                             for s in svc_on_device)
+        else:
+            svc_lines.append(f"  None resides on {device}.")
+        if svc_at_risk:
+            svc_lines.append("  At risk on affected neighbours:")
+            svc_lines.extend(f"    {s['name']} ({s['ip']}) on {s['device']}"
+                             for s in svc_at_risk)
+
+    text = _analyze_full_failure(device, all_links, device_insights)
+    text += "\n" + "\n".join(svc_lines)
+    # Link/neighbour analysis still models a FULL device failure; interface=
+    # scopes the service attribution only, max_hops remains unmodelled.
+    disclosures = []
+    if interface is not None:
+        disclosures.append(f"interface={interface} scopes the service list only — "
+                           "the link analysis models a full device failure")
+    if max_hops != 3:
+        disclosures.append(f"max_hops={max_hops} not applied (hop scoping is not "
+                           "yet supported)")
+    if disclosures:
+        text = f"Note: {'; '.join(disclosures)}.\n\n" + text
+
+    verdict = {
+        "risk_level": risk_level,
+        "score": risk,
+        "affected_neighbors": len(affected),
+        "internet_impact": len(transit_losses),
+        "services_lost": len(svc_on_device),
+        "services_at_risk": len(svc_at_risk),
+        "service_layer_joined": svc_total > 0,
+    }
 
     return ToolResult(
         "ok",
         text,
-        verdict={
-            "risk_level": risk_level,
-            "score": risk,
-            "affected_neighbors": len(affected),
-            "internet_impact": len(transit_losses),
-        },
+        verdict=verdict,
         highlight=highlight,
     )
 

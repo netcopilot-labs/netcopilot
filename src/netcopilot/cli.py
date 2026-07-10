@@ -347,6 +347,17 @@ def _cmd_netbox(args: argparse.Namespace) -> None:
             raise SystemExit(1)
         print(f"Rejected {args.candidate_id} (audit row written).")
 
+    elif args.netbox_command == "services":
+        from .declared_state.services import ServiceSourceUnavailable, run_service_join
+        try:
+            report = run_service_join(args.run_id)
+        except (ServiceSourceUnavailable, ValueError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            raise SystemExit(2)
+        print(report.format_summary())
+        for skipped in report.skipped_infrastructure:
+            print(f"  infrastructure: {skipped}", file=sys.stderr)
+
     elif args.netbox_command == "drift":
         from .declared_state.drift import DriftSourceUnavailable, run_drift_check
         try:
@@ -466,6 +477,8 @@ def main() -> None:
     nb_rej.add_argument("--all", action="store_true")
     nb_rej.add_argument("--source", default=None)
     nb_rej.add_argument("--object-type", dest="object_type", default=None)
+    nb_svc = nb_sub.add_parser("services", help="join NetBox-named IPs with the run's ARP/FDB observations → :Service nodes (exit 2 on error)")
+    nb_svc.add_argument("run_id", help="run identifier (must be loaded in Neo4j)")
     nb_drift = nb_sub.add_parser("drift", help="compare declared state (NetBox) vs a collected run — exit 1 on drift, 2 on error")
     nb_drift.add_argument("run_id", help="run identifier (directory under RUNS_DIR)")
     nb_drift.add_argument("--inventory", required=True, help="path to the inventory YAML the run came from")

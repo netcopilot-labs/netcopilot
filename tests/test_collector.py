@@ -97,6 +97,41 @@ def test_resolve_credentials_per_device_override_with_expandvars(monkeypatch):
 
 # --------------------------- run_collection ------------------------------
 
+def test_vmware_devices_route_through_the_pipeline(monkeypatch, tmp_path):
+    # Audit B1: `os: vcenter` was rejected by KNOWN_OS validation, aborting
+    # the WHOLE run — the flagship vCenter mode was unreachable via
+    # run_collection (only direct adapter calls worked). Pin both VMware os
+    # families end-to-end through inventory validation → chain → adapter.
+    from netcopilot.collect import EsxiAdapter
+    from netcopilot.inventory.base import normalize_os
+
+    assert normalize_os("vcenter") == "vcenter"
+    assert normalize_os("vsphere") == "vcenter"   # a vSphere endpoint = vCenter
+    assert normalize_os("esxi") == "esxi"
+
+    calls = []
+
+    def fake_collect(self, device, commands, output_dir, credentials):
+        calls.append((device["name"], device["os"]))
+        from netcopilot.collect.base import CollectionResult
+        return CollectionResult(success=True, strategy_name="esxi",
+                                hostname=device["name"])
+
+    monkeypatch.setattr(EsxiAdapter, "collect", fake_collect)
+    devs = [
+        {"name": "vc-01", "mgmt_ip": "192.0.2.5", "os": "vcenter", "site": "demo"},
+        {"name": "esxi-01", "mgmt_ip": "192.0.2.6", "os": "esxi", "site": "demo"},
+    ]
+    run_id = run_collection(FakeInventory(devs), runs_dir=tmp_path,
+                            parallel=False, chain=[EsxiAdapter()])
+    manifest = json.loads((tmp_path / run_id / "manifest.json").read_text())
+    by_name = {d["inventory_name"]: d for d in manifest["devices"]}
+    assert by_name["vc-01"]["status"] == "success"
+    assert by_name["vc-01"]["collection_strategy"] == "esxi"
+    assert by_name["esxi-01"]["status"] == "success"
+    assert calls == [("vc-01", "vcenter"), ("esxi-01", "esxi")]
+
+
 def test_run_collection_writes_manifest_and_raw(mock_ssh, env_creds, tmp_path):
     run_id = run_collection(FakeInventory(CISCO), runs_dir=tmp_path, parallel=False, chain=SSH_CHAIN)
     assert run_id

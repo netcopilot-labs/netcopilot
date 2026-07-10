@@ -17,6 +17,7 @@ export const TOPOLOGY_VIEWS = [
   { id: 'l2vlan', label: 'L2/L3', enabled: true },
   { id: 'ospf', label: 'OSPF', enabled: true },
   { id: 'bgp', label: 'BGP', enabled: true },
+  { id: 'service', label: 'Service', enabled: true },
 ]
 
 /**

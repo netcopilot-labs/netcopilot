@@ -12,6 +12,7 @@ Today SSH is the only registered strategy; the structured transports
 from __future__ import annotations
 
 from netcopilot.collect.base import CollectionStrategy
+from netcopilot.collect.esxi import EsxiAdapter
 from netcopilot.collect.netconf import NetconfAdapter
 from netcopilot.collect.rest import RestAdapter
 from netcopilot.collect.restconf import RestconfAdapter
@@ -32,14 +33,19 @@ def default_chain() -> list[CollectionStrategy]:
 
     Structured transports first (richer data), SSH last (universal fallback).
     Cisco devices try pyATS→NETCONF→RESTCONF→SSH; FortiGate matches only the
-    vendor REST adapter. pyATS is the richest Cisco strategy (Genie structured
-    evidence) so it leads when the [pyats] extra is installed; without it the
-    chain begins at NETCONF.
+    vendor REST adapter; an ESXi host matches only the vSphere adapter. pyATS
+    is the richest Cisco strategy (Genie structured evidence) so it leads when
+    the [pyats] extra is installed; without it the chain begins at NETCONF.
     """
     chain: list[CollectionStrategy] = []
     if _PYATS_AVAILABLE:
         chain.append(PyATSAdapter())
-    chain += [NetconfAdapter(), RestconfAdapter(), RestAdapter(), SSHAdapter()]
+    # EsxiAdapter matches only os=="esxi" and imports without the [esxi] extra
+    # (pyvmomi is lazy inside collect), so it registers unconditionally; an
+    # esxi device collects with a clear "install .[esxi]" error if the extra
+    # is absent, rather than a silent no-applicable-strategy skip.
+    chain += [NetconfAdapter(), RestconfAdapter(), RestAdapter(),
+              EsxiAdapter(), SSHAdapter()]
     return chain
 
 

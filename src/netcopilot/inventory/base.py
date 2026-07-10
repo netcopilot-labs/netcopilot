@@ -21,6 +21,10 @@ _OS_ALIASES = {
     "ios-xe": "ios-xe", "iosxe": "ios-xe",
     "ios-xr": "ios-xr", "iosxr": "ios-xr",
     "fortios": "fortios",
+    "esxi": "esxi", "vmware": "esxi",
+    # A vCenter endpoint aggregates every host+VM (multi-host placement);
+    # a standalone host answers only for itself. Same adapter, distinct mode.
+    "vcenter": "vcenter", "vsphere": "vcenter",
 }
 
 

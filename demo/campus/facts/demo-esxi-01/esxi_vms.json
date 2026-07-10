@@ -1,0 +1,62 @@
+[
+  {
+    "name": "SYNTH-APP-01",
+    "power_state": "poweredOn",
+    "host": "node-1",
+    "macs": ["00:50:56:9a:00:01"],
+    "ips": ["198.51.100.101"],
+    "guest_os": "Ubuntu Linux (64-bit)",
+    "tools_status": "toolsOk",
+    "cpu_mhz": 240,
+    "mem_mb": 8192,
+    "health": "green"
+  },
+  {
+    "name": "SYNTH-DB-01",
+    "power_state": "poweredOn",
+    "host": "node-1",
+    "macs": ["00:50:56:9a:00:02"],
+    "ips": ["198.51.100.102"],
+    "guest_os": "Red Hat Enterprise Linux 9 (64-bit)",
+    "tools_status": "toolsOk",
+    "cpu_mhz": 610,
+    "mem_mb": 16384,
+    "health": "green"
+  },
+  {
+    "name": "SYNTH-MON-01",
+    "power_state": "poweredOn",
+    "host": "node-1",
+    "macs": ["00:50:56:9a:00:03"],
+    "ips": [],
+    "guest_os": "CentOS 7 (64-bit)",
+    "tools_status": "toolsNotRunning",
+    "cpu_mhz": 55,
+    "mem_mb": 4096,
+    "health": "green"
+  },
+  {
+    "name": "SYNTH-IDLE-01",
+    "power_state": "poweredOn",
+    "host": "node-2",
+    "macs": ["00:50:56:9a:00:04"],
+    "ips": ["198.51.100.103"],
+    "guest_os": "Ubuntu Linux (64-bit)",
+    "tools_status": "toolsOk",
+    "cpu_mhz": 0,
+    "mem_mb": 512,
+    "health": "green"
+  },
+  {
+    "name": "SYNTH-VC-01",
+    "power_state": "poweredOn",
+    "host": "node-2",
+    "macs": ["00:50:56:9a:00:05"],
+    "ips": ["198.51.100.111"],
+    "guest_os": "Other 3.x or later Linux (64-bit)",
+    "tools_status": "toolsOk",
+    "cpu_mhz": 120,
+    "mem_mb": 16384,
+    "health": "green"
+  }
+]

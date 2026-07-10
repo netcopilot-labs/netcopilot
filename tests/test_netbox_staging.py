@@ -189,6 +189,7 @@ def test_approve_failure_audits_and_keeps_pending(writes_on, monkeypatch):
     monkeypatch.setattr(staging, "_create_audit_row",
                         lambda p, wr, source_override=None: audits.append(wr) or "a1")
     monkeypatch.setattr(staging, "_atomic_delete_pending", lambda cid: deletes.append(cid) or True)
+    monkeypatch.setattr(staging, "_stamp_pending_failure", lambda cid, wr: None)  # no Neo4j
     adapter, _ = _adapter_with_endpoint(create_side_effect=_StatusError(422))
     out = approve("cand-1", adapter=adapter)
     assert out["outcome"] == "failed"
@@ -437,3 +438,36 @@ def test_write_primary_ip_unassigned_ip_refuses_with_guidance(writes_on):
                          {"device": "acc-sw-01", "address": "192.0.2.11/24"})
     assert r["api_response_status"] == 422
     assert "not assigned" in r["reason_append"]
+
+
+# ── s16-e2e: failure reason stamped on the pending node (Reconcile UI) ────────
+
+def test_humanize_netbox_error_flattens_nested_validation():
+    r = {"api_response_status": 400,
+         "after_json": '{"error": "{\\"__all__\\": [\\"Duplicate termination found for dcim.interface 1086: cable 53\\"]}"}'}
+    msg = staging._humanize_netbox_error(r)
+    assert msg == "HTTP 400: Duplicate termination found for dcim.interface 1086: cable 53"
+
+
+def test_humanize_netbox_error_field_scoped_and_fallback():
+    field = staging._humanize_netbox_error(
+        {"api_response_status": 400, "after_json": '{"error": {"name": ["This field is required."]}}'})
+    assert field == "HTTP 400: name: This field is required."
+    fallback = staging._humanize_netbox_error(
+        {"api_response_status": 503, "after_json": None,
+         "reason_append": " — retried once, still failing"})
+    assert fallback == "HTTP 503: retried once, still failing"
+
+
+def test_approve_failure_stamps_reason_on_pending(writes_on, monkeypatch):
+    monkeypatch.setattr(staging, "_read_pending", lambda cid: _pending(cid))
+    monkeypatch.setattr(staging, "_create_audit_row", lambda p, wr, source_override=None: "a1")
+    stamped = {}
+    monkeypatch.setattr(staging, "_stamp_pending_failure",
+                        lambda cid, wr: stamped.update({"cid": cid, "wr": wr}))
+    # 422 write (unresolvable) → failed → stamp, pending NOT deleted
+    adapter, endpoint = _adapter_with_endpoint(create_side_effect=_StatusError(422))
+    out = approve("cand-1", adapter=adapter)
+    assert out["outcome"] == "failed"
+    assert stamped["cid"] == "cand-1"
+    assert stamped["wr"]["api_response_status"] == 422

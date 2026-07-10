@@ -173,6 +173,81 @@ def test_netbox_adapter_reads(monkeypatch):
     assert ifaces[0]["name"] == "Gi1/0/1" and ifaces[0]["mtu"] == 1500
 
 
+def test_netbox_adapter_ip_addresses_carry_operator_meaning(monkeypatch):
+    # s16: dns_name/description/tenant/assigned-object travel; bare-minimum
+    # records (no enrichment) degrade to None fields, never KeyError.
+    api = _install_fake_pynetbox(monkeypatch)
+    class Rec:
+        def __init__(self, **kw): self.__dict__.update(kw)
+        def __str__(self): return str(getattr(self, "name", ""))
+    rich = Rec(id=9, address="198.51.100.26/28", dns_name="cam-lobby-01.branch.example",
+               description="Lobby camera", status=Rec(name="active", value="active"),
+               role=None, tenant=Rec(name="facilities"), tags=[Rec(name="cctv", slug="cctv")],
+               vrf=None,
+               assigned_object=Rec(name="Vlan10", device=Rec(name="acc-sw-03")))
+    bare = Rec(id=10, address="198.51.100.27/28")
+    class EP:
+        def all(self): return [rich, bare]
+    api.ipam = types.SimpleNamespace(ip_addresses=EP())
+    from netcopilot.declared_state.netbox_adapter import NetBoxAdapter
+    a = NetBoxAdapter(url="https://netbox.example.test", token="nbt_x.y")
+    ips = a.get_ip_addresses()
+    r = ips[0]
+    assert r["address"] == "198.51.100.26/28" and r["netbox_id"] == 9
+    assert r["dns_name"] == "cam-lobby-01.branch.example"
+    assert r["description"] == "Lobby camera"
+    assert r["status_value"] == "active" and r["tenant"] == "facilities"
+    assert r["tags"] == ["cctv"]
+    assert r["assigned_device"] == "acc-sw-03" and r["assigned_interface"] == "Vlan10"
+    b = ips[1]
+    assert b["address"] == "198.51.100.27/28"
+    assert b["dns_name"] is None and b["assigned_device"] is None and b["tags"] == []
+
+
+def test_netbox_adapter_prefixes_site_scope_mapping(monkeypatch):
+    # s19: NetBox 4.2 generic `scope` accepted only when scope_type is a SITE;
+    # a Region/SiteGroup scope must NOT masquerade as a site. Legacy 3.x
+    # direct `site` still honored. Unscoped → site None.
+    api = _install_fake_pynetbox(monkeypatch)
+    class Rec:
+        def __init__(self, **kw): self.__dict__.update(kw)
+        def __str__(self): return str(getattr(self, "name", ""))
+    base = dict(status=Rec(name="active", value="active"), role=None,
+                vrf=None, description=None, tags=[])
+    scoped_site = Rec(id=1, prefix="198.51.100.0/28",
+                      scope=Rec(slug="branch-a"), scope_type="dcim.site", **base)
+    scoped_region = Rec(id=2, prefix="198.51.100.16/28",
+                        scope=Rec(slug="emea"), scope_type="dcim.region", **base)
+    legacy_site = Rec(id=3, prefix="198.51.100.32/28",
+                      site=Rec(slug="branch-b"), **base)
+    unscoped = Rec(id=4, prefix="198.51.100.48/28", **base)
+    class EP:
+        def all(self): return [scoped_site, scoped_region, legacy_site, unscoped]
+    api.ipam = types.SimpleNamespace(prefixes=EP())
+    from netcopilot.declared_state.netbox_adapter import NetBoxAdapter
+    a = NetBoxAdapter(url="https://netbox.example.test", token="nbt_x.y")
+    sites = {p["netbox_id"]: p["site"] for p in a.get_prefixes()}
+    assert sites == {1: "branch-a", 2: None, 3: "branch-b", 4: None}
+
+
+def test_netbox_adapter_strict_reads_raise_default_swallows(monkeypatch):
+    # Audit A1/A2: the default read path degrades to [] (dedup-hint
+    # consumers); strict=True re-raises so correctness consumers (the service
+    # join) can refuse to wipe on a mid-pull failure.
+    api = _install_fake_pynetbox(monkeypatch)
+    class BoomEP:
+        def all(self): raise TimeoutError("page 2 timed out")
+    api.ipam = types.SimpleNamespace(ip_addresses=BoomEP(), prefixes=BoomEP())
+    from netcopilot.declared_state.netbox_adapter import NetBoxAdapter
+    a = NetBoxAdapter(url="https://netbox.example.test", token="nbt_x.y")
+    assert a.get_ip_addresses() == []
+    assert a.get_prefixes() == []
+    with pytest.raises(TimeoutError):
+        a.get_ip_addresses(strict=True)
+    with pytest.raises(TimeoutError):
+        a.get_prefixes(strict=True)
+
+
 def test_ensure_infrastructure_is_write_gated(monkeypatch):
     # Empty NetBox + writes disabled → the first create attempt raises
     # WritesDisabled BEFORE any API call (Constitution Art. I).

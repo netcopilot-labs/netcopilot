@@ -37,6 +37,9 @@ VIEW_REL_TYPES = {
     "mgmt": ["MGMT_LINK", "INFRASTRUCTURE_LINK"],
     "ospf": ["PHYSICAL_CABLE", "INFRASTRUCTURE_LINK"],
     "bgp": ["PHYSICAL_CABLE", "INFRASTRUCTURE_LINK"],
+    # s16: the device graph under the Service view is the physical topology;
+    # :Service leaf nodes + attachment edges are appended on top.
+    "service": ["PHYSICAL_CABLE", "INFRASTRUCTURE_LINK"],
     "all": ["PHYSICAL_CABLE", "MGMT_LINK", "L3_REACHABILITY", "INFERRED_LINK", "INFRASTRUCTURE_LINK"],
 }
 
@@ -337,6 +340,110 @@ def get_topology(
                 {"name": r["name"], "role": r["role"]} for r in unreach_result
             ]
 
+        # ---- s16/s19: Service view — operator-named services as leaf nodes ----
+        # Collapsed v1 (s19): a service or client network attaches directly to
+        # its switch. No virtualization-host boxes — whether a service is a VM,
+        # and the VLAN / port-channel / member breakdown of a client network,
+        # live in the info panel, not the map. Only LOCATED services draw.
+        services_meta = None
+        if view == "service":
+            with driver.session() as svc_session:
+                svc_rows = [dict(r) for r in svc_session.run(
+                    "MATCH (s:Service {run_id: $run_id}) "
+                    "OPTIONAL MATCH (s)-[:RESIDES_ON]->(d:Device {run_id: $run_id}) "
+                    "RETURN s.name AS name, s.ip AS ip, s.location_method AS method, "
+                    "       s.located AS located, d.name AS device, "
+                    "       s.interface AS interface, s.kind AS kind, "
+                    "       s.virtualized AS virtualized, s.host AS host, "
+                    "       s.vm_name AS vm_name, "
+                    "       s.vlan_id AS vlan_id, s.access_ports AS access_ports, "
+                    "       s.access_members AS access_members "
+                    "ORDER BY s.name",
+                    run_id=run_id,
+                )]
+            svc_edges = []
+            drawn = 0
+            seen_svc_nodes: set[str] = set()
+            # A multi-gateway network (HSRP/VRRP) returns one row per
+            # RESIDES_ON with IDENTICAL access_ports — without id-dedup the
+            # access loop would emit byte-identical edges per gateway row and
+            # rendering would rely on Cytoscape silently dropping duplicates
+            # (with a console.error per collision).
+            seen_edge_ids: set[str] = set()
+
+            def _add_svc_edge(edge: dict) -> None:
+                if edge["id"] not in seen_edge_ids:
+                    seen_edge_ids.add(edge["id"])
+                    svc_edges.append(edge)
+
+            for s in svc_rows:
+                # Multi-gateway networks (s17) return one row per RESIDES_ON:
+                # one node, one attachment edge per gateway/access switch.
+                if not s["device"] or s["device"] not in node_names:
+                    continue
+                sid = f"svc:{s['ip']}"
+                if sid not in seen_svc_nodes:
+                    seen_svc_nodes.add(sid)
+                    nodes.append({"data": {
+                        "id": sid,
+                        "label": f"{s['name']}\n{s['ip']}",   # two rows: name + IP/CIDR
+                        "role": "network" if s.get("kind") == "network" else "service",
+                        "device_type": "service",
+                        "kind": s.get("kind") or "host",
+                        "collected": False,
+                        "findings_count": 0,
+                        "service_ip": s["ip"],
+                        "location_method": s["method"],
+                        "service_interface": s.get("interface"),
+                        "residesOn": s["device"],   # owning device (highlight on click)
+                        "virtualized": bool(s.get("virtualized")),
+                        "host": s.get("host"),
+                        "vm_name": s.get("vm_name"),
+                        "vlan_id": s.get("vlan_id"),
+                        "access_ports": s.get("access_ports") or [],
+                        "access_members": s.get("access_members") or [],
+                    }})
+                    drawn += 1
+
+                # A client network physically lands on the ACCESS switch (its
+                # VLAN's member ports) — collapse to ONE VLAN-labelled edge per
+                # distinct access switch; the per-port / port-channel / member
+                # breakdown is in the info panel. Fall back to the gateway SVI
+                # when no access ports were collected.
+                access_devs: list[str] = []
+                if s.get("kind") == "network":
+                    for ap in (s.get("access_ports") or []):
+                        ap_dev = ap.partition("/")[0]
+                        if ap_dev in node_names and ap_dev not in access_devs:
+                            access_devs.append(ap_dev)
+                if access_devs:
+                    for ap_dev in access_devs:
+                        _add_svc_edge({
+                            "id": f"svc-edge:{s['ip']}:{ap_dev}",
+                            "source": ap_dev, "target": sid,
+                            "linkType": "service_attachment",
+                            "vlanLabel": (f"VLAN {s['vlan_id']}" if s.get("vlan_id") else None),
+                        })
+                    continue   # access edges replace the bare gateway edge
+
+                _add_svc_edge({
+                    "id": f"svc-edge:{s['ip']}:{s['device']}",
+                    "source": s["device"],
+                    "target": sid,
+                    "linkType": "service_attachment",
+                })
+
+            if compound_names:
+                svc_edges = _reroute_edges_to_members(svc_edges, compound_names)
+            for e in svc_edges:
+                cyto_edges.append({"data": {**e, "cable_type": "service"}})
+            services_meta = {
+                "joined": bool(svc_rows),
+                "total": len(svc_rows),
+                "drawn": drawn,
+                "unlocated": sum(1 for s in svc_rows if not s["device"]),
+            }
+
         return {
             "nodes": nodes,
             "edges": cyto_edges,
@@ -344,6 +451,7 @@ def get_topology(
             "available_protocols": available_protocols,
             "external_peers": external_peers,
             "unreachable_devices": unreachable_devices,
+            **({"services": services_meta} if services_meta is not None else {}),
         }
 
     except Exception as e:

@@ -1,0 +1,22 @@
+[
+  {
+    "name": "node-1",
+    "health": "green",
+    "cpu_mhz": 1420,
+    "cpu_capacity_mhz": 44800,
+    "mem_mb": 98304,
+    "mem_capacity_mb": 262144,
+    "version": "8.0.2",
+    "vm_count": 3
+  },
+  {
+    "name": "node-2",
+    "health": "green",
+    "cpu_mhz": 860,
+    "cpu_capacity_mhz": 44800,
+    "mem_mb": 65536,
+    "mem_capacity_mb": 262144,
+    "version": "8.0.2",
+    "vm_count": 2
+  }
+]

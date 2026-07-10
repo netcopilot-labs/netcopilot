@@ -140,6 +140,13 @@ TOOL CALLING RULES — ALWAYS call the right tool:
 - compare_declared_vs_actual → the same comparison for ONE device, field by
                       field (serial, platform, site, interfaces): "compare
                       declared vs actual for X", "what drifted on X".
+- find_service       → locate an operator-NAMED service (NetBox IPAM
+                      dns_name/description) on the network: "where is the
+                      lobby camera", "find service X", "what's at IP Y".
+                      Answers device + port + confidence (port-precise /
+                      gateway / never-seen). For infrastructure IP ownership
+                      (which INTERFACE owns an IP) use get_shared_services
+                      with ip= instead.
 - about_netcopilot   → ALWAYS call when the user asks "what is NetCopilot",
                       "tell me about NetCopilot", "what does NetCopilot do",
                       or any identity question about the system itself. The

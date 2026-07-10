@@ -274,23 +274,107 @@ class NetBoxAdapter(DeclaredStateSource):
             log.error("NetBoxAdapter.get_vlans() failed: %s", exc)
             return []
 
-    def get_prefixes(self) -> list[dict]:
+    def get_prefixes(self, *, strict: bool = False) -> list[dict]:
+        """All prefixes, with the operator's meaning attached (s17).
+
+        ``description``/``tags`` carry the client-network contract (a prefix
+        tagged ``client-network`` joins the service layer as kind=network).
+        Additive; the dedup consumers key on (vrf, prefix).
+
+        ``strict=True`` re-raises read failures instead of degrading to ``[]``.
+        Correctness consumers (the service join) MUST use it: a partial pull
+        returning ``[]`` would silently disable site scoping (cross-site
+        mixing) — for a dedup-hint consumer ``[]`` merely re-stages.
+        """
         try:
-            return [{"prefix": str(pfx.prefix),
-                     "vrf": str(pfx.vrf) if getattr(pfx, "vrf", None) is not None else None,
-                     "netbox_id": pfx.id}
-                    for pfx in self._nb.ipam.prefixes.all()]
+            out = []
+            for pfx in self._nb.ipam.prefixes.all():
+                status_rec = getattr(pfx, "status", None)
+                status_value = None
+                if status_rec is not None:
+                    status_value = getattr(status_rec, "value", None) or str(status_rec).lower()
+                # Site scope (s19): NetBox 4.2+ models it as a generic ``scope``
+                # (accepted only when scope_type says it IS a site — a Region/
+                # SiteGroup scope is not a site and must not masquerade as
+                # one); older versions as a direct ``site``. None = unscoped —
+                # the prefix (and any IP whose site derives from it) belongs
+                # to every site.
+                scope_rec = getattr(pfx, "scope", None)
+                scope_type = getattr(pfx, "scope_type", None)
+                if scope_rec is not None and scope_type is not None and str(scope_type) != "dcim.site":
+                    scope_rec = None
+                if scope_rec is None:
+                    scope_rec = getattr(pfx, "site", None)
+                site_slug = getattr(scope_rec, "slug", None) if scope_rec is not None else None
+                out.append({
+                    "prefix": str(pfx.prefix),
+                    "vrf": str(pfx.vrf) if getattr(pfx, "vrf", None) is not None else None,
+                    "netbox_id": pfx.id,
+                    "description": str(pfx.description) if getattr(pfx, "description", None) else None,
+                    "status_value": status_value,
+                    "role": str(pfx.role) if getattr(pfx, "role", None) is not None else None,
+                    "tags": [str(getattr(t, "slug", None) or t) for t in (getattr(pfx, "tags", None) or [])],
+                    "site": str(site_slug) if site_slug else None,
+                })
+            return out
         except Exception as exc:
+            if strict:
+                raise
             log.error("NetBoxAdapter.get_prefixes() failed: %s", exc)
             return []
 
-    def get_ip_addresses(self) -> list[dict]:
+    def get_ip_addresses(self, *, strict: bool = False) -> list[dict]:
+        """All IP addresses, with the operator's meaning attached (s16).
+
+        Beyond the bare address (all bootstrap/drift dedup ever needed), each
+        dict carries the enrichment fields the service layer joins on —
+        ``dns_name`` / ``description`` are the operator-given meaning;
+        ``assigned_device`` / ``assigned_interface`` are the declared
+        binding. All additive; existing consumers are address-keyed.
+
+        ``strict=True`` re-raises read failures instead of degrading to ``[]``.
+        Correctness consumers (the service join) MUST use it: the join
+        delete-then-reloads, so a mid-pull failure masked as ``[]`` would WIPE
+        the previous service layer and report it as honestly empty.
+        """
         try:
-            return [{"address": str(ip.address), "netbox_id": ip.id}
-                    for ip in self._nb.ipam.ip_addresses.all()]
+            return [self._ip_to_dict(ip) for ip in self._nb.ipam.ip_addresses.all()]
         except Exception as exc:
+            if strict:
+                raise
             log.error("NetBoxAdapter.get_ip_addresses() failed: %s", exc)
             return []
+
+    @staticmethod
+    def _ip_to_dict(ip) -> dict:
+        status_rec = getattr(ip, "status", None)
+        status_value = None
+        if status_rec is not None:
+            status_value = getattr(status_rec, "value", None) or str(status_rec).lower()
+
+        assigned = getattr(ip, "assigned_object", None)
+        assigned_device = None
+        assigned_interface = None
+        if assigned is not None:
+            dev_rec = getattr(assigned, "device", None)
+            if dev_rec is not None and getattr(dev_rec, "name", None):
+                assigned_device = str(dev_rec.name)
+            if getattr(assigned, "name", None):
+                assigned_interface = str(assigned.name)
+
+        return {
+            "address": str(ip.address),
+            "netbox_id": ip.id,
+            "dns_name": str(ip.dns_name) if getattr(ip, "dns_name", None) else None,
+            "description": str(ip.description) if getattr(ip, "description", None) else None,
+            "status_value": status_value,
+            "role": str(ip.role) if getattr(ip, "role", None) is not None else None,
+            "tenant": str(ip.tenant) if getattr(ip, "tenant", None) is not None else None,
+            "tags": [str(getattr(t, "slug", None) or t) for t in (getattr(ip, "tags", None) or [])],
+            "vrf": str(ip.vrf) if getattr(ip, "vrf", None) is not None else None,
+            "assigned_device": assigned_device,
+            "assigned_interface": assigned_interface,
+        }
 
     # ---------------------------------------------------------------- probe
 

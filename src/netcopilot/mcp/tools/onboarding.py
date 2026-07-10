@@ -50,6 +50,7 @@ _TOOL_CATEGORIES: dict[str, str] = {
     "get_network_neighborhood":  _CAT_EXPLORE,
     "get_site_summary":          _CAT_EXPLORE,
     "get_shared_services":       _CAT_EXPLORE,
+    "find_service":              _CAT_EXPLORE,   # s16: operator-named services
     # 🔥 TROUBLESHOOT PROBLEMS
     "get_findings":              _CAT_TROUBLESHOOT,
     "explain_finding":           _CAT_TROUBLESHOOT,

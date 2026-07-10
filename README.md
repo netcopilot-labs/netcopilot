@@ -179,6 +179,47 @@ Telegram bot). Data persists in named volumes across `docker compose down`; add
   ```
   YAML inventories keep working exactly as before — NetBox is an additional
   source, not a replacement (see `inventory/README.md`).
+
+  And once NetBox knows your **end devices** — name an IP with a `dns_name`
+  or description ("the lobby camera", "the vision mixer") — NetCopilot joins
+  that declared meaning with what the network actually observes (ARP, MAC
+  tables) into a **service layer**:
+  ```bash
+  netcopilot netbox services <run_id>       # the join (or one click in the UI)
+  ```
+  Services then answer everywhere: *"where is the lobby camera?"*
+  (`find_service` — device, port, and how confidently: port-precise /
+  gateway / approximate / **never seen** — a documented IP the network has
+  no trace of is an answer, not an omission), *"what dies if this switch
+  fails?"* (`blast_radius` names the services, not just the neighbors),
+  `trace_path` takes a service name or end-host IP as its source, and the
+  topology gets a **Service view** drawing each located service on the
+  device that serves it. Deterministic plumbing below, agent answers above.
+
+  Tag a NetBox prefix **`client-network`** and it joins as a network-shaped
+  service: drawn at its real access switch (its VLAN's member ports), with
+  the VLAN, port-channels and their member links in the detail panel. In a
+  NetBox serving several sites, scope prefixes to their site and each run's
+  Service view shows only its own site's services — an unscoped prefix
+  honestly joins everywhere.
+- **Your VMware (vCenter / ESXi).** Add one inventory row and NetCopilot
+  reads the VM inventory read-only — every VM, its host, vNIC MACs, guest
+  IPs, health — and the service layer classifies services **virtual vs
+  bare-metal deterministically** (an idle VM leaves no ARP/FDB trace; the
+  hypervisor still knows it). The service detail shows guest OS, VMware
+  Tools state, CPU/mem, the VM's health, and its node's health/capacity.
+  ESXi host names never leave your machine — facts carry generic `node-N`
+  labels.
+  ```yaml
+  # inventory row — a vCenter (whole cluster) or a standalone ESXi host
+  - {name: vc-01, mgmt_ip: 192.0.2.5, os: vcenter, site: campus}
+  ```
+  ```bash
+  export ESXi_USERNAME='administrator@vsphere.example'   # read-only account
+  export ESXi_PASSWORD='...'
+  ```
+  One batched read-only API call per collection (`PropertyCollector`);
+  power/config APIs are never used — enforced by tests.
 - **Your Telegram bot.** Set `TELEGRAM_BOT_TOKEN` (from @BotFather) and
   `TELEGRAM_ALLOWED_USERS` in `.env`, then `docker compose up -d telegram`.
 - **Your email (reports).** Set the `SMTP_*` block in `.env` (any SMTP server).

@@ -32,7 +32,7 @@ from netcopilot.collect.pyats import (  # noqa: E402
 
 def test_pyats_prepended_to_default_chain():
     names = [s.name for s in default_chain()]
-    assert names == ["pyats", "netconf", "restconf", "rest", "ssh"]
+    assert names == ["pyats", "netconf", "restconf", "rest", "esxi", "ssh"]
 
 
 def test_pyats_leads_applicable_strategies_for_cisco():

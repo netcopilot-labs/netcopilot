@@ -386,8 +386,11 @@ def test_trace_path_tool_live(tmp_path):
     trace = asyncio.run(registry.dispatch("trace_path", {"source_device": "core-rtr-01"}, ctx)).text
     assert "Path: core-rtr-01" in trace
 
-    miss = asyncio.run(registry.dispatch("trace_path", {"source_device": "nope-99"}, ctx)).text
-    assert "not found" in miss
+    # s16: an unresolvable source names everything that was tried (device
+    # name, service, IP) — the not_found contract's new wording.
+    miss = asyncio.run(registry.dispatch("trace_path", {"source_device": "nope-99"}, ctx))
+    assert miss.status == "not_found"
+    assert "not a device name, a known service, or an IP" in miss.text
 
 
 def test_security_tools_live(tmp_path):

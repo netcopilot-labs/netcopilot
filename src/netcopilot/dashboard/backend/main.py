@@ -19,7 +19,7 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 
-from .routes import agent_chat, analyze, devices, diff, findings, legend, reconcile, reports, routing, runs, runs_trigger, topology, validate
+from .routes import agent_chat, analyze, devices, diff, findings, legend, reconcile, reports, routing, runs, runs_trigger, services, topology, validate
 
 # ── HTTP Basic Auth ───────────────────────────────────────────────────────────
 
@@ -141,6 +141,7 @@ app.include_router(analyze.router, dependencies=_AUTH)
 app.include_router(agent_chat.router, dependencies=_AUTH)
 app.include_router(reports.router, dependencies=_AUTH)
 app.include_router(reconcile.router, dependencies=_AUTH)  # s12, ADR-0014
+app.include_router(services.router, dependencies=_AUTH)   # s16, ADR-0019
 
 # Public routes (auth NOT required — static configuration data):
 app.include_router(legend.router)
