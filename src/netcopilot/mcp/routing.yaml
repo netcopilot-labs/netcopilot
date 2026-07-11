@@ -1,0 +1,56 @@
+# Deterministic-first tool routing catalogue (s21, ADR-0024).
+#
+# Each entry maps a question intent to the tool set OFFERED to the model on the
+# first turn — the deterministic layer decides WHICH capability; the model still
+# fills arguments and reasons over the result. Unmatched questions fall back to
+# the full tool set (today's behavior, unchanged).
+#
+# The contract (enforced by mcp/router.py at load — a bad entry fails LOUD):
+#   rule_id      unique lower_snake_case identifier
+#   description  one sentence: what intent this routes
+#   patterns     list of case-insensitive regexes; ANY match routes the question.
+#                First matching ENTRY wins (file order is precedence).
+#   tools        registry tool names offered on the routed first turn
+#                (validated against TOOL_SCHEMAS — unknown names are rejected)
+#   dispatch     OPTIONAL {tool, arguments}: the loop CALLS this tool itself
+#                (deterministically, static arguments only) and the model just
+#                reasons over the result. Use when the intent needs no
+#                argument extraction. Without it, routing only narrows the
+#                offered tool set — which the eval measured as ADVISORY
+#                (2026-07-11: the model called a doc tool OUTSIDE a narrowed
+#                2-tool offer — claude-sonnet-4-6 path). dispatch.tool must
+#                be one of the entry's tools.
+#   evidence     the DOCUMENTED failure that motivated the entry. An entry
+#                without evidence is rejected: routing rules are institutional
+#                memory, not speculation (no-speculative-improvements as code).
+#   added        ISO date the entry landed
+#
+# Fix a misroute = add an entry here (reviewable diff), not prompt surgery.
+
+- rule_id: gateway_redundancy_state
+  description: >
+    Questions about the live state/configuration of first-hop gateway
+    redundancy (VRRP/HSRP/FHRP) — must be answered from the collected network,
+    never from vendor documentation.
+  patterns:
+    # Protocol word + a network-state word, order-independent. A pure concept
+    # question ("what is vrrp?") has no state word and stays unrouted — the
+    # doc-lookup tools remain the right home for definitions.
+    - '(?=.*\b(vrrp|hsrp|fhrp)\b)(?=.*\b(configur\w*|running|state|status|active|standby|master|backup|failover|redundan\w*|set\s?up|deploy\w*)\b)'
+    - '\b(gateway|first[- ]?hop)\s+redundan'
+    - '\bactive\s+gateway\b'
+  tools:
+    - get_redundancy_assessment
+    - get_device_detail
+  dispatch:
+    # Network-wide redundancy assessment needs no arguments — full Eduard
+    # split: the deterministic layer calls the capability, the model narrates.
+    tool: get_redundancy_assessment
+    arguments: {}
+  evidence: >
+    2026-07-10 (s20 live validation): "how is vrrp configured?" was routed to
+    lookup_vendor_docs twice — first answered "no data available", then a
+    generic how-to-configure tutorial — while get_redundancy_assessment held
+    the actual network state. Fixed then by prompt surgery; this entry makes
+    the fix data.
+  added: "2026-07-11"
