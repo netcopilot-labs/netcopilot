@@ -1,0 +1,9 @@
+! campus-ha overlay — acc-sw-04 (IOS-XE) — move fully into OSPF area 1
+!
+! acc-sw-04 becomes a pure area-1 device (uplink + user net), reached through the
+! core ABR. Keeping area 0 contiguous (it must not island behind area 1).
+router ospf 20 vrf BLUE
+ no network 198.51.100.28 0.0.0.3 area 0
+ no network 198.51.100.80 0.0.0.15 area 0
+ network 198.51.100.28 0.0.0.3 area 1
+ network 198.51.100.80 0.0.0.15 area 1

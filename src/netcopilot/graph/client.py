@@ -29,7 +29,21 @@ def get_driver():
         uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
         user = os.environ.get("NEO4J_USER", "neo4j")
         password = os.environ.get("NEO4J_PASSWORD", "neo4j")
-        _driver = GraphDatabase.driver(uri, auth=(user, password))
+        # UNRECOGNIZED covers the server's "property key does not exist"
+        # warning — routinely noisy here because optional properties
+        # (Route.note, adjacency peer_address/ebgp/peer, ...) legitimately
+        # exist only on some runs, and the server warns whenever a referenced
+        # key exists NOWHERE in the db. Disabled at the driver so the real
+        # categories (DEPRECATION, PERFORMANCE, SECURITY...) still surface
+        # (s22-7, edge-audit Finding 4).
+        from neo4j import NotificationDisabledClassification
+
+        _driver = GraphDatabase.driver(
+            uri, auth=(user, password),
+            notifications_disabled_classifications=[
+                NotificationDisabledClassification.UNRECOGNIZED,
+            ],
+        )
     return _driver
 
 

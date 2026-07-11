@@ -1,0 +1,11 @@
+{
+  "http_method": "GET",
+  "results": [],
+  "vdom": "root",
+  "path": "system",
+  "name": "ha-peer",
+  "status": "success",
+  "serial": "FGVMEVJ7_ORGXTCC",
+  "version": "v7.4.12",
+  "build": 2902
+}

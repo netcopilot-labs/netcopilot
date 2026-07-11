@@ -1,0 +1,27 @@
+{
+  "http_method": "GET",
+  "revision": "598eefc23fcddbbd3a87a325af4ae13c",
+  "results": {
+    "status": "disable",
+    "engine-id-type": "text",
+    "engine-id": "",
+    "description": "",
+    "contact-info": "",
+    "location": "",
+    "trap-high-cpu-threshold": 80,
+    "trap-low-memory-threshold": 80,
+    "trap-log-full-threshold": 90,
+    "trap-free-memory-threshold": 5,
+    "trap-freeable-memory-threshold": 60,
+    "append-index": "disable"
+  },
+  "vdom": "root",
+  "path": "system.snmp",
+  "name": "sysinfo",
+  "action": "",
+  "status": "success",
+  "http_status": 200,
+  "serial": "FGVMEVJ7_ORGXTCC",
+  "version": "v7.4.12",
+  "build": 2902
+}

@@ -1438,6 +1438,73 @@ function OverviewTab({ deviceData, selectedMemberId }) {
         </div>
       )}
 
+      {/* FHRP gateway groups */}
+      {device.fhrp_groups?.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Gateway (FHRP)</p>
+          <div className="space-y-1.5">
+            {device.fhrp_groups.map(g => (
+              <div key={`${g.interface}-${g.group}`} className="text-xs">
+                <p className="text-gray-700">
+                  <span className="font-medium">{(g.protocol || 'fhrp').toUpperCase()}</span>
+                  <span className="text-gray-400 ml-1">{g.interface} grp {g.group}</span>
+                  <span className="text-gray-500 ml-1">VIP {g.vip}</span>
+                </p>
+                <div className="ml-3 mt-0.5 space-y-0.5">
+                  {(g.members || []).map(m => {
+                    const active = ['active', 'master'].includes((m.state || '').toLowerCase())
+                    return (
+                      <p key={m.hostname} className="text-gray-600">
+                        <span style={{ color: active ? '#22C55E' : '#9CA3AF' }}>{active ? '●' : '○'}</span>
+                        <span className={`ml-1 ${m.hostname === device.hostname ? 'font-semibold text-gray-800' : 'text-gray-700'}`}>{m.hostname}</span>
+                        {m.ip && <span className="text-gray-500 ml-1">{m.ip}</span>}
+                        {m.state && <span className="text-gray-400 ml-1 capitalize">{m.state}</span>}
+                        {m.priority != null && <span className="text-gray-400 ml-1">pri {m.priority}</span>}
+                      </p>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* LAG bundles (s22) — aggregation state incl. the single-member caveat */}
+      {device.lag_bundles?.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Link aggregation</p>
+          <div className="space-y-1.5">
+            {device.lag_bundles.map(b => {
+              const bundled = (b.members || []).filter(m => m.bundled)
+              return (
+                <div key={b.name} className="text-xs">
+                  <p className="text-gray-700">
+                    <span className="font-medium">{b.name}</span>
+                    <span className="text-gray-400 ml-1">{(b.protocol || '?').toUpperCase()}</span>
+                    <span className="ml-1" style={{ color: b.status === 'up' ? '#22C55E' : '#EF4444' }}>{b.status || '?'}</span>
+                    <span className="text-gray-500 ml-1">{bundled.length}/{(b.members || []).length} bundled</span>
+                  </p>
+                  <div className="ml-3 mt-0.5 space-y-0.5">
+                    {(b.members || []).map(m => (
+                      <p key={m.name} className="text-gray-600">
+                        <span style={{ color: m.bundled ? '#22C55E' : '#EF4444' }}>{m.bundled ? '●' : '○'}</span>
+                        <span className="ml-1 text-gray-700">{m.name}</span>
+                        {m.activity && <span className="text-gray-400 ml-1">{m.activity}</span>}
+                        {!m.bundled && <span className="text-red-500 ml-1">not bundled</span>}
+                      </p>
+                    ))}
+                    {(b.members || []).length === 1 && (
+                      <p className="text-amber-600">⚠ single member — no member redundancy</p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Interface summary */}
       <div>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Interfaces</p>

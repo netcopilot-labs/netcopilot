@@ -14,6 +14,122 @@ from netcopilot.mcp.result import ToolResult
 log = logging.getLogger(__name__)
 
 
+def _fhrp_gateway_block(driver, run_id: str) -> tuple[list[str], dict]:
+    """Gateway (FHRP) redundancy section for the network-wide assessment.
+
+    Reads the fhrp_group SharedServices; a group with fewer than 2 members (or no
+    active router) is an unprotected gateway. Members are ENUMERATED (hostname,
+    real IP, role, priority) so "how is VRRP configured?" is answered completely
+    in one call — the 2026-07-11 edge audit measured the summary-only version
+    costing a 9-call drill-down for detail the graph already held (s22-1).
+    """
+    import json
+
+    with driver.session() as session:
+        result = session.run(
+            "MATCH (svc:SharedService {service_type: 'fhrp_group', run_id: $run_id}) "
+            "OPTIONAL MATCH (d:Device)-[:MEMBER_OF]->(svc) "
+            "WITH svc, count(d) AS members "
+            "RETURN svc.protocol AS proto, svc.group_number AS grp, svc.vip AS vip, "
+            "svc.interface AS intf, svc.active_device AS active, members, "
+            "svc.members_json AS members_json "
+            "ORDER BY svc.vip",
+            run_id=run_id,
+        )
+        rows = [dict(r) for r in result]
+    if not rows:
+        return [], {"fhrp_groups": 0, "fhrp_unprotected": 0, "fhrp_members": 0}
+
+    unprotected = [r for r in rows if (r["members"] or 0) < 2 or not r["active"]]
+    total_members = 0
+    lines = ["", f"Gateway redundancy (FHRP) — {len(rows)} group(s):"]
+    for r in rows:
+        proto = (r["proto"] or "fhrp").upper()
+        if (r["members"] or 0) < 2:
+            status = "⚠ UNPROTECTED (no standby peer)"
+        elif not r["active"]:
+            status = "⚠ no active router"
+        else:
+            status = f"redundant (active {r['active']})"
+        lines.append(f"  {r['intf']} {proto} grp {r['grp']} VIP {r['vip']} — {status}")
+        try:
+            member_detail = json.loads(r["members_json"]) if r.get("members_json") else []
+        except (json.JSONDecodeError, TypeError):
+            member_detail = []
+        total_members += len(member_detail)
+        for m in member_detail:
+            role = m.get("state") or "participant"
+            ip = f" {m.get('ip')}" if m.get("ip") else ""
+            pri = f" pri {m.get('priority')}" if m.get("priority") is not None else ""
+            marker = "→" if m.get("hostname") == r["active"] else " "
+            lines.append(f"    {marker} {m.get('hostname')}{ip} — {role}{pri}")
+    return lines, {"fhrp_groups": len(rows), "fhrp_unprotected": len(unprotected),
+                   "fhrp_members": total_members}
+
+
+def _lag_uplink_block(driver, run_id: str) -> tuple[list[str], dict, list[dict]]:
+    """Link-aggregation (LACP) state for the network-wide assessment (s22).
+
+    Reads the first-class bundle state off the Port-channel Interface nodes.
+    A single-member bundle is aggregation WITHOUT member redundancy — said
+    aloud as narrative (deliberately not invented as a rule; not in the
+    catalog). Returns the rows too so the caller can cross-reference the
+    FHRP peer interconnect without a second query.
+    """
+    import json
+
+    with driver.session() as session:
+        # Peer resolution is member-based and direction-aware: the physical
+        # link is stored between the MEMBER interfaces (Gi1/0/1↔Gi1/0/5, CDP/
+        # LACP), not Po↔Po — and l.local_interface names the startNode's side,
+        # so the member-list match must check which end of the relationship
+        # this device is (a plain OR over both sides can pick a wrong peer
+        # whose port happens to share a name like Gi1/0/1).
+        rows = [dict(r) for r in session.run(
+            "MATCH (d:Device {run_id: $run_id})-[:HAS_INTERFACE]->(i:Interface) "
+            "WHERE i.lag_protocol IS NOT NULL "
+            "OPTIONAL MATCH (d)-[l]-(p:Device {run_id: $run_id}) "
+            "WHERE type(l) IN ['PHYSICAL_CABLE', 'INFRASTRUCTURE_LINK'] "
+            "AND ((startNode(l) = d AND (l.local_interface IN i.port_channel_members "
+            "                            OR l.local_interface = i.name)) "
+            "  OR (startNode(l) = p AND (l.remote_interface IN i.port_channel_members "
+            "                            OR l.remote_interface = i.name))) "
+            "RETURN d.name AS device, i.name AS po, i.lag_protocol AS protocol, "
+            "i.lag_oper_status AS status, i.lag_members_json AS members_json, "
+            "collect(DISTINCT p.name) AS peers "
+            "ORDER BY d.name, i.name",
+            run_id=run_id,
+        )]
+    if not rows:
+        return [], {"lag_bundles": 0, "lag_degraded": 0, "lag_single_member": 0}, []
+
+    degraded = single = 0
+    lines = ["", f"Link aggregation (LACP) — {len(rows)} bundle end(s):"]
+    for r in rows:
+        try:
+            members = json.loads(r["members_json"]) if r.get("members_json") else []
+        except (json.JSONDecodeError, TypeError):
+            members = []
+        r["_members"] = members
+        bundled = [m for m in members if m.get("bundled")]
+        peer = f" → {', '.join(p for p in r['peers'] if p)}" if any(r["peers"]) else ""
+        detail = ", ".join(m["name"] for m in bundled) or "none"
+        line = (f"  {r['device']} {r['po']} [{r['protocol']}, {r['status'] or '?'}] — "
+                f"{len(bundled)}/{len(members)} member(s) bundled ({detail}){peer}")
+        notes = []
+        if r["status"] not in ("up", None) or len(bundled) < len(members):
+            degraded += 1
+            notes.append("⚠ DEGRADED")
+        if len(members) == 1:
+            single += 1
+            notes.append("⚠ single member — no member redundancy")
+        if notes:
+            line += "  " + " ".join(notes)
+        lines.append(line)
+    return lines, {"lag_bundles": len(rows), "lag_degraded": degraded,
+                   "lag_single_member": single}, rows
+
+
 async def get_redundancy_assessment(
     *,
     device: str | None = None,
@@ -234,7 +350,36 @@ async def get_redundancy_assessment(
         "single_uplink": sum(1 for a in assessments if a["status"] == "single_uplink"),
         "unreachable": sum(1 for a in assessments if a["status"] == "unreachable"),
     }
-    return ToolResult("ok", _format_network_assessment(assessments), verdict=verdict)
+    fhrp_lines, fhrp_verdict = _fhrp_gateway_block(driver, run_id)
+    verdict.update(fhrp_verdict)
+    lag_lines, lag_verdict, lag_rows = _lag_uplink_block(driver, run_id)
+    verdict.update(lag_verdict)
+
+    # ── FHRP-over-LAG correlation (s22-5) ────────────────────────────────
+    # The gateway peers usually interconnect over a bundle; if that bundle
+    # has a single member, the whole gateway redundancy rides ONE cable —
+    # exactly the "is the active gateway's uplink itself redundant?"
+    # question (2026-07-10). Cross-referenced from data already fetched.
+    if fhrp_lines and lag_rows:
+        noted_pairs: set[tuple] = set()   # both bundle ends describe ONE interconnect
+        for r in lag_rows:
+            peers = [p for p in r["peers"] if p]
+            if len(r.get("_members", [])) == 1 and peers:
+                pair = tuple(sorted([r["device"], *peers]))
+                if pair in noted_pairs:
+                    continue
+                noted_pairs.add(pair)
+                fhrp_lines.append(
+                    f"  ⚠ note: {' ↔ '.join(pair)} interconnect via {r['po']} "
+                    f"(single-member bundle) — gateway failover between them "
+                    f"depends on one physical link")
+
+    text = _format_network_assessment(assessments)
+    if fhrp_lines:
+        text += "\n" + "\n".join(fhrp_lines)
+    if lag_lines:
+        text += "\n" + "\n".join(lag_lines)
+    return ToolResult("ok", text, verdict=verdict)
 
 
 def _is_upstream(device_role: str, neighbor_role: str) -> bool:

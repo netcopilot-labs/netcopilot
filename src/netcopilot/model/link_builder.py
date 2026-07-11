@@ -7382,6 +7382,138 @@ def _discover_shared_bgp_asns(
     return shared_asns
 
 
+_FHRP_ACTIVE_STATES = {"active", "master"}
+
+
+def _fhrp_members_from_hsrp(hsrp_data: dict[str, Any], hostname: str) -> list[dict[str, Any]]:
+    """Normalize genie_hsrp.json into flat per-group member records."""
+    members: list[dict[str, Any]] = []
+    for intf, intf_block in (hsrp_data or {}).items():
+        if not isinstance(intf_block, dict):
+            continue
+        versions = intf_block.get("address_family", {}).get("ipv4", {}).get("version", {})
+        for ver, ver_block in versions.items():
+            for gnum, grp in ver_block.get("groups", {}).items():
+                vip = grp.get("primary_ipv4_address", {}).get("address")
+                if not vip:
+                    continue
+                timers = grp.get("timers", {})
+                members.append({
+                    "hostname": hostname,
+                    "interface": intf,
+                    "protocol": "hsrp",
+                    "group_number": grp.get("group_number", _safe_int(gnum)),
+                    "vip": vip,
+                    "virtual_mac": grp.get("virtual_mac_address"),
+                    "priority": grp.get("priority"),
+                    "state": (grp.get("hsrp_router_state") or "").lower(),
+                    "preempt": bool(grp.get("preempt", False)),
+                    "version": _safe_int(ver),
+                    "hello_sec": timers.get("hello_sec"),
+                    "hold_sec": timers.get("hold_sec"),
+                    "tracked": bool(grp.get("tracked_objects") or grp.get("track")),
+                    "authenticated": bool(grp.get("authentication")),
+                })
+    return members
+
+
+def _fhrp_members_from_vrrp(vrrp_data: dict[str, Any], hostname: str) -> list[dict[str, Any]]:
+    """Normalize genie_vrrp.json (show vrrp all) into flat per-group member records."""
+    members: list[dict[str, Any]] = []
+    for intf, intf_block in (vrrp_data or {}).get("interface", {}).items():
+        if not isinstance(intf_block, dict):
+            continue
+        for gnum, grp in intf_block.get("group", {}).items():
+            vip = grp.get("virtual_ip_address")
+            if not vip:
+                continue
+            members.append({
+                "hostname": hostname,
+                "interface": intf,
+                "protocol": "vrrp",
+                "group_number": _safe_int(gnum),
+                "vip": vip,
+                "virtual_mac": grp.get("virtual_mac_address"),
+                "priority": grp.get("priority"),
+                "state": (grp.get("state") or "").lower(),
+                "preempt": str(grp.get("preemption", "")).lower() == "enabled",
+                "adv_interval": grp.get("advertise_interval_secs"),
+            })
+    return members
+
+
+def _safe_int(value: Any) -> Any:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return value
+
+
+def _discover_fhrp_groups(facts_dirs: dict[str, Path]) -> list[dict[str, Any]]:
+    """
+    Discover FHRP (HSRP + VRRP) groups across devices.
+
+    Reads genie_hsrp.json + genie_vrrp.json from each device, normalizes both
+    into per-group member records, and groups by (vip, group_number) — the pair
+    of routers sharing a virtual IP + group are the FHRP peers. Unlike the other
+    shared services, single-member groups ARE emitted (an FHRP group with no peer
+    is an unprotected gateway — a finding the rules should raise).
+
+    Returns:
+        List of fhrp_group service dicts: {service_type:"fhrp_group", identifier,
+        protocol, group_number, vip, virtual_mac, interface, members, active_device}.
+    """
+    # (vip, group_number) → list of member records
+    groups: dict[tuple[str, Any], list[dict[str, Any]]] = {}
+    for hostname, facts_dir in facts_dirs.items():
+        for reader, fname in (
+            (_fhrp_members_from_hsrp, "genie_hsrp.json"),
+            (_fhrp_members_from_vrrp, "genie_vrrp.json"),
+        ):
+            data = _load_json_file(facts_dir / fname)
+            if data is None:
+                continue
+            for m in reader(data, hostname):
+                groups.setdefault((m["vip"], m["group_number"]), []).append(m)
+
+    services: list[dict[str, Any]] = []
+    for (vip, group_number), members in sorted(groups.items(), key=lambda kv: str(kv[0])):
+        first = members[0]
+        active = next(
+            (m["hostname"] for m in members if m["state"] in _FHRP_ACTIVE_STATES),
+            None,
+        )
+        services.append({
+            "service_type": "fhrp_group",
+            "identifier": f"{vip}/{group_number}",
+            "protocol": first["protocol"],
+            "group_number": group_number,
+            "vip": vip,
+            "virtual_mac": first.get("virtual_mac"),
+            "interface": first.get("interface"),
+            "members": [
+                {
+                    "hostname": m["hostname"],
+                    "interface": m["interface"],
+                    "priority": m["priority"],
+                    "state": m["state"],
+                    "preempt": m["preempt"],
+                    "version": m.get("version"),
+                    "hello_sec": m.get("hello_sec"),
+                    "hold_sec": m.get("hold_sec"),
+                    "tracked": m.get("tracked"),
+                    "authenticated": m.get("authenticated"),
+                    "adv_interval": m.get("adv_interval"),
+                }
+                for m in sorted(members, key=lambda m: m["hostname"])
+            ],
+            "active_device": active,
+        })
+
+    logger.info("FHRP groups: %d (hsrp+vrrp, incl. single-member/unprotected)", len(services))
+    return services
+
+
 def discover_shared_services(
     facts_dirs: dict[str, Path],
     facts_by_hostname: dict[str, dict[str, Any]],
@@ -7408,14 +7540,16 @@ def discover_shared_services(
     services.extend(_discover_shared_subnets(facts_dirs, facts_by_hostname))
     services.extend(_discover_shared_ospf_areas(facts_dirs))
     services.extend(_discover_shared_bgp_asns(facts_dirs))
+    services.extend(_discover_fhrp_groups(facts_dirs))
 
     logger.info(
-        "Shared services: %d total (vlan=%d, subnet=%d, ospf_area=%d, bgp_asn=%d)",
+        "Shared services: %d total (vlan=%d, subnet=%d, ospf_area=%d, bgp_asn=%d, fhrp_group=%d)",
         len(services),
         sum(1 for s in services if s["service_type"] == "vlan"),
         sum(1 for s in services if s["service_type"] == "subnet"),
         sum(1 for s in services if s["service_type"] == "ospf_area"),
         sum(1 for s in services if s["service_type"] == "bgp_asn"),
+        sum(1 for s in services if s["service_type"] == "fhrp_group"),
     )
 
     return services

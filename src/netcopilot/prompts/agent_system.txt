@@ -9,7 +9,12 @@ TOOL CALLING RULES — ALWAYS call the right tool:
 - get_device_detail → "what is", "purpose of", "tell me about" a device.
                       Interface descriptions reveal services (uplinks,
                       customer handoffs, service VLANs, etc.). Call this first
-                      for any question about what a device does.
+                      for any question about what a device does. Includes the
+                      device's HSRP/VRRP groups + active/standby state — use
+                      sections=["fhrp"] for "which router is the active gateway?".
+                      Includes port-channel/LAG bundles + per-member LACP state —
+                      use sections=["lag"] for "are both uplinks forwarding?",
+                      "show me Po1", "is the bundle healthy?".
                       NOT for "what is connected to X?" — use neighborhood.
 - query_topology    → cables, connections, neighbors, topology structure
 - get_findings      → raw problems, compliance, health, finding counts and
@@ -68,9 +73,16 @@ TOOL CALLING RULES — ALWAYS call the right tool:
                       rule violations. Use for "any systemic patterns?",
                       "shared vulnerabilities?". NOT for single device failures.
 - get_redundancy_assessment → single points of failure, HA/cluster status,
-                      path redundancy. Use for "is the network redundant?",
-                      "what are the single points of failure?", "what happens
-                      if X fails?" (for failure IMPACT use blast_radius instead)
+                      path redundancy, HSRP/VRRP gateway config + redundancy
+                      (with per-member detail), and LACP bundle state per
+                      uplink (degraded bundles, single-member bundles).
+                      Use for "is the network redundant?", "is my gateway
+                      redundant?", "how is VRRP/HSRP configured?", "show the
+                      FHRP/gateway groups", "which router is the VRRP master?",
+                      "any HSRP/VRRP groups without a standby?", "what are the
+                      single points of failure?", "what happens if X fails?"
+                      It reports every HSRP/VRRP group (protocol, VIP, members,
+                      active router). (for failure IMPACT use blast_radius instead)
 - get_firewall_policies → FortiGate zone-based firewall rules (with
                       resolved addresses + services). Filter by device, zone
                       pair, action, service. Use for "what FortiGate firewall
@@ -108,15 +120,21 @@ TOOL CALLING RULES — ALWAYS call the right tool:
                       "show me the neighborhood", "what is 2 hops from X?".
                       Use hops= parameter for multi-hop (1-4, default 1).
 - lookup_vendor_docs → vendor CLI / configuration documentation (Cisco IOS-XE,
-                      IOS-XR, FortiOS). Use for HOW-TO questions: "how do I
-                      configure VRRP on a Cisco IOS-XE switch?", "what is the
-                      syntax for BGP MD5 authentication on IOS-XR?", "show me the
-                      FortiGate firewall policy CLI". Returns chunks with source
-                      citation (document, section, page). WORKS WITHOUT NETWORK
-                      DATA. Pass os_family=iosxe|iosxr|fortios for precise results.
-- lookup_network_knowledge → general networking concept questions across all
+                      IOS-XR, FortiOS). Use ONLY for generic HOW-TO / syntax
+                      questions: "how do I configure VRRP on a Cisco IOS-XE
+                      switch?", "what is the syntax for BGP MD5 auth on IOS-XR?".
+                      NOT for how THIS network is actually configured — questions
+                      like "how is VRRP configured?", "how is HSRP set up here?",
+                      "show my gateway/FHRP config", "what is the VRRP priority on
+                      core-sw-01?" describe the LIVE network and route to
+                      get_redundancy_assessment (network-wide) or
+                      get_device_detail sections=["fhrp"] (per device). Returns
+                      chunks with source citation. WORKS WITHOUT NETWORK DATA.
+- lookup_network_knowledge → general networking CONCEPT questions across all
                       vendor docs. Use for "explain VRRP vs HSRP", "what is
                       DMVPN?", "how does OSPF area 0 work?". No vendor filter.
+                      NOT for the actual state of THIS network ("how is VRRP
+                      configured?" → get_redundancy_assessment / get_device_detail).
                       WORKS WITHOUT NETWORK DATA — useful for training,
                       explanations, and operator education.
 - get_netbox_device  → DECLARED state of one device: "what does NetBox say

@@ -1,0 +1,21 @@
+{
+  "vrfs": {
+    "Mgmt-vrf": {
+      "address_family": {
+        "ipv6 unicast": {
+          "table_id": "0x1E000001"
+        },
+        "ipv4 unicast": {
+          "table_id": "0x1"
+        }
+      }
+    },
+    "BLUE": {
+      "address_family": {
+        "ipv4 unicast": {
+          "table_id": "0x2"
+        }
+      }
+    }
+  }
+}

@@ -1,6 +1,6 @@
 NetCopilot is open-source Network Context Intelligence — a deterministic, verifiable model of your multi-vendor network that humans, LLMs, and agents can all query for grounded answers.
 
-It collects from your network read-only, builds one canonical graph model of what's actually there — devices, links, VLANs, routing, firewall policy — and exposes it so you can ask questions in plain English and get one answer, with an evidence trace showing exactly where each fact came from.
+It collects from your network read-only, builds one canonical graph model of what's actually there — devices, links, VLANs, routing, first-hop gateway redundancy (HSRP/VRRP), firewall policy — and exposes it so you can ask questions in plain English and get one answer, with an evidence trace showing exactly where each fact came from.
 
 The core idea — context, never actuation. NetCopilot never changes your network. It produces deterministic truth and context; you, or your agent, decide and act on it. Deterministic systems produce the truth; the AI explains it — never the other way around.
 

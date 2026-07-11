@@ -429,6 +429,20 @@ def _build_ip_to_device(run_id: str) -> dict[str, str]:
             if "/" in ip:
                 ip = ip.split("/")[0]
             ip_map[ip] = rec["device"]
+
+        # FHRP virtual IPs resolve to the router that currently owns them (the
+        # active member). A route or next-hop pointing at a gateway VIP would
+        # otherwise be unresolvable — a VIP sits on no single interface.
+        # ``setdefault`` keeps a real interface IP authoritative if one ever
+        # coincided (VIPs never do, but be safe).
+        vip_result = session.run(
+            "MATCH (s:SharedService {service_type: 'fhrp_group', run_id: $run_id}) "
+            "WHERE s.vip IS NOT NULL AND s.active_device IS NOT NULL "
+            "RETURN s.vip AS vip, s.active_device AS active_device",
+            run_id=run_id,
+        )
+        for rec in vip_result:
+            ip_map.setdefault(rec["vip"], rec["active_device"])
     return ip_map
 
 
@@ -1008,8 +1022,15 @@ async def trace_path(
 
         if is_ip:
             owner = resolve_ip_owner(term.strip().split("/")[0], run_id, driver)
-            if owner and owner["kind"] in ("interface", "subnet", "arp"):
+            if owner and owner["kind"] in ("interface", "subnet", "arp", "fhrp_vip"):
                 m = owner["matches"][0]  # deterministic: exact/most-specific/first
+                if owner["kind"] == "fhrp_vip":
+                    # A gateway VIP as source → trace from the active router.
+                    dev = m.get("active_device")
+                    if not dev:
+                        return None
+                    proto = (m.get("protocol") or "fhrp").upper()
+                    return dev, f"active {proto} gateway for VIP {m.get('vip')}", term.strip().split("/")[0]
                 how = {"interface": "an interface of this device",
                        "subnet": "host in a connected subnet — gateway approximation",
                        "arp": "host seen in this device's ARP table"}[owner["kind"]]

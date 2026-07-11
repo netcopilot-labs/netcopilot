@@ -1,0 +1,37 @@
+{
+  "version": 3,
+  "sessions": {
+    "authorized_clients": 0,
+    "unauthorized_clients": 0,
+    "total": 0
+  },
+  "interfaces": {
+    "GigabitEthernet1/0/2": {
+      "statistics": {
+        "rxstart": 0,
+        "rxlogoff": 0,
+        "rxresp": 0,
+        "rxrespid": 0,
+        "rxinvalid": 0,
+        "rxlenerr": 0,
+        "rxtotal": 0,
+        "txreq": 0,
+        "txreqid": 0,
+        "txtotal": 0,
+        "rxversion": 0,
+        "lastrxsrcmac": "0000.0000.0000"
+      },
+      "max_req": 2,
+      "max_reauth_req": 2,
+      "interface": "GigabitEthernet1/0/2",
+      "pae": "authenticator",
+      "timeout": {
+        "quiet_period": 60,
+        "server_timeout": 0,
+        "supp_timeout": 30,
+        "tx_period": 30
+      }
+    }
+  },
+  "system_auth_control": true
+}

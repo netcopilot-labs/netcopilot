@@ -1,0 +1,261 @@
+{
+  "policy_map": {
+    "system-cpp-policy": {
+      "class": {
+        "system-cpp-police-ios-routing": {
+          "police": {
+            "rate_pps": 13000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-ios-feature": {
+          "police": {
+            "rate_pps": 6000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-data": {
+          "police": {
+            "rate_pps": 600,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-sys-data": {
+          "police": {
+            "rate_pps": 200,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-sw-forward": {
+          "police": {
+            "rate_pps": 1000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-multicast": {
+          "police": {
+            "rate_pps": 400,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-multicast-end-station": {
+          "police": {
+            "rate_pps": 2000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-punt-webauth": {
+          "police": {
+            "rate_pps": 1000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-l2-control": {
+          "police": {
+            "rate_pps": 2000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-stackwise-virt-control": {
+          "police": {
+            "rate_pps": 8000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-routing-control": {
+          "police": {
+            "rate_pps": 5400,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-system-critical": {
+          "police": {
+            "rate_pps": 1000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-l2lvx-control": {
+          "police": {
+            "rate_pps": 1000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-topology-control": {
+          "police": {
+            "rate_pps": 13000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-dot1x-auth": {
+          "police": {
+            "rate_pps": 1000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-protocol-snooping": {
+          "police": {
+            "rate_pps": 2000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-dhcp-snooping": {
+          "police": {
+            "rate_pps": 400,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-forus": {
+          "police": {
+            "rate_pps": 1000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-default": {
+          "police": {
+            "rate_pps": 2000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-high-rate-app": {
+          "police": {
+            "rate_pps": 13000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-ewlc-control": {
+          "police": {
+            "rate_pps": 13000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-meraki-next-tunnel": {
+          "police": {
+            "rate_pps": 600,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        },
+        "system-cpp-police-forus-addr-resolution": {
+          "police": {
+            "rate_pps": 3000,
+            "conform_action": [
+              "transmit"
+            ],
+            "exceed_action": [
+              "drop"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

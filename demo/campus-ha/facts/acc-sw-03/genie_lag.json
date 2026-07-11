@@ -1,0 +1,28 @@
+{
+  "system_priority": 32768,
+  "interfaces": {
+    "Port-channel1": {
+      "name": "Port-channel1",
+      "members": {
+        "GigabitEthernet1/0/1": {
+          "activity": "active",
+          "counters": {
+            "lacp_in_pkts": 244,
+            "lacp_out_pkts": 245
+          },
+          "bundled": true,
+          "interface": "GigabitEthernet1/0/1",
+          "partner_id": "0c00.816a.2a00",
+          "age": 8,
+          "oper_key": 1,
+          "port_num": 262,
+          "lacp_port_priority": 32768,
+          "bundle_id": 1
+        }
+      },
+      "bundle_id": 1,
+      "protocol": "lacp",
+      "oper_status": "up"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+! campus-ha overlay — bdr-rtr-02 (IOS-XR)
+! ECMP: second origin of the shared anycast /32 (same address as bdr-rtr-01).
+interface Loopback1
+ ipv4 address 198.51.100.200 255.255.255.255
+!
+router ospf 1
+ area 0
+  interface Loopback1
+   passive enable

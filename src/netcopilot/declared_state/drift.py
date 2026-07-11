@@ -54,6 +54,15 @@ class DriftSourceUnavailable(RuntimeError):
     """The declared-state source cannot be read — drift is UNKNOWN, not zero."""
 
 
+# Findings that describe an object absent from the run (no :Device node to
+# anchor to) — they load as standalone :Finding nodes, not via the device-MATCH
+# loader that would silently drop them.
+_UNATTACHED_RULES = {
+    "INTENT_DEVICE_MISSING_IN_NETWORK",
+    "INTENT_FHRP_MISSING_IN_NETWORK",
+}
+
+
 # Interface attributes compared by INTENT_INTERFACE_ATTR_DRIFT. ``type`` is
 # deliberately excluded: NetBox returns the display label ("1000BASE-T (1GE)")
 # while bootstrap stages the slug value ("1000base-t") — comparing them would
@@ -363,6 +372,74 @@ def _compare_interfaces(observed: dict[str, Any], adapter, declared_names: set[s
             ))
 
 
+def _observed_fhrp(run_id: str) -> list[dict[str, Any]]:
+    """Observed FHRP (HSRP/VRRP) groups for the run.
+
+    Reuses the model's own discovery over the run facts (``_discover_fhrp_groups``)
+    — one derivation, like ``_derive_observed`` reuses bootstrap's helpers — so
+    the drift comparison sees exactly what the graph does. No genie_hsrp/vrrp
+    facts ⇒ no observed FHRP (never guessed).
+    """
+    from netcopilot.model.link_builder import _discover_fhrp_groups
+
+    facts_dir = _runs_dir() / run_id / "facts"
+    if not facts_dir.is_dir():
+        return []
+    facts_dirs = {d.name: d for d in sorted(facts_dir.iterdir()) if d.is_dir()}
+    return _discover_fhrp_groups(facts_dirs)
+
+
+def _compare_fhrp(observed_fhrp: list[dict], adapter, report: DriftReport) -> None:
+    """Compare observed FHRP groups against NetBox-declared FHRP groups.
+
+    Identity = ``(protocol_family, group_id, vip)`` — the honest identity of a
+    first-hop gateway group. Two directions carry comparable data:
+    UNKNOWN_IN_NETBOX (running but undocumented) and MISSING_IN_NETWORK
+    (declared but not running). Per-member attribute drift is deliberately NOT
+    emitted: NetBox's FHRPGroup holds no per-router priority/timer, so there is
+    nothing to compare against — inventing it would be speculative.
+
+    ``get_fhrp_groups`` is an adapter extra (like ``get_vlans``): a source that
+    doesn't implement it contributes no declared FHRP (every observed group is
+    then UNKNOWN_IN_NETBOX), never an error.
+    """
+    declared_fhrp = adapter.get_fhrp_groups() if hasattr(adapter, "get_fhrp_groups") else []
+
+    obs = {(g["protocol"], g.get("group_number"), g.get("vip")): g for g in observed_fhrp}
+    decl: dict[tuple, dict] = {}
+    for g in declared_fhrp:
+        fam = g.get("protocol_family") or g.get("protocol")
+        for vip in (g.get("vips") or [None]):
+            decl[(fam, g.get("group_id"), vip)] = g
+
+    for key in sorted(set(obs) - set(decl), key=str):
+        g = obs[key]
+        hosts = [m["hostname"] for m in g.get("members", [])]
+        report.findings.append(_finding(
+            "INTENT_FHRP_UNKNOWN_IN_NETBOX", "info",
+            "FHRP group not documented in NetBox",
+            f"{g['protocol'].upper()} group {g.get('group_number')} (VIP {g.get('vip')}) "
+            f"is running on {', '.join(hosts) or '?'} but has no NetBox FHRPGroup record.",
+            g.get("active_device") or (hosts[0] if hosts else "unknown"),
+            {"protocol": g["protocol"], "group": g.get("group_number"),
+             "vip": g.get("vip"), "members": json.dumps(hosts)},
+            "Document the group in NetBox (IPAM → FHRP Groups) and assign its virtual IP.",
+        ))
+
+    for key in sorted(set(decl) - set(obs), key=str):
+        fam, gid, vip = key
+        g = decl[key]
+        report.findings.append(_finding(
+            "INTENT_FHRP_MISSING_IN_NETWORK", "low",
+            "Declared FHRP group absent from the network",
+            f"NetBox declares {(fam or '?').upper()} group {gid} (VIP {vip}), "
+            f"but no running FHRP group matches it.",
+            f"{fam}/{gid}/{vip}",
+            {"protocol": fam, "group": gid, "vip": vip, "netbox_name": g.get("name")},
+            "Verify the FHRP group is configured and active, or retire the NetBox record.",
+        ))
+
+
 # ─────────────────────────────────────────────────────────────── entry point
 
 
@@ -411,6 +488,7 @@ def run_drift_check(
     _compare_devices(observed, declared_devices, report)
     declared_names = {d["name"] for d in declared_devices}
     _compare_interfaces(observed, adapter, declared_names, report)
+    _compare_fhrp(_observed_fhrp(run_id), adapter, report)
 
     log.info("Drift check for %s: %d findings", run_id, len(report.findings))
 
@@ -626,14 +704,16 @@ def _persist(report: DriftReport) -> None:
         )
         return
 
-    # MISSING_IN_NETWORK findings describe devices that by definition have no
+    # MISSING_IN_NETWORK findings describe things that by definition have no
     # :Device node in the run — the shared loader's MATCH would silently drop
     # them. They load as standalone :Finding nodes (the read path queries
-    # Finding {run_id, site} directly, so they stay visible everywhere).
+    # Finding {run_id, site} directly, so they stay visible everywhere). FHRP
+    # MISSING joins this set: a declared-but-absent gateway group has no anchor
+    # device either.
     attached = [f.to_dict() for f in report.findings
-                if f.rule_id != "INTENT_DEVICE_MISSING_IN_NETWORK"]
+                if f.rule_id not in _UNATTACHED_RULES]
     unattached = [f for f in report.findings
-                  if f.rule_id == "INTENT_DEVICE_MISSING_IN_NETWORK"]
+                  if f.rule_id in _UNATTACHED_RULES]
 
     with driver.session() as session:
         session.run(

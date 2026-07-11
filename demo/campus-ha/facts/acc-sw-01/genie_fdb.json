@@ -1,0 +1,22 @@
+{
+  "mac_aging_time": 300,
+  "mac_table": {
+    "vlans": {
+      "50": {
+        "vlan": 50,
+        "mac_addresses": {
+          "0c00.b909.e368": {
+            "mac_address": "0c00.b909.e368",
+            "interfaces": {
+              "Vlan50": {
+                "interface": "Vlan50",
+                "entry_type": "static"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "total_mac_addresses": 22
+}

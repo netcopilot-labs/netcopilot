@@ -1,0 +1,3654 @@
+{
+  "model_metadata": {
+    "run_id": "2026-07-10_09-23-08",
+    "model_version": "0.3.0",
+    "generated_at": "2026-07-10T09:51:05.895237+00:00",
+    "collection_timestamp": "2026-07-10T09:23:08Z"
+  },
+  "devices": [
+    {
+      "device_id": "acc-sw-01",
+      "hostname": "acc-sw-01",
+      "real_hostname": "acc-sw-01",
+      "management_ip": "192.0.2.41",
+      "platform": "System",
+      "version": "17.18.02",
+      "serial": "9MQT7LVMUQ0",
+      "os_family": "iosxe",
+      "os_raw": "ios-xe",
+      "role": "access_switch",
+      "site": "demo",
+      "cluster_members": [],
+      "redundancy_group": null,
+      "cluster_declared_size": null,
+      "stack_ports": [],
+      "vlans": [
+        {
+          "vlan_id": 50,
+          "name": "GUEST-USERS",
+          "state": "active",
+          "shutdown": false,
+          "interfaces": [
+            "Gi1/0/2"
+          ]
+        }
+      ],
+      "is_route_reflector": false,
+      "rr_cluster_id": null
+    },
+    {
+      "device_id": "acc-sw-03",
+      "hostname": "acc-sw-03",
+      "real_hostname": "acc-sw-03",
+      "management_ip": "192.0.2.43",
+      "platform": "System",
+      "version": "17.18.02",
+      "serial": "9FZYSKYX36Y",
+      "os_family": "iosxe",
+      "os_raw": "ios-xe",
+      "role": "access_switch",
+      "site": "demo",
+      "cluster_members": [],
+      "redundancy_group": null,
+      "cluster_declared_size": null,
+      "stack_ports": [],
+      "vlans": [
+        {
+          "vlan_id": 10,
+          "name": "TRANSIT-RED",
+          "state": "active",
+          "shutdown": false,
+          "interfaces": []
+        },
+        {
+          "vlan_id": 20,
+          "name": "TRANSIT-BLUE",
+          "state": "active",
+          "shutdown": false,
+          "interfaces": []
+        },
+        {
+          "vlan_id": 30,
+          "name": "RED-USERS-CAMPUS",
+          "state": "active",
+          "shutdown": false,
+          "interfaces": [
+            "Gi1/0/2"
+          ]
+        },
+        {
+          "vlan_id": 31,
+          "name": "BLUE-USERS-CAMPUS",
+          "state": "active",
+          "shutdown": false,
+          "interfaces": []
+        },
+        {
+          "vlan_id": 60,
+          "name": "HSRP-CAMPUS",
+          "state": "active",
+          "shutdown": false,
+          "interfaces": []
+        },
+        {
+          "vlan_id": 61,
+          "name": "VRRP-CAMPUS",
+          "state": "active",
+          "shutdown": false,
+          "interfaces": []
+        }
+      ],
+      "is_route_reflector": false,
+      "rr_cluster_id": null
+    },
+    {
+      "device_id": "acc-sw-04",
+      "hostname": "acc-sw-04",
+      "real_hostname": "acc-sw-04",
+      "management_ip": "192.0.2.44",
+      "platform": "System",
+      "version": "17.18.02",
+      "serial": "9XQKIPNBBAG",
+      "os_family": "iosxe",
+      "os_raw": "ios-xe",
+      "role": "access_switch",
+      "site": "demo",
+      "cluster_members": [],
+      "redundancy_group": null,
+      "cluster_declared_size": null,
+      "stack_ports": [],
+      "vlans": [
+        {
+          "vlan_id": 40,
+          "name": "BLUE-USERS-BRANCH",
+          "state": "active",
+          "shutdown": false,
+          "interfaces": [
+            "Gi1/0/2"
+          ]
+        }
+      ],
+      "is_route_reflector": false,
+      "rr_cluster_id": null
+    },
+    {
+      "device_id": "bdr-rtr-01",
+      "hostname": "bdr-rtr-01",
+      "real_hostname": "bdr-rtr-01",
+      "management_ip": "192.0.2.11",
+      "platform": "IOS-XRv",
+      "version": "7.11.1",
+      "serial": "FCDE6655FF3",
+      "os_family": "iosxr",
+      "os_raw": "ios-xr",
+      "role": "border_router",
+      "site": "demo",
+      "cluster_members": [],
+      "redundancy_group": null,
+      "cluster_declared_size": null,
+      "stack_ports": [],
+      "vlans": [],
+      "is_route_reflector": false,
+      "rr_cluster_id": null
+    },
+    {
+      "device_id": "bdr-rtr-02",
+      "hostname": "bdr-rtr-02",
+      "real_hostname": "bdr-rtr-02",
+      "management_ip": "192.0.2.12",
+      "platform": "IOS-XRv",
+      "version": "7.11.1",
+      "serial": "CFE146F9057",
+      "os_family": "iosxr",
+      "os_raw": "ios-xr",
+      "role": "border_router",
+      "site": "demo",
+      "cluster_members": [],
+      "redundancy_group": null,
+      "cluster_declared_size": null,
+      "stack_ports": [],
+      "vlans": [],
+      "is_route_reflector": false,
+      "rr_cluster_id": null
+    },
+    {
+      "device_id": "bdr-rtr-03",
+      "hostname": "bdr-rtr-03",
+      "real_hostname": "bdr-rtr-03",
+      "management_ip": "192.0.2.13",
+      "platform": "IOS-XRv",
+      "version": "7.11.1",
+      "serial": "7680763C8BE",
+      "os_family": "iosxr",
+      "os_raw": "ios-xr",
+      "role": "border_router",
+      "site": "demo",
+      "cluster_members": [],
+      "redundancy_group": null,
+      "cluster_declared_size": null,
+      "stack_ports": [],
+      "vlans": [],
+      "is_route_reflector": false,
+      "rr_cluster_id": null
+    },
+    {
+      "device_id": "core-sw-01",
+      "hostname": "core-sw-01",
+      "real_hostname": "core-sw-01",
+      "management_ip": "192.0.2.31",
+      "platform": "System",
+      "version": "17.18.02",
+      "serial": "9TRTXNDMAT0",
+      "os_family": "iosxe",
+      "os_raw": "ios-xe",
+      "role": "core_switch",
+      "site": "demo",
+      "cluster_members": [],
+      "redundancy_group": null,
+      "cluster_declared_size": null,
+      "stack_ports": [],
+      "vlans": [
+        {
+          "vlan_id": 10,
+          "name": "TRANSIT-RED",
+          "state": "active",
+          "shutdown": false,
+          "interfaces": []
+        },
+        {
+          "vlan_id": 20,
+          "name": "TRANSIT-BLUE",
+          "state": "active",
+          "shutdown": false,
+          "interfaces": []
+        },
+        {
+          "vlan_id": 60,
+          "name": "HSRP-CAMPUS",
+          "state": "active",
+          "shutdown": false,
+          "interfaces": []
+        },
+        {
+          "vlan_id": 61,
+          "name": "VRRP-CAMPUS",
+          "state": "active",
+          "shutdown": false,
+          "interfaces": []
+        }
+      ],
+      "is_route_reflector": true,
+      "rr_cluster_id": "198.51.100.100"
+    },
+    {
+      "device_id": "edge-fw-01",
+      "hostname": "edge-fw-01",
+      "real_hostname": "edge-fw-01",
+      "management_ip": "192.0.2.51",
+      "platform": "FortiGate-VM64-KVM",
+      "version": "v7.4.12",
+      "serial": "FGVMEVJ7_ORGXTCC",
+      "os_family": "fortios",
+      "os_raw": "fortios",
+      "role": "firewall",
+      "site": "demo",
+      "cluster_members": [],
+      "redundancy_group": null,
+      "cluster_declared_size": null,
+      "stack_ports": [],
+      "vlans": [],
+      "is_route_reflector": false,
+      "rr_cluster_id": null
+    }
+  ],
+  "interfaces": [
+    {
+      "interface_id": "acc-sw-01:Gi0/0",
+      "device_id": "acc-sw-01",
+      "name": "Gi0/0",
+      "type": "management",
+      "ip_address": "10.0.0.15",
+      "prefix_length": 24,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "auto speed",
+      "duplex": "auto",
+      "mtu": 1500,
+      "description": "Containerlab management interface",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "Mgmt-vrf"
+    },
+    {
+      "interface_id": "acc-sw-01:Gi1/0/1",
+      "device_id": "acc-sw-01",
+      "name": "Gi1/0/1",
+      "type": "physical",
+      "ip_address": "198.51.100.18",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": "uplink to edge-fw-01",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-01:Gi1/0/2",
+      "device_id": "acc-sw-01",
+      "name": "Gi1/0/2",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": "user access port",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "switchport_mode": "access",
+      "access_vlan": 50
+    },
+    {
+      "interface_id": "acc-sw-01:Gi1/0/3",
+      "device_id": "acc-sw-01",
+      "name": "Gi1/0/3",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-01:Gi1/0/4",
+      "device_id": "acc-sw-01",
+      "name": "Gi1/0/4",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-01:Gi1/0/5",
+      "device_id": "acc-sw-01",
+      "name": "Gi1/0/5",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-01:Gi1/0/6",
+      "device_id": "acc-sw-01",
+      "name": "Gi1/0/6",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-01:Gi1/0/7",
+      "device_id": "acc-sw-01",
+      "name": "Gi1/0/7",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-01:Gi1/0/8",
+      "device_id": "acc-sw-01",
+      "name": "Gi1/0/8",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-01:Lo0",
+      "device_id": "acc-sw-01",
+      "name": "Lo0",
+      "type": "logical",
+      "ip_address": "198.51.100.111",
+      "prefix_length": 32,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1514,
+      "description": null,
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-01:Vl1",
+      "device_id": "acc-sw-01",
+      "name": "Vl1",
+      "type": "vlan",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "down",
+      "oper_status": "down",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": null,
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-01:Vl50",
+      "device_id": "acc-sw-01",
+      "name": "Vl50",
+      "type": "vlan",
+      "ip_address": "198.51.100.49",
+      "prefix_length": 28,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": "GUEST-USERS gateway",
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-03:Gi0/0",
+      "device_id": "acc-sw-03",
+      "name": "Gi0/0",
+      "type": "management",
+      "ip_address": "10.0.0.15",
+      "prefix_length": 24,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "auto speed",
+      "duplex": "auto",
+      "mtu": 1500,
+      "description": "Containerlab management interface",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "Mgmt-vrf"
+    },
+    {
+      "interface_id": "acc-sw-03:Gi1/0/1",
+      "device_id": "acc-sw-03",
+      "name": "Gi1/0/1",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "port_channel_int": "Po1",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": "uplink to core-sw-01 (VRF RED)",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "switchport_mode": "trunk",
+      "trunk_vlans": [
+        10,
+        20,
+        60,
+        61
+      ],
+      "native_vlan": null
+    },
+    {
+      "interface_id": "acc-sw-03:Gi1/0/2",
+      "device_id": "acc-sw-03",
+      "name": "Gi1/0/2",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": "user access port",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "switchport_mode": "access",
+      "access_vlan": 30
+    },
+    {
+      "interface_id": "acc-sw-03:Gi1/0/3",
+      "device_id": "acc-sw-03",
+      "name": "Gi1/0/3",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-03:Gi1/0/4",
+      "device_id": "acc-sw-03",
+      "name": "Gi1/0/4",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-03:Gi1/0/5",
+      "device_id": "acc-sw-03",
+      "name": "Gi1/0/5",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-03:Gi1/0/6",
+      "device_id": "acc-sw-03",
+      "name": "Gi1/0/6",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-03:Gi1/0/7",
+      "device_id": "acc-sw-03",
+      "name": "Gi1/0/7",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-03:Gi1/0/8",
+      "device_id": "acc-sw-03",
+      "name": "Gi1/0/8",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-03:Lo0",
+      "device_id": "acc-sw-03",
+      "name": "Lo0",
+      "type": "logical",
+      "ip_address": "198.51.100.113",
+      "prefix_length": 32,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1514,
+      "description": null,
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-03:Po1",
+      "device_id": "acc-sw-03",
+      "name": "Po1",
+      "type": "aggregated",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "port_channel_members": [
+        "Gi1/0/1"
+      ],
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": "LAG uplink to core-sw-01",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "switchport_mode": "trunk",
+      "trunk_vlans": [
+        10,
+        20,
+        60,
+        61
+      ],
+      "native_vlan": null
+    },
+    {
+      "interface_id": "acc-sw-03:Vl1",
+      "device_id": "acc-sw-03",
+      "name": "Vl1",
+      "type": "vlan",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "down",
+      "oper_status": "down",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": null,
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-03:Vl10",
+      "device_id": "acc-sw-03",
+      "name": "Vl10",
+      "type": "vlan",
+      "ip_address": "198.51.100.26",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": "RED transit to core-sw-01",
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "RED"
+    },
+    {
+      "interface_id": "acc-sw-03:Vl20",
+      "device_id": "acc-sw-03",
+      "name": "Vl20",
+      "type": "vlan",
+      "ip_address": "198.51.100.34",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": "BLUE transit to core-sw-01",
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "BLUE"
+    },
+    {
+      "interface_id": "acc-sw-03:Vl30",
+      "device_id": "acc-sw-03",
+      "name": "Vl30",
+      "type": "vlan",
+      "ip_address": "198.51.100.65",
+      "prefix_length": 28,
+      "admin_status": "up",
+      "oper_status": "down",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": "RED-USERS-CAMPUS gateway",
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "RED"
+    },
+    {
+      "interface_id": "acc-sw-03:Vl31",
+      "device_id": "acc-sw-03",
+      "name": "Vl31",
+      "type": "vlan",
+      "ip_address": "198.51.100.97",
+      "prefix_length": 28,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": "BLUE-USERS-CAMPUS gateway",
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "BLUE"
+    },
+    {
+      "interface_id": "acc-sw-03:Vl60",
+      "device_id": "acc-sw-03",
+      "name": "Vl60",
+      "type": "vlan",
+      "ip_address": "198.51.100.131",
+      "prefix_length": 28,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": "HSRP-CAMPUS gateway (standby)",
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-03:Vl61",
+      "device_id": "acc-sw-03",
+      "name": "Vl61",
+      "type": "vlan",
+      "ip_address": "198.51.100.147",
+      "prefix_length": 28,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": "VRRP-CAMPUS gateway (backup)",
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-04:Gi0/0",
+      "device_id": "acc-sw-04",
+      "name": "Gi0/0",
+      "type": "management",
+      "ip_address": "10.0.0.15",
+      "prefix_length": 24,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "auto speed",
+      "duplex": "auto",
+      "mtu": 1500,
+      "description": "Containerlab management interface",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "Mgmt-vrf"
+    },
+    {
+      "interface_id": "acc-sw-04:Gi1/0/1",
+      "device_id": "acc-sw-04",
+      "name": "Gi1/0/1",
+      "type": "physical",
+      "ip_address": "198.51.100.30",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": "uplink to core-sw-01 (VRF BLUE)",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "BLUE"
+    },
+    {
+      "interface_id": "acc-sw-04:Gi1/0/2",
+      "device_id": "acc-sw-04",
+      "name": "Gi1/0/2",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": "user access port",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "switchport_mode": "access",
+      "access_vlan": 40
+    },
+    {
+      "interface_id": "acc-sw-04:Gi1/0/3",
+      "device_id": "acc-sw-04",
+      "name": "Gi1/0/3",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-04:Gi1/0/4",
+      "device_id": "acc-sw-04",
+      "name": "Gi1/0/4",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-04:Gi1/0/5",
+      "device_id": "acc-sw-04",
+      "name": "Gi1/0/5",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-04:Gi1/0/6",
+      "device_id": "acc-sw-04",
+      "name": "Gi1/0/6",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-04:Gi1/0/7",
+      "device_id": "acc-sw-04",
+      "name": "Gi1/0/7",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-04:Gi1/0/8",
+      "device_id": "acc-sw-04",
+      "name": "Gi1/0/8",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-04:Lo0",
+      "device_id": "acc-sw-04",
+      "name": "Lo0",
+      "type": "logical",
+      "ip_address": "198.51.100.114",
+      "prefix_length": 32,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1514,
+      "description": null,
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-04:Vl1",
+      "device_id": "acc-sw-04",
+      "name": "Vl1",
+      "type": "vlan",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "down",
+      "oper_status": "down",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": null,
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "acc-sw-04:Vl40",
+      "device_id": "acc-sw-04",
+      "name": "Vl40",
+      "type": "vlan",
+      "ip_address": "198.51.100.81",
+      "prefix_length": 28,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": "BLUE-USERS-BRANCH gateway",
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "BLUE"
+    },
+    {
+      "interface_id": "bdr-rtr-01:Gi0/0/0/0",
+      "device_id": "bdr-rtr-01",
+      "name": "Gi0/0/0/0",
+      "type": "physical",
+      "ip_address": "203.0.113.1",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1514,
+      "description": "eBGP to isp-01",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "bdr-rtr-01:Gi0/0/0/1",
+      "device_id": "bdr-rtr-01",
+      "name": "Gi0/0/0/1",
+      "type": "physical",
+      "ip_address": "198.51.100.1",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1514,
+      "description": "core fabric to core-sw-01",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "bdr-rtr-01:Lo0",
+      "device_id": "bdr-rtr-01",
+      "name": "Lo0",
+      "type": "logical",
+      "ip_address": "198.51.100.101",
+      "prefix_length": 32,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": null,
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "bdr-rtr-01:Lo1",
+      "device_id": "bdr-rtr-01",
+      "name": "Lo1",
+      "type": "logical",
+      "ip_address": "198.51.100.200",
+      "prefix_length": 32,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": null,
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "bdr-rtr-01:Mgmt0/RP0/CPU0/0",
+      "device_id": "bdr-rtr-01",
+      "name": "Mgmt0/RP0/CPU0/0",
+      "type": "management",
+      "ip_address": "10.0.0.15",
+      "prefix_length": 24,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000",
+      "duplex": "full",
+      "mtu": 1514,
+      "description": "Containerlab management interface",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "clab-mgmt"
+    },
+    {
+      "interface_id": "bdr-rtr-02:Gi0/0/0/0",
+      "device_id": "bdr-rtr-02",
+      "name": "Gi0/0/0/0",
+      "type": "physical",
+      "ip_address": "203.0.113.5",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1514,
+      "description": "eBGP to isp-02",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "bdr-rtr-02:Gi0/0/0/1",
+      "device_id": "bdr-rtr-02",
+      "name": "Gi0/0/0/1",
+      "type": "physical",
+      "ip_address": "198.51.100.5",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1514,
+      "description": "core fabric to core-sw-01",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "bdr-rtr-02:Lo0",
+      "device_id": "bdr-rtr-02",
+      "name": "Lo0",
+      "type": "logical",
+      "ip_address": "198.51.100.102",
+      "prefix_length": 32,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": null,
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "bdr-rtr-02:Lo1",
+      "device_id": "bdr-rtr-02",
+      "name": "Lo1",
+      "type": "logical",
+      "ip_address": "198.51.100.200",
+      "prefix_length": 32,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": null,
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "bdr-rtr-02:Mgmt0/RP0/CPU0/0",
+      "device_id": "bdr-rtr-02",
+      "name": "Mgmt0/RP0/CPU0/0",
+      "type": "management",
+      "ip_address": "10.0.0.15",
+      "prefix_length": 24,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000",
+      "duplex": "full",
+      "mtu": 1514,
+      "description": "Containerlab management interface",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "clab-mgmt"
+    },
+    {
+      "interface_id": "bdr-rtr-03:Gi0/0/0/0",
+      "device_id": "bdr-rtr-03",
+      "name": "Gi0/0/0/0",
+      "type": "physical",
+      "ip_address": "203.0.113.9",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1514,
+      "description": "eBGP to isp-03",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "bdr-rtr-03:Gi0/0/0/1",
+      "device_id": "bdr-rtr-03",
+      "name": "Gi0/0/0/1",
+      "type": "physical",
+      "ip_address": "198.51.100.9",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1514,
+      "description": "core fabric to core-sw-01",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "bdr-rtr-03:Lo0",
+      "device_id": "bdr-rtr-03",
+      "name": "Lo0",
+      "type": "logical",
+      "ip_address": "198.51.100.103",
+      "prefix_length": 32,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": null,
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "bdr-rtr-03:Mgmt0/RP0/CPU0/0",
+      "device_id": "bdr-rtr-03",
+      "name": "Mgmt0/RP0/CPU0/0",
+      "type": "management",
+      "ip_address": "10.0.0.15",
+      "prefix_length": 24,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000",
+      "duplex": "full",
+      "mtu": 1514,
+      "description": "Containerlab management interface",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "clab-mgmt"
+    },
+    {
+      "interface_id": "core-sw-01:Gi0/0",
+      "device_id": "core-sw-01",
+      "name": "Gi0/0",
+      "type": "management",
+      "ip_address": "10.0.0.15",
+      "prefix_length": 24,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "auto speed",
+      "duplex": "auto",
+      "mtu": 1500,
+      "description": "Containerlab management interface",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "Mgmt-vrf"
+    },
+    {
+      "interface_id": "core-sw-01:Gi1/0/1",
+      "device_id": "core-sw-01",
+      "name": "Gi1/0/1",
+      "type": "physical",
+      "ip_address": "198.51.100.2",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": "core fabric to bdr-rtr-01",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "core-sw-01:Gi1/0/2",
+      "device_id": "core-sw-01",
+      "name": "Gi1/0/2",
+      "type": "physical",
+      "ip_address": "198.51.100.6",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": "core fabric to bdr-rtr-02",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "core-sw-01:Gi1/0/3",
+      "device_id": "core-sw-01",
+      "name": "Gi1/0/3",
+      "type": "physical",
+      "ip_address": "198.51.100.10",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": "core fabric to bdr-rtr-03",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "core-sw-01:Gi1/0/4",
+      "device_id": "core-sw-01",
+      "name": "Gi1/0/4",
+      "type": "physical",
+      "ip_address": "198.51.100.13",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": "to edge-fw-01",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "core-sw-01:Gi1/0/5",
+      "device_id": "core-sw-01",
+      "name": "Gi1/0/5",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "port_channel_int": "Po1",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": "to acc-sw-03 (VRF RED)",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "switchport_mode": "trunk",
+      "trunk_vlans": [
+        10,
+        20,
+        60,
+        61
+      ],
+      "native_vlan": null
+    },
+    {
+      "interface_id": "core-sw-01:Gi1/0/6",
+      "device_id": "core-sw-01",
+      "name": "Gi1/0/6",
+      "type": "physical",
+      "ip_address": "198.51.100.29",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": "to acc-sw-04 (VRF BLUE)",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "BLUE"
+    },
+    {
+      "interface_id": "core-sw-01:Gi1/0/7",
+      "device_id": "core-sw-01",
+      "name": "Gi1/0/7",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "core-sw-01:Gi1/0/8",
+      "device_id": "core-sw-01",
+      "name": "Gi1/0/8",
+      "type": "physical",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "core-sw-01:Lo0",
+      "device_id": "core-sw-01",
+      "name": "Lo0",
+      "type": "logical",
+      "ip_address": "198.51.100.100",
+      "prefix_length": 32,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1514,
+      "description": null,
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "core-sw-01:Po1",
+      "device_id": "core-sw-01",
+      "name": "Po1",
+      "type": "aggregated",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "port_channel_members": [
+        "Gi1/0/5"
+      ],
+      "speed": "1000mb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": "LAG uplink to acc-sw-03",
+      "media_type": "copper",
+      "sfp_pid": null,
+      "qos": null,
+      "switchport_mode": "trunk",
+      "trunk_vlans": [
+        10,
+        20,
+        60,
+        61
+      ],
+      "native_vlan": null
+    },
+    {
+      "interface_id": "core-sw-01:Vl1",
+      "device_id": "core-sw-01",
+      "name": "Vl1",
+      "type": "vlan",
+      "ip_address": "unassigned",
+      "prefix_length": null,
+      "admin_status": "down",
+      "oper_status": "down",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": null,
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "core-sw-01:Vl10",
+      "device_id": "core-sw-01",
+      "name": "Vl10",
+      "type": "vlan",
+      "ip_address": "198.51.100.25",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": "RED transit to acc-sw-03",
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "RED"
+    },
+    {
+      "interface_id": "core-sw-01:Vl20",
+      "device_id": "core-sw-01",
+      "name": "Vl20",
+      "type": "vlan",
+      "ip_address": "198.51.100.33",
+      "prefix_length": 30,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": "BLUE transit to acc-sw-03",
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null,
+      "vrf": "BLUE"
+    },
+    {
+      "interface_id": "core-sw-01:Vl60",
+      "device_id": "core-sw-01",
+      "name": "Vl60",
+      "type": "vlan",
+      "ip_address": "198.51.100.130",
+      "prefix_length": 28,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": "HSRP-CAMPUS gateway (active)",
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "core-sw-01:Vl61",
+      "device_id": "core-sw-01",
+      "name": "Vl61",
+      "type": "vlan",
+      "ip_address": "198.51.100.146",
+      "prefix_length": 28,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": "VRRP-CAMPUS gateway (master)",
+      "media_type": null,
+      "sfp_pid": null,
+      "qos": null
+    },
+    {
+      "interface_id": "edge-fw-01:fortilink",
+      "device_id": "edge-fw-01",
+      "name": "fortilink",
+      "type": "aggregate",
+      "ip_address": "10.255.1.1/24",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "unknown",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": null,
+      "sfp_pid": null,
+      "media_type": null,
+      "qos": null,
+      "vdom": "root",
+      "aggregate_members": []
+    },
+    {
+      "interface_id": "edge-fw-01:l2t.root",
+      "device_id": "edge-fw-01",
+      "name": "l2t.root",
+      "type": "tunnel",
+      "ip_address": null,
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "unknown",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": null,
+      "sfp_pid": null,
+      "media_type": null,
+      "qos": null,
+      "vdom": "root"
+    },
+    {
+      "interface_id": "edge-fw-01:naf.root",
+      "device_id": "edge-fw-01",
+      "name": "naf.root",
+      "type": "tunnel",
+      "ip_address": null,
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "unknown",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": null,
+      "sfp_pid": null,
+      "media_type": null,
+      "qos": null,
+      "vdom": "root"
+    },
+    {
+      "interface_id": "edge-fw-01:port1",
+      "device_id": "edge-fw-01",
+      "name": "port1",
+      "type": "physical",
+      "ip_address": "10.0.0.15/24",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "10gb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "sfp_pid": null,
+      "media_type": "copper",
+      "qos": null,
+      "vdom": "root"
+    },
+    {
+      "interface_id": "edge-fw-01:port2",
+      "device_id": "edge-fw-01",
+      "name": "port2",
+      "type": "physical",
+      "ip_address": "198.51.100.14/30",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "10gb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "sfp_pid": null,
+      "media_type": "copper",
+      "qos": null,
+      "vdom": "root"
+    },
+    {
+      "interface_id": "edge-fw-01:port3",
+      "device_id": "edge-fw-01",
+      "name": "port3",
+      "type": "physical",
+      "ip_address": "198.51.100.17/30",
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "up",
+      "speed": "10gb/s",
+      "duplex": "full",
+      "mtu": 1500,
+      "description": null,
+      "sfp_pid": null,
+      "media_type": "copper",
+      "qos": null,
+      "vdom": "root"
+    },
+    {
+      "interface_id": "edge-fw-01:ssl.root",
+      "device_id": "edge-fw-01",
+      "name": "ssl.root",
+      "type": "tunnel",
+      "ip_address": null,
+      "prefix_length": null,
+      "admin_status": "up",
+      "oper_status": "unknown",
+      "speed": null,
+      "duplex": null,
+      "mtu": 1500,
+      "description": "SSL VPN interface",
+      "sfp_pid": null,
+      "media_type": null,
+      "qos": null,
+      "vdom": "root"
+    }
+  ],
+  "links": [
+    {
+      "link_id": "acc-sw-01:Gi0/0--edge-fw-01:port1",
+      "local_device_id": "acc-sw-01",
+      "local_interface_id": "acc-sw-01:Gi0/0",
+      "remote_device_id": "edge-fw-01",
+      "remote_interface_id": "edge-fw-01:port1",
+      "status": "up",
+      "direction": "unidirectional",
+      "discovery_method": "arp_subnet",
+      "confidence": "medium",
+      "evidence": [
+        "arp:acc-sw-01(GigabitEthernet0/0)\u219210.0.0.15\u2192edge-fw-01"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "ARP",
+      "discovery_priority": 7,
+      "l2": null,
+      "l3": {
+        "local": {
+          "ip": "10.0.0.15",
+          "prefix_length": "24",
+          "vrf": "Mgmt-vrf"
+        },
+        "remote": {
+          "ip": "10.0.0.15",
+          "prefix_length": "24",
+          "vrf": "default"
+        },
+        "subnet": "10.0.0.0/24"
+      },
+      "link_type": "l3_reachability"
+    },
+    {
+      "link_id": "acc-sw-01:Gi1/0/1--edge-fw-01:port3",
+      "local_device_id": "acc-sw-01",
+      "local_interface_id": "acc-sw-01:Gi1/0/1",
+      "remote_device_id": "edge-fw-01",
+      "remote_interface_id": "edge-fw-01:port3",
+      "status": "up",
+      "direction": "bidirectional",
+      "discovery_method": "mac_fingerprint_bilateral",
+      "confidence": "very_high",
+      "evidence": [
+        "macfp:acc-sw-01(GigabitEthernet1/0/1)\u2194edge-fw-01(port3) via hw-mac",
+        "arp:acc-sw-01(GigabitEthernet1/0/1)\u2192198.51.100.17\u2192edge-fw-01"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "MAC-FP",
+      "discovery_priority": 2,
+      "l2": null,
+      "l3": {
+        "local": {
+          "ip": "198.51.100.18",
+          "prefix_length": "30",
+          "vrf": "default"
+        },
+        "remote": {
+          "ip": "198.51.100.17",
+          "prefix_length": "30",
+          "vrf": "default"
+        },
+        "subnet": "198.51.100.16/30"
+      },
+      "link_type": "physical"
+    },
+    {
+      "link_id": "acc-sw-03:Gi0/0--edge-fw-01:port1",
+      "local_device_id": "acc-sw-03",
+      "local_interface_id": "acc-sw-03:Gi0/0",
+      "remote_device_id": "edge-fw-01",
+      "remote_interface_id": "edge-fw-01:port1",
+      "status": "up",
+      "direction": "unidirectional",
+      "discovery_method": "arp_subnet",
+      "confidence": "medium",
+      "evidence": [
+        "arp:acc-sw-03(GigabitEthernet0/0)\u219210.0.0.15\u2192edge-fw-01"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "ARP",
+      "discovery_priority": 7,
+      "l2": null,
+      "l3": {
+        "local": {
+          "ip": "10.0.0.15",
+          "prefix_length": "24",
+          "vrf": "Mgmt-vrf"
+        },
+        "remote": {
+          "ip": "10.0.0.15",
+          "prefix_length": "24",
+          "vrf": "default"
+        },
+        "subnet": "10.0.0.0/24"
+      },
+      "link_type": "l3_reachability"
+    },
+    {
+      "link_id": "acc-sw-03:Gi1/0/1--core-sw-01:Gi1/0/5",
+      "local_device_id": "acc-sw-03",
+      "local_interface_id": "acc-sw-03:Gi1/0/1",
+      "remote_device_id": "core-sw-01",
+      "remote_interface_id": "core-sw-01:Gi1/0/5",
+      "status": "up",
+      "direction": "bidirectional",
+      "discovery_method": "cdp_bilateral",
+      "confidence": "very_high",
+      "evidence": [
+        "cdp:acc-sw-03\u2192core-sw-01",
+        "cdp:core-sw-01\u2192acc-sw-03",
+        "lacp:acc-sw-03(GigabitEthernet1/0/1)\u2192core-sw-01(?) partner_id=0c00.816a.2a00",
+        "lacp:core-sw-01(GigabitEthernet1/0/5)\u2192acc-sw-03(?) partner_id=0c00.017d.1a00"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "CDP",
+      "discovery_priority": 1,
+      "l2": {
+        "local": {
+          "mode": "trunk",
+          "trunk": {
+            "mode": "trunk",
+            "vlans_carried": [
+              "10",
+              "20",
+              "60",
+              "61"
+            ],
+            "native_vlan": null
+          }
+        },
+        "remote": {
+          "mode": "trunk",
+          "trunk": {
+            "mode": "trunk",
+            "vlans_carried": [
+              "10",
+              "20",
+              "60",
+              "61"
+            ],
+            "native_vlan": null
+          }
+        }
+      },
+      "l3": null,
+      "link_type": "physical"
+    },
+    {
+      "link_id": "acc-sw-03:Vl10--core-sw-01:Vl10",
+      "local_device_id": "acc-sw-03",
+      "local_interface_id": "acc-sw-03:Vl10",
+      "remote_device_id": "core-sw-01",
+      "remote_interface_id": "core-sw-01:Vl10",
+      "status": "up",
+      "direction": "unidirectional",
+      "discovery_method": "arp_subnet",
+      "confidence": "medium",
+      "evidence": [
+        "arp:acc-sw-03(Vlan10)\u2192198.51.100.25\u2192core-sw-01",
+        "arp:core-sw-01\u2192198.51.100.26\u2192acc-sw-03"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "ARP",
+      "discovery_priority": 7,
+      "l2": {
+        "local": {
+          "mode": "svi",
+          "vlan": {
+            "id": "10",
+            "name": "TRANSIT-RED"
+          }
+        },
+        "remote": {
+          "mode": "svi",
+          "vlan": {
+            "id": "10",
+            "name": "TRANSIT-RED"
+          }
+        }
+      },
+      "l3": {
+        "local": {
+          "ip": "198.51.100.26",
+          "prefix_length": "30",
+          "vrf": "RED"
+        },
+        "remote": {
+          "ip": "198.51.100.25",
+          "prefix_length": "30",
+          "vrf": "RED"
+        },
+        "subnet": "198.51.100.24/30"
+      },
+      "link_type": "l3_reachability"
+    },
+    {
+      "link_id": "acc-sw-03:Vl20--core-sw-01:Vl20",
+      "local_device_id": "acc-sw-03",
+      "local_interface_id": "acc-sw-03:Vl20",
+      "remote_device_id": "core-sw-01",
+      "remote_interface_id": "core-sw-01:Vl20",
+      "status": "up",
+      "direction": "unidirectional",
+      "discovery_method": "arp_subnet",
+      "confidence": "medium",
+      "evidence": [
+        "arp:acc-sw-03(Vlan20)\u2192198.51.100.33\u2192core-sw-01",
+        "arp:core-sw-01\u2192198.51.100.34\u2192acc-sw-03"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "ARP",
+      "discovery_priority": 7,
+      "l2": {
+        "local": {
+          "mode": "svi",
+          "vlan": {
+            "id": "20",
+            "name": "TRANSIT-BLUE"
+          }
+        },
+        "remote": {
+          "mode": "svi",
+          "vlan": {
+            "id": "20",
+            "name": "TRANSIT-BLUE"
+          }
+        }
+      },
+      "l3": {
+        "local": {
+          "ip": "198.51.100.34",
+          "prefix_length": "30",
+          "vrf": "BLUE"
+        },
+        "remote": {
+          "ip": "198.51.100.33",
+          "prefix_length": "30",
+          "vrf": "BLUE"
+        },
+        "subnet": "198.51.100.32/30"
+      },
+      "link_type": "l3_reachability"
+    },
+    {
+      "link_id": "acc-sw-03:Vl60--core-sw-01:Vl60",
+      "local_device_id": "acc-sw-03",
+      "local_interface_id": "acc-sw-03:Vl60",
+      "remote_device_id": "core-sw-01",
+      "remote_interface_id": "core-sw-01:Vl60",
+      "status": "up",
+      "direction": "unidirectional",
+      "discovery_method": "subnet_only",
+      "confidence": "very_low",
+      "evidence": [
+        "subnet:198.51.100.128/28 (acc-sw-03:Vlan60=198.51.100.131, core-sw-01:Vlan60=198.51.100.130)"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "Subnet",
+      "discovery_priority": 11,
+      "l2": {
+        "local": {
+          "mode": "svi",
+          "vlan": {
+            "id": "60",
+            "name": "HSRP-CAMPUS"
+          }
+        },
+        "remote": {
+          "mode": "svi",
+          "vlan": {
+            "id": "60",
+            "name": "HSRP-CAMPUS"
+          }
+        }
+      },
+      "l3": {
+        "local": {
+          "ip": "198.51.100.131",
+          "prefix_length": "28",
+          "vrf": "default"
+        },
+        "remote": {
+          "ip": "198.51.100.130",
+          "prefix_length": "28",
+          "vrf": "default"
+        },
+        "subnet": "198.51.100.128/28"
+      },
+      "link_type": "subnet_association"
+    },
+    {
+      "link_id": "acc-sw-03:Vl61--core-sw-01:Vl61",
+      "local_device_id": "acc-sw-03",
+      "local_interface_id": "acc-sw-03:Vl61",
+      "remote_device_id": "core-sw-01",
+      "remote_interface_id": "core-sw-01:Vl61",
+      "status": "up",
+      "direction": "unidirectional",
+      "discovery_method": "subnet_only",
+      "confidence": "very_low",
+      "evidence": [
+        "subnet:198.51.100.144/28 (acc-sw-03:Vlan61=198.51.100.147, core-sw-01:Vlan61=198.51.100.146)"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "Subnet",
+      "discovery_priority": 11,
+      "l2": {
+        "local": {
+          "mode": "svi",
+          "vlan": {
+            "id": "61",
+            "name": "VRRP-CAMPUS"
+          }
+        },
+        "remote": {
+          "mode": "svi",
+          "vlan": {
+            "id": "61",
+            "name": "VRRP-CAMPUS"
+          }
+        }
+      },
+      "l3": {
+        "local": {
+          "ip": "198.51.100.147",
+          "prefix_length": "28",
+          "vrf": "default"
+        },
+        "remote": {
+          "ip": "198.51.100.146",
+          "prefix_length": "28",
+          "vrf": "default"
+        },
+        "subnet": "198.51.100.144/28"
+      },
+      "link_type": "subnet_association"
+    },
+    {
+      "link_id": "acc-sw-04:Gi0/0--edge-fw-01:port1",
+      "local_device_id": "acc-sw-04",
+      "local_interface_id": "acc-sw-04:Gi0/0",
+      "remote_device_id": "edge-fw-01",
+      "remote_interface_id": "edge-fw-01:port1",
+      "status": "up",
+      "direction": "unidirectional",
+      "discovery_method": "arp_subnet",
+      "confidence": "medium",
+      "evidence": [
+        "arp:acc-sw-04(GigabitEthernet0/0)\u219210.0.0.15\u2192edge-fw-01"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "ARP",
+      "discovery_priority": 7,
+      "l2": null,
+      "l3": {
+        "local": {
+          "ip": "10.0.0.15",
+          "prefix_length": "24",
+          "vrf": "Mgmt-vrf"
+        },
+        "remote": {
+          "ip": "10.0.0.15",
+          "prefix_length": "24",
+          "vrf": "default"
+        },
+        "subnet": "10.0.0.0/24"
+      },
+      "link_type": "l3_reachability"
+    },
+    {
+      "link_id": "acc-sw-04:Gi1/0/1--core-sw-01:Gi1/0/6",
+      "local_device_id": "acc-sw-04",
+      "local_interface_id": "acc-sw-04:Gi1/0/1",
+      "remote_device_id": "core-sw-01",
+      "remote_interface_id": "core-sw-01:Gi1/0/6",
+      "status": "up",
+      "direction": "bidirectional",
+      "discovery_method": "cdp_bilateral",
+      "confidence": "very_high",
+      "evidence": [
+        "cdp:acc-sw-04\u2192core-sw-01",
+        "cdp:core-sw-01\u2192acc-sw-04",
+        "macfp:acc-sw-04(GigabitEthernet1/0/1)\u2194core-sw-01(GigabitEthernet1/0/6) via hw-mac",
+        "arp:acc-sw-04(GigabitEthernet1/0/1)\u2192198.51.100.29\u2192core-sw-01",
+        "arp:core-sw-01\u2192198.51.100.30\u2192acc-sw-04"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "CDP",
+      "discovery_priority": 1,
+      "l2": null,
+      "l3": {
+        "local": {
+          "ip": "198.51.100.30",
+          "prefix_length": "30",
+          "vrf": "BLUE"
+        },
+        "remote": {
+          "ip": "198.51.100.29",
+          "prefix_length": "30",
+          "vrf": "BLUE"
+        },
+        "subnet": "198.51.100.28/30"
+      },
+      "link_type": "physical"
+    },
+    {
+      "link_id": "bdr-rtr-01:Gi0/0/0/1--core-sw-01:Gi1/0/1",
+      "local_device_id": "bdr-rtr-01",
+      "local_interface_id": "bdr-rtr-01:Gi0/0/0/1",
+      "remote_device_id": "core-sw-01",
+      "remote_interface_id": "core-sw-01:Gi1/0/1",
+      "status": "up",
+      "direction": "bidirectional",
+      "discovery_method": "mac_fingerprint_bilateral",
+      "confidence": "very_high",
+      "evidence": [
+        "macfp:bdr-rtr-01(GigabitEthernet0/0/0/1)\u2194core-sw-01(GigabitEthernet1/0/1) via hw-mac",
+        "arp:bdr-rtr-01(GigabitEthernet0/0/0/1)\u2192198.51.100.2\u2192core-sw-01",
+        "arp:core-sw-01\u2192198.51.100.1\u2192bdr-rtr-01"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "MAC-FP",
+      "discovery_priority": 2,
+      "l2": null,
+      "l3": {
+        "local": {
+          "ip": "198.51.100.1",
+          "prefix_length": "30",
+          "vrf": "default"
+        },
+        "remote": {
+          "ip": "198.51.100.2",
+          "prefix_length": "30",
+          "vrf": "default"
+        },
+        "subnet": "198.51.100.0/30"
+      },
+      "link_type": "physical"
+    },
+    {
+      "link_id": "bdr-rtr-02:Gi0/0/0/1--core-sw-01:Gi1/0/2",
+      "local_device_id": "bdr-rtr-02",
+      "local_interface_id": "bdr-rtr-02:Gi0/0/0/1",
+      "remote_device_id": "core-sw-01",
+      "remote_interface_id": "core-sw-01:Gi1/0/2",
+      "status": "up",
+      "direction": "bidirectional",
+      "discovery_method": "mac_fingerprint_bilateral",
+      "confidence": "very_high",
+      "evidence": [
+        "macfp:bdr-rtr-02(GigabitEthernet0/0/0/1)\u2194core-sw-01(GigabitEthernet1/0/2) via hw-mac",
+        "arp:bdr-rtr-02(GigabitEthernet0/0/0/1)\u2192198.51.100.6\u2192core-sw-01",
+        "arp:core-sw-01\u2192198.51.100.5\u2192bdr-rtr-02"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "MAC-FP",
+      "discovery_priority": 2,
+      "l2": null,
+      "l3": {
+        "local": {
+          "ip": "198.51.100.5",
+          "prefix_length": "30",
+          "vrf": "default"
+        },
+        "remote": {
+          "ip": "198.51.100.6",
+          "prefix_length": "30",
+          "vrf": "default"
+        },
+        "subnet": "198.51.100.4/30"
+      },
+      "link_type": "physical"
+    },
+    {
+      "link_id": "bdr-rtr-03:Gi0/0/0/1--core-sw-01:Gi1/0/3",
+      "local_device_id": "bdr-rtr-03",
+      "local_interface_id": "bdr-rtr-03:Gi0/0/0/1",
+      "remote_device_id": "core-sw-01",
+      "remote_interface_id": "core-sw-01:Gi1/0/3",
+      "status": "up",
+      "direction": "bidirectional",
+      "discovery_method": "mac_fingerprint_bilateral",
+      "confidence": "very_high",
+      "evidence": [
+        "macfp:bdr-rtr-03(GigabitEthernet0/0/0/1)\u2194core-sw-01(GigabitEthernet1/0/3) via hw-mac",
+        "arp:bdr-rtr-03(GigabitEthernet0/0/0/1)\u2192198.51.100.10\u2192core-sw-01",
+        "arp:core-sw-01\u2192198.51.100.9\u2192bdr-rtr-03"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "MAC-FP",
+      "discovery_priority": 2,
+      "l2": null,
+      "l3": {
+        "local": {
+          "ip": "198.51.100.9",
+          "prefix_length": "30",
+          "vrf": "default"
+        },
+        "remote": {
+          "ip": "198.51.100.10",
+          "prefix_length": "30",
+          "vrf": "default"
+        },
+        "subnet": "198.51.100.8/30"
+      },
+      "link_type": "physical"
+    },
+    {
+      "link_id": "core-sw-01:Gi0/0--edge-fw-01:port1",
+      "local_device_id": "core-sw-01",
+      "local_interface_id": "core-sw-01:Gi0/0",
+      "remote_device_id": "edge-fw-01",
+      "remote_interface_id": "edge-fw-01:port1",
+      "status": "up",
+      "direction": "unidirectional",
+      "discovery_method": "arp_subnet",
+      "confidence": "medium",
+      "evidence": [
+        "arp:core-sw-01(GigabitEthernet0/0)\u219210.0.0.15\u2192edge-fw-01"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "ARP",
+      "discovery_priority": 7,
+      "l2": null,
+      "l3": {
+        "local": {
+          "ip": "10.0.0.15",
+          "prefix_length": "24",
+          "vrf": "Mgmt-vrf"
+        },
+        "remote": {
+          "ip": "10.0.0.15",
+          "prefix_length": "24",
+          "vrf": "default"
+        },
+        "subnet": "10.0.0.0/24"
+      },
+      "link_type": "l3_reachability"
+    },
+    {
+      "link_id": "core-sw-01:Gi1/0/4--edge-fw-01:port2",
+      "local_device_id": "core-sw-01",
+      "local_interface_id": "core-sw-01:Gi1/0/4",
+      "remote_device_id": "edge-fw-01",
+      "remote_interface_id": "edge-fw-01:port2",
+      "status": "up",
+      "direction": "bidirectional",
+      "discovery_method": "mac_fingerprint_bilateral",
+      "confidence": "very_high",
+      "evidence": [
+        "macfp:core-sw-01(GigabitEthernet1/0/4)\u2194edge-fw-01(port2) via hw-mac",
+        "arp:core-sw-01(GigabitEthernet1/0/4)\u2192198.51.100.14\u2192edge-fw-01"
+      ],
+      "peer_collected": true,
+      "discovery_protocol": "MAC-FP",
+      "discovery_priority": 2,
+      "l2": null,
+      "l3": {
+        "local": {
+          "ip": "198.51.100.13",
+          "prefix_length": "30",
+          "vrf": "default"
+        },
+        "remote": {
+          "ip": "198.51.100.14",
+          "prefix_length": "30",
+          "vrf": "default"
+        },
+        "subnet": "198.51.100.12/30"
+      },
+      "link_type": "physical"
+    }
+  ],
+  "adjacencies": [
+    {
+      "protocol": "ospf",
+      "device_a": "acc-sw-01",
+      "device_b": "edge-fw-01",
+      "state": "full",
+      "process_id": "1",
+      "area": "0.0.0.0",
+      "vrf": "default",
+      "interface_a": "GigabitEthernet1/0/1",
+      "interface_b": null,
+      "neighbor_address": "198.51.100.17",
+      "peer_collected": true,
+      "bilateral": false,
+      "cost_a": 1,
+      "cost_b": null,
+      "hello_a": 10,
+      "hello_b": null,
+      "dead_a": 40,
+      "dead_b": null,
+      "network_type_a": "point-to-point",
+      "network_type_b": null,
+      "ip_a": "",
+      "ip_b": "198.51.100.17",
+      "router_id_a": "198.51.100.111",
+      "router_id_b": "",
+      "area_type": "normal",
+      "passive_default_a": false,
+      "passive_default_b": null,
+      "active_interfaces_a": null,
+      "active_interfaces_b": null,
+      "vrf_lite_a": false,
+      "vrf_lite_b": null,
+      "redistribute_a": null,
+      "redistribute_b": null,
+      "reference_bandwidth_a": null,
+      "reference_bandwidth_b": null
+    },
+    {
+      "protocol": "ospf",
+      "device_a": "acc-sw-03",
+      "device_b": "core-sw-01",
+      "state": "full",
+      "process_id": "20",
+      "area": "0.0.0.0",
+      "vrf": "BLUE",
+      "interface_a": "Vlan20",
+      "interface_b": "Vlan20",
+      "neighbor_address": "198.51.100.33",
+      "peer_collected": true,
+      "bilateral": true,
+      "cost_a": 1,
+      "cost_b": 1,
+      "hello_a": 10,
+      "hello_b": 10,
+      "dead_a": 40,
+      "dead_b": 40,
+      "network_type_a": "point-to-point",
+      "network_type_b": "point-to-point",
+      "ip_a": "198.51.100.34",
+      "ip_b": "198.51.100.33",
+      "router_id_a": "198.51.100.115",
+      "router_id_b": "198.51.100.229",
+      "area_type": "backbone",
+      "passive_default_a": false,
+      "passive_default_b": false,
+      "active_interfaces_a": null,
+      "active_interfaces_b": null,
+      "vrf_lite_a": false,
+      "vrf_lite_b": false,
+      "redistribute_a": null,
+      "redistribute_b": null,
+      "reference_bandwidth_a": null,
+      "reference_bandwidth_b": null
+    },
+    {
+      "protocol": "ospf",
+      "device_a": "acc-sw-03",
+      "device_b": "core-sw-01",
+      "state": "full",
+      "process_id": "10",
+      "area": "0.0.0.0",
+      "vrf": "RED",
+      "interface_a": "Vlan10",
+      "interface_b": "Vlan10",
+      "neighbor_address": "198.51.100.25",
+      "peer_collected": true,
+      "bilateral": true,
+      "cost_a": 1,
+      "cost_b": 1,
+      "hello_a": 10,
+      "hello_b": 10,
+      "dead_a": 40,
+      "dead_b": 40,
+      "network_type_a": "point-to-point",
+      "network_type_b": "point-to-point",
+      "ip_a": "198.51.100.26",
+      "ip_b": "198.51.100.25",
+      "router_id_a": "198.51.100.113",
+      "router_id_b": "198.51.100.225",
+      "area_type": "backbone",
+      "passive_default_a": false,
+      "passive_default_b": false,
+      "active_interfaces_a": null,
+      "active_interfaces_b": null,
+      "vrf_lite_a": false,
+      "vrf_lite_b": false,
+      "redistribute_a": null,
+      "redistribute_b": null,
+      "reference_bandwidth_a": null,
+      "reference_bandwidth_b": null
+    },
+    {
+      "protocol": "ospf",
+      "device_a": "acc-sw-04",
+      "device_b": "core-sw-01",
+      "state": "full",
+      "process_id": "20",
+      "area": "0.0.0.1",
+      "vrf": "BLUE",
+      "interface_a": "GigabitEthernet1/0/1",
+      "interface_b": "GigabitEthernet1/0/6",
+      "neighbor_address": "198.51.100.29",
+      "peer_collected": true,
+      "bilateral": true,
+      "cost_a": 1,
+      "cost_b": 1,
+      "hello_a": 10,
+      "hello_b": 10,
+      "dead_a": 40,
+      "dead_b": 40,
+      "network_type_a": "point-to-point",
+      "network_type_b": "point-to-point",
+      "ip_a": "198.51.100.30",
+      "ip_b": "198.51.100.29",
+      "router_id_a": "198.51.100.114",
+      "router_id_b": "198.51.100.229",
+      "area_type": "normal",
+      "passive_default_a": false,
+      "passive_default_b": false,
+      "active_interfaces_a": null,
+      "active_interfaces_b": null,
+      "vrf_lite_a": false,
+      "vrf_lite_b": false,
+      "redistribute_a": null,
+      "redistribute_b": null,
+      "reference_bandwidth_a": null,
+      "reference_bandwidth_b": null
+    },
+    {
+      "protocol": "ospf",
+      "device_a": "bdr-rtr-01",
+      "device_b": "core-sw-01",
+      "state": "full",
+      "process_id": "1",
+      "area": "0.0.0.0",
+      "vrf": "default",
+      "interface_a": "GigabitEthernet0/0/0/1",
+      "interface_b": "GigabitEthernet1/0/1",
+      "neighbor_address": "198.51.100.2",
+      "peer_collected": true,
+      "bilateral": true,
+      "cost_a": 1,
+      "cost_b": 1,
+      "hello_a": 10,
+      "hello_b": 10,
+      "dead_a": 40,
+      "dead_b": 40,
+      "network_type_a": "point-to-point",
+      "network_type_b": "point-to-point",
+      "ip_a": "198.51.100.1",
+      "ip_b": "198.51.100.2",
+      "router_id_a": "198.51.100.101",
+      "router_id_b": "198.51.100.100",
+      "area_type": "normal",
+      "passive_default_a": false,
+      "passive_default_b": false,
+      "active_interfaces_a": null,
+      "active_interfaces_b": null,
+      "vrf_lite_a": false,
+      "vrf_lite_b": false,
+      "redistribute_a": null,
+      "redistribute_b": null,
+      "reference_bandwidth_a": null,
+      "reference_bandwidth_b": null
+    },
+    {
+      "protocol": "ospf",
+      "device_a": "bdr-rtr-02",
+      "device_b": "core-sw-01",
+      "state": "full",
+      "process_id": "1",
+      "area": "0.0.0.0",
+      "vrf": "default",
+      "interface_a": "GigabitEthernet0/0/0/1",
+      "interface_b": "GigabitEthernet1/0/2",
+      "neighbor_address": "198.51.100.6",
+      "peer_collected": true,
+      "bilateral": true,
+      "cost_a": 1,
+      "cost_b": 1,
+      "hello_a": 10,
+      "hello_b": 10,
+      "dead_a": 40,
+      "dead_b": 40,
+      "network_type_a": "point-to-point",
+      "network_type_b": "point-to-point",
+      "ip_a": "198.51.100.5",
+      "ip_b": "198.51.100.6",
+      "router_id_a": "198.51.100.102",
+      "router_id_b": "198.51.100.100",
+      "area_type": "normal",
+      "passive_default_a": false,
+      "passive_default_b": false,
+      "active_interfaces_a": null,
+      "active_interfaces_b": null,
+      "vrf_lite_a": false,
+      "vrf_lite_b": false,
+      "redistribute_a": null,
+      "redistribute_b": null,
+      "reference_bandwidth_a": null,
+      "reference_bandwidth_b": null
+    },
+    {
+      "protocol": "ospf",
+      "device_a": "bdr-rtr-03",
+      "device_b": "core-sw-01",
+      "state": "full",
+      "process_id": "1",
+      "area": "0.0.0.0",
+      "vrf": "default",
+      "interface_a": "GigabitEthernet0/0/0/1",
+      "interface_b": "GigabitEthernet1/0/3",
+      "neighbor_address": "198.51.100.10",
+      "peer_collected": true,
+      "bilateral": true,
+      "cost_a": 1,
+      "cost_b": 1,
+      "hello_a": 10,
+      "hello_b": 10,
+      "dead_a": 40,
+      "dead_b": 40,
+      "network_type_a": "point-to-point",
+      "network_type_b": "point-to-point",
+      "ip_a": "198.51.100.9",
+      "ip_b": "198.51.100.10",
+      "router_id_a": "198.51.100.103",
+      "router_id_b": "198.51.100.100",
+      "area_type": "normal",
+      "passive_default_a": false,
+      "passive_default_b": false,
+      "active_interfaces_a": null,
+      "active_interfaces_b": null,
+      "vrf_lite_a": false,
+      "vrf_lite_b": false,
+      "redistribute_a": null,
+      "redistribute_b": null,
+      "reference_bandwidth_a": null,
+      "reference_bandwidth_b": null
+    },
+    {
+      "protocol": "ospf",
+      "device_a": "core-sw-01",
+      "device_b": "edge-fw-01",
+      "state": "full",
+      "process_id": "1",
+      "area": "0.0.0.0",
+      "vrf": "default",
+      "interface_a": "GigabitEthernet1/0/4",
+      "interface_b": null,
+      "neighbor_address": "198.51.100.14",
+      "peer_collected": true,
+      "bilateral": false,
+      "cost_a": 1,
+      "cost_b": null,
+      "hello_a": 10,
+      "hello_b": null,
+      "dead_a": 40,
+      "dead_b": null,
+      "network_type_a": "point-to-point",
+      "network_type_b": null,
+      "ip_a": "",
+      "ip_b": "198.51.100.14",
+      "router_id_a": "198.51.100.100",
+      "router_id_b": "",
+      "area_type": "normal",
+      "passive_default_a": false,
+      "passive_default_b": null,
+      "active_interfaces_a": null,
+      "active_interfaces_b": null,
+      "vrf_lite_a": false,
+      "vrf_lite_b": null,
+      "redistribute_a": null,
+      "redistribute_b": null,
+      "reference_bandwidth_a": null,
+      "reference_bandwidth_b": null
+    },
+    {
+      "protocol": "bgp",
+      "device_a": "203.0.113.10",
+      "device_b": "bdr-rtr-03",
+      "state": "established",
+      "local_as": 64499,
+      "remote_as": 64496,
+      "vrf": "default",
+      "address_families": [
+        "ipv4 unicast"
+      ],
+      "peer_collected": false,
+      "bilateral": false,
+      "session_type": "ebgp",
+      "peer_label": "AS 64499 (eBGP-isp-03)",
+      "network_statements_a": [],
+      "network_statements_b": [
+        "198.51.100.103/32"
+      ],
+      "rr_client": false,
+      "rr_reflector": null,
+      "router_id_a": null,
+      "router_id_b": "198.51.100.103",
+      "description_a": null,
+      "description_b": "eBGP-isp-03",
+      "prefixes_received_a": null,
+      "prefixes_received_b": null,
+      "msg_sent_a": null,
+      "msg_sent_b": 28713,
+      "msg_rcvd_a": null,
+      "msg_rcvd_b": 28708,
+      "up_down_a": null,
+      "up_down_b": "2w5d",
+      "keepalive_a": null,
+      "keepalive_b": 60,
+      "hold_time_a": null,
+      "hold_time_b": 180,
+      "route_policy_in_a": null,
+      "route_policy_in_b": "PASS",
+      "route_policy_out_a": null,
+      "route_policy_out_b": "PASS",
+      "bfd_a": null,
+      "bfd_b": false,
+      "graceful_restart_a": null,
+      "graceful_restart_b": false,
+      "password_configured_a": null,
+      "password_configured_b": false,
+      "maximum_prefix_a": null,
+      "maximum_prefix_b": null,
+      "update_source_a": null,
+      "update_source_b": null,
+      "send_community_a": null,
+      "send_community_b": false,
+      "next_hop_self_a": null,
+      "next_hop_self_b": false,
+      "soft_reconfiguration_a": null,
+      "soft_reconfiguration_b": false,
+      "route_reflector_client_a": null,
+      "route_reflector_client_b": false,
+      "allowas_in_a": null,
+      "allowas_in_b": false
+    },
+    {
+      "protocol": "bgp",
+      "device_a": "203.0.113.2",
+      "device_b": "bdr-rtr-01",
+      "state": "established",
+      "local_as": 64497,
+      "remote_as": 64496,
+      "vrf": "default",
+      "address_families": [
+        "ipv4 unicast"
+      ],
+      "peer_collected": false,
+      "bilateral": false,
+      "session_type": "ebgp",
+      "peer_label": "AS 64497 (eBGP-isp-01)",
+      "network_statements_a": [],
+      "network_statements_b": [
+        "198.51.100.101/32"
+      ],
+      "rr_client": false,
+      "rr_reflector": null,
+      "router_id_a": null,
+      "router_id_b": "198.51.100.101",
+      "description_a": null,
+      "description_b": "eBGP-isp-01",
+      "prefixes_received_a": null,
+      "prefixes_received_b": null,
+      "msg_sent_a": null,
+      "msg_sent_b": 28714,
+      "msg_rcvd_a": null,
+      "msg_rcvd_b": 28708,
+      "up_down_a": null,
+      "up_down_b": "2w5d",
+      "keepalive_a": null,
+      "keepalive_b": 60,
+      "hold_time_a": null,
+      "hold_time_b": 180,
+      "route_policy_in_a": null,
+      "route_policy_in_b": "PASS",
+      "route_policy_out_a": null,
+      "route_policy_out_b": "PASS",
+      "bfd_a": null,
+      "bfd_b": false,
+      "graceful_restart_a": null,
+      "graceful_restart_b": false,
+      "password_configured_a": null,
+      "password_configured_b": false,
+      "maximum_prefix_a": null,
+      "maximum_prefix_b": null,
+      "update_source_a": null,
+      "update_source_b": null,
+      "send_community_a": null,
+      "send_community_b": false,
+      "next_hop_self_a": null,
+      "next_hop_self_b": false,
+      "soft_reconfiguration_a": null,
+      "soft_reconfiguration_b": false,
+      "route_reflector_client_a": null,
+      "route_reflector_client_b": false,
+      "allowas_in_a": null,
+      "allowas_in_b": false
+    },
+    {
+      "protocol": "bgp",
+      "device_a": "203.0.113.6",
+      "device_b": "bdr-rtr-02",
+      "state": "established",
+      "local_as": 64498,
+      "remote_as": 64496,
+      "vrf": "default",
+      "address_families": [
+        "ipv4 unicast"
+      ],
+      "peer_collected": false,
+      "bilateral": false,
+      "session_type": "ebgp",
+      "peer_label": "AS 64498 (eBGP-isp-02)",
+      "network_statements_a": [],
+      "network_statements_b": [
+        "198.51.100.102/32"
+      ],
+      "rr_client": false,
+      "rr_reflector": null,
+      "router_id_a": null,
+      "router_id_b": "198.51.100.102",
+      "description_a": null,
+      "description_b": "eBGP-isp-02",
+      "prefixes_received_a": null,
+      "prefixes_received_b": null,
+      "msg_sent_a": null,
+      "msg_sent_b": 28713,
+      "msg_rcvd_a": null,
+      "msg_rcvd_b": 28708,
+      "up_down_a": null,
+      "up_down_b": "2w5d",
+      "keepalive_a": null,
+      "keepalive_b": 60,
+      "hold_time_a": null,
+      "hold_time_b": 180,
+      "route_policy_in_a": null,
+      "route_policy_in_b": "PASS",
+      "route_policy_out_a": null,
+      "route_policy_out_b": "PASS",
+      "bfd_a": null,
+      "bfd_b": false,
+      "graceful_restart_a": null,
+      "graceful_restart_b": false,
+      "password_configured_a": null,
+      "password_configured_b": false,
+      "maximum_prefix_a": null,
+      "maximum_prefix_b": null,
+      "update_source_a": null,
+      "update_source_b": null,
+      "send_community_a": null,
+      "send_community_b": false,
+      "next_hop_self_a": null,
+      "next_hop_self_b": false,
+      "soft_reconfiguration_a": null,
+      "soft_reconfiguration_b": false,
+      "route_reflector_client_a": null,
+      "route_reflector_client_b": false,
+      "allowas_in_a": null,
+      "allowas_in_b": false
+    },
+    {
+      "protocol": "bgp",
+      "device_a": "bdr-rtr-01",
+      "device_b": "core-sw-01",
+      "state": "established",
+      "local_as": 64496,
+      "remote_as": 64496,
+      "vrf": "default",
+      "address_families": [
+        "ipv4 unicast"
+      ],
+      "peer_collected": true,
+      "bilateral": true,
+      "session_type": "ibgp",
+      "peer_label": null,
+      "network_statements_a": [
+        "198.51.100.101/32"
+      ],
+      "network_statements_b": [
+        "198.51.100.100"
+      ],
+      "rr_client": true,
+      "rr_reflector": "core-sw-01",
+      "router_id_a": "198.51.100.101",
+      "router_id_b": "198.51.100.100",
+      "description_a": "iBGP-RR-core-sw-01",
+      "description_b": "iBGP-RRC-bdr-rtr-01",
+      "prefixes_received_a": null,
+      "prefixes_received_b": 10,
+      "msg_sent_a": 28707,
+      "msg_sent_b": 31604,
+      "msg_rcvd_a": 31604,
+      "msg_rcvd_b": 28707,
+      "up_down_a": "2w5d",
+      "up_down_b": "never",
+      "keepalive_a": 60,
+      "keepalive_b": 60,
+      "hold_time_a": 180,
+      "hold_time_b": 180,
+      "route_policy_in_a": null,
+      "route_policy_in_b": null,
+      "route_policy_out_a": null,
+      "route_policy_out_b": null,
+      "bfd_a": false,
+      "bfd_b": false,
+      "graceful_restart_a": false,
+      "graceful_restart_b": false,
+      "password_configured_a": false,
+      "password_configured_b": false,
+      "maximum_prefix_a": null,
+      "maximum_prefix_b": null,
+      "update_source_a": "Loopback0",
+      "update_source_b": "Loopback0",
+      "send_community_a": false,
+      "send_community_b": false,
+      "next_hop_self_a": true,
+      "next_hop_self_b": false,
+      "soft_reconfiguration_a": false,
+      "soft_reconfiguration_b": false,
+      "route_reflector_client_a": false,
+      "route_reflector_client_b": true,
+      "allowas_in_a": false,
+      "allowas_in_b": false
+    },
+    {
+      "protocol": "bgp",
+      "device_a": "bdr-rtr-02",
+      "device_b": "core-sw-01",
+      "state": "established",
+      "local_as": 64496,
+      "remote_as": 64496,
+      "vrf": "default",
+      "address_families": [
+        "ipv4 unicast"
+      ],
+      "peer_collected": true,
+      "bilateral": true,
+      "session_type": "ibgp",
+      "peer_label": null,
+      "network_statements_a": [
+        "198.51.100.102/32"
+      ],
+      "network_statements_b": [
+        "198.51.100.100"
+      ],
+      "rr_client": true,
+      "rr_reflector": "core-sw-01",
+      "router_id_a": "198.51.100.102",
+      "router_id_b": "198.51.100.100",
+      "description_a": "iBGP-RR-core-sw-01",
+      "description_b": "iBGP-RRC-bdr-rtr-02",
+      "prefixes_received_a": null,
+      "prefixes_received_b": 10,
+      "msg_sent_a": 28707,
+      "msg_sent_b": 31596,
+      "msg_rcvd_a": 31596,
+      "msg_rcvd_b": 28707,
+      "up_down_a": "2w5d",
+      "up_down_b": "never",
+      "keepalive_a": 60,
+      "keepalive_b": 60,
+      "hold_time_a": 180,
+      "hold_time_b": 180,
+      "route_policy_in_a": null,
+      "route_policy_in_b": null,
+      "route_policy_out_a": null,
+      "route_policy_out_b": null,
+      "bfd_a": false,
+      "bfd_b": false,
+      "graceful_restart_a": false,
+      "graceful_restart_b": false,
+      "password_configured_a": false,
+      "password_configured_b": false,
+      "maximum_prefix_a": null,
+      "maximum_prefix_b": null,
+      "update_source_a": "Loopback0",
+      "update_source_b": "Loopback0",
+      "send_community_a": false,
+      "send_community_b": false,
+      "next_hop_self_a": true,
+      "next_hop_self_b": false,
+      "soft_reconfiguration_a": false,
+      "soft_reconfiguration_b": false,
+      "route_reflector_client_a": false,
+      "route_reflector_client_b": true,
+      "allowas_in_a": false,
+      "allowas_in_b": false
+    },
+    {
+      "protocol": "bgp",
+      "device_a": "bdr-rtr-03",
+      "device_b": "core-sw-01",
+      "state": "established",
+      "local_as": 64496,
+      "remote_as": 64496,
+      "vrf": "default",
+      "address_families": [
+        "ipv4 unicast"
+      ],
+      "peer_collected": true,
+      "bilateral": true,
+      "session_type": "ibgp",
+      "peer_label": null,
+      "network_statements_a": [
+        "198.51.100.103/32"
+      ],
+      "network_statements_b": [
+        "198.51.100.100"
+      ],
+      "rr_client": true,
+      "rr_reflector": "core-sw-01",
+      "router_id_a": "198.51.100.103",
+      "router_id_b": "198.51.100.100",
+      "description_a": "iBGP-RR-core-sw-01",
+      "description_b": "iBGP-RRC-bdr-rtr-03",
+      "prefixes_received_a": null,
+      "prefixes_received_b": 10,
+      "msg_sent_a": 28707,
+      "msg_sent_b": 31589,
+      "msg_rcvd_a": 31589,
+      "msg_rcvd_b": 28707,
+      "up_down_a": "2w5d",
+      "up_down_b": "never",
+      "keepalive_a": 60,
+      "keepalive_b": 60,
+      "hold_time_a": 180,
+      "hold_time_b": 180,
+      "route_policy_in_a": null,
+      "route_policy_in_b": null,
+      "route_policy_out_a": null,
+      "route_policy_out_b": null,
+      "bfd_a": false,
+      "bfd_b": false,
+      "graceful_restart_a": false,
+      "graceful_restart_b": false,
+      "password_configured_a": false,
+      "password_configured_b": false,
+      "maximum_prefix_a": null,
+      "maximum_prefix_b": null,
+      "update_source_a": "Loopback0",
+      "update_source_b": "Loopback0",
+      "send_community_a": false,
+      "send_community_b": false,
+      "next_hop_self_a": true,
+      "next_hop_self_b": false,
+      "soft_reconfiguration_a": false,
+      "soft_reconfiguration_b": false,
+      "route_reflector_client_a": false,
+      "route_reflector_client_b": true,
+      "allowas_in_a": false,
+      "allowas_in_b": false
+    }
+  ],
+  "shared_services": [
+    {
+      "service_type": "vlan",
+      "identifier": "10",
+      "name": "TRANSIT-RED",
+      "members": [
+        "acc-sw-03",
+        "core-sw-01"
+      ],
+      "vlan_id": 10
+    },
+    {
+      "service_type": "vlan",
+      "identifier": "20",
+      "name": "TRANSIT-BLUE",
+      "members": [
+        "acc-sw-03",
+        "core-sw-01"
+      ],
+      "vlan_id": 20
+    },
+    {
+      "service_type": "vlan",
+      "identifier": "31",
+      "name": "BLUE-USERS-CAMPUS",
+      "members": [
+        "acc-sw-01",
+        "acc-sw-03",
+        "bdr-rtr-01",
+        "bdr-rtr-02",
+        "bdr-rtr-03",
+        "core-sw-01"
+      ],
+      "vlan_id": 31
+    },
+    {
+      "service_type": "vlan",
+      "identifier": "60",
+      "name": "HSRP-CAMPUS",
+      "members": [
+        "acc-sw-03",
+        "core-sw-01"
+      ],
+      "vlan_id": 60
+    },
+    {
+      "service_type": "vlan",
+      "identifier": "61",
+      "name": "VRRP-CAMPUS",
+      "members": [
+        "acc-sw-03",
+        "core-sw-01"
+      ],
+      "vlan_id": 61
+    },
+    {
+      "service_type": "subnet",
+      "identifier": "10.0.0.0/24",
+      "vrf": "Mgmt-vrf",
+      "members": [
+        {
+          "hostname": "acc-sw-01",
+          "interface": "GigabitEthernet0/0",
+          "ip": "10.0.0.15"
+        },
+        {
+          "hostname": "acc-sw-03",
+          "interface": "GigabitEthernet0/0",
+          "ip": "10.0.0.15"
+        },
+        {
+          "hostname": "acc-sw-04",
+          "interface": "GigabitEthernet0/0",
+          "ip": "10.0.0.15"
+        },
+        {
+          "hostname": "bdr-rtr-01",
+          "interface": "MgmtEth0/RP0/CPU0/0",
+          "ip": "10.0.0.15"
+        },
+        {
+          "hostname": "bdr-rtr-02",
+          "interface": "MgmtEth0/RP0/CPU0/0",
+          "ip": "10.0.0.15"
+        },
+        {
+          "hostname": "bdr-rtr-03",
+          "interface": "MgmtEth0/RP0/CPU0/0",
+          "ip": "10.0.0.15"
+        },
+        {
+          "hostname": "core-sw-01",
+          "interface": "GigabitEthernet0/0",
+          "ip": "10.0.0.15"
+        },
+        {
+          "hostname": "edge-fw-01",
+          "interface": "port1",
+          "ip": "10.0.0.15"
+        }
+      ]
+    },
+    {
+      "service_type": "subnet",
+      "identifier": "198.51.100.0/30",
+      "vrf": "default",
+      "members": [
+        {
+          "hostname": "bdr-rtr-01",
+          "interface": "GigabitEthernet0/0/0/1",
+          "ip": "198.51.100.1"
+        },
+        {
+          "hostname": "core-sw-01",
+          "interface": "GigabitEthernet1/0/1",
+          "ip": "198.51.100.2"
+        }
+      ]
+    },
+    {
+      "service_type": "subnet",
+      "identifier": "198.51.100.12/30",
+      "vrf": "default",
+      "members": [
+        {
+          "hostname": "core-sw-01",
+          "interface": "GigabitEthernet1/0/4",
+          "ip": "198.51.100.13"
+        },
+        {
+          "hostname": "edge-fw-01",
+          "interface": "port2",
+          "ip": "198.51.100.14"
+        }
+      ]
+    },
+    {
+      "service_type": "subnet",
+      "identifier": "198.51.100.128/28",
+      "vrf": "default",
+      "members": [
+        {
+          "hostname": "acc-sw-03",
+          "interface": "Vlan60",
+          "ip": "198.51.100.131"
+        },
+        {
+          "hostname": "core-sw-01",
+          "interface": "Vlan60",
+          "ip": "198.51.100.130"
+        }
+      ]
+    },
+    {
+      "service_type": "subnet",
+      "identifier": "198.51.100.144/28",
+      "vrf": "default",
+      "members": [
+        {
+          "hostname": "acc-sw-03",
+          "interface": "Vlan61",
+          "ip": "198.51.100.147"
+        },
+        {
+          "hostname": "core-sw-01",
+          "interface": "Vlan61",
+          "ip": "198.51.100.146"
+        }
+      ]
+    },
+    {
+      "service_type": "subnet",
+      "identifier": "198.51.100.16/30",
+      "vrf": "default",
+      "members": [
+        {
+          "hostname": "acc-sw-01",
+          "interface": "GigabitEthernet1/0/1",
+          "ip": "198.51.100.18"
+        },
+        {
+          "hostname": "edge-fw-01",
+          "interface": "port3",
+          "ip": "198.51.100.17"
+        }
+      ]
+    },
+    {
+      "service_type": "subnet",
+      "identifier": "198.51.100.200/32",
+      "vrf": "default",
+      "members": [
+        {
+          "hostname": "bdr-rtr-01",
+          "interface": "Loopback1",
+          "ip": "198.51.100.200"
+        },
+        {
+          "hostname": "bdr-rtr-02",
+          "interface": "Loopback1",
+          "ip": "198.51.100.200"
+        }
+      ]
+    },
+    {
+      "service_type": "subnet",
+      "identifier": "198.51.100.24/30",
+      "vrf": "RED",
+      "members": [
+        {
+          "hostname": "acc-sw-03",
+          "interface": "Vlan10",
+          "ip": "198.51.100.26"
+        },
+        {
+          "hostname": "core-sw-01",
+          "interface": "Vlan10",
+          "ip": "198.51.100.25"
+        }
+      ]
+    },
+    {
+      "service_type": "subnet",
+      "identifier": "198.51.100.28/30",
+      "vrf": "BLUE",
+      "members": [
+        {
+          "hostname": "acc-sw-04",
+          "interface": "GigabitEthernet1/0/1",
+          "ip": "198.51.100.30"
+        },
+        {
+          "hostname": "core-sw-01",
+          "interface": "GigabitEthernet1/0/6",
+          "ip": "198.51.100.29"
+        }
+      ]
+    },
+    {
+      "service_type": "subnet",
+      "identifier": "198.51.100.32/30",
+      "vrf": "BLUE",
+      "members": [
+        {
+          "hostname": "acc-sw-03",
+          "interface": "Vlan20",
+          "ip": "198.51.100.34"
+        },
+        {
+          "hostname": "core-sw-01",
+          "interface": "Vlan20",
+          "ip": "198.51.100.33"
+        }
+      ]
+    },
+    {
+      "service_type": "subnet",
+      "identifier": "198.51.100.4/30",
+      "vrf": "default",
+      "members": [
+        {
+          "hostname": "bdr-rtr-02",
+          "interface": "GigabitEthernet0/0/0/1",
+          "ip": "198.51.100.5"
+        },
+        {
+          "hostname": "core-sw-01",
+          "interface": "GigabitEthernet1/0/2",
+          "ip": "198.51.100.6"
+        }
+      ]
+    },
+    {
+      "service_type": "subnet",
+      "identifier": "198.51.100.8/30",
+      "vrf": "default",
+      "members": [
+        {
+          "hostname": "bdr-rtr-03",
+          "interface": "GigabitEthernet0/0/0/1",
+          "ip": "198.51.100.9"
+        },
+        {
+          "hostname": "core-sw-01",
+          "interface": "GigabitEthernet1/0/3",
+          "ip": "198.51.100.10"
+        }
+      ]
+    },
+    {
+      "service_type": "ospf_area",
+      "identifier": "0.0.0.0",
+      "vrf": "BLUE",
+      "process_id": "20",
+      "members": [
+        "acc-sw-03",
+        "core-sw-01"
+      ],
+      "area_type": "normal",
+      "spf_runs": 14,
+      "lsa_count": 4
+    },
+    {
+      "service_type": "ospf_area",
+      "identifier": "0.0.0.1",
+      "vrf": "BLUE",
+      "process_id": "20",
+      "members": [
+        "acc-sw-04",
+        "core-sw-01"
+      ],
+      "area_type": "normal",
+      "spf_runs": 4,
+      "lsa_count": 4
+    },
+    {
+      "service_type": "ospf_area",
+      "identifier": "0.0.0.0",
+      "vrf": "RED",
+      "process_id": "10",
+      "members": [
+        "acc-sw-03",
+        "core-sw-01"
+      ],
+      "area_type": "normal",
+      "spf_runs": 10,
+      "lsa_count": 2
+    },
+    {
+      "service_type": "ospf_area",
+      "identifier": "0.0.0.0",
+      "vrf": "default",
+      "process_id": "1",
+      "members": [
+        "acc-sw-01",
+        "bdr-rtr-01",
+        "bdr-rtr-02",
+        "bdr-rtr-03",
+        "core-sw-01"
+      ],
+      "area_type": "normal",
+      "spf_runs": 26,
+      "lsa_count": 6
+    },
+    {
+      "service_type": "bgp_asn",
+      "identifier": "64496",
+      "members": [
+        "bdr-rtr-01",
+        "bdr-rtr-02",
+        "bdr-rtr-03",
+        "core-sw-01"
+      ]
+    },
+    {
+      "service_type": "fhrp_group",
+      "identifier": "198.51.100.129/60",
+      "protocol": "hsrp",
+      "group_number": 60,
+      "vip": "198.51.100.129",
+      "virtual_mac": "0000.0c9f.f03c",
+      "interface": "Vlan60",
+      "members": [
+        {
+          "hostname": "acc-sw-03",
+          "interface": "Vlan60",
+          "priority": 100,
+          "state": "standby",
+          "preempt": true,
+          "version": 2,
+          "hello_sec": 3,
+          "hold_sec": 10,
+          "tracked": false,
+          "authenticated": false,
+          "adv_interval": null,
+          "ip": "198.51.100.131"
+        },
+        {
+          "hostname": "core-sw-01",
+          "interface": "Vlan60",
+          "priority": 120,
+          "state": "active",
+          "preempt": true,
+          "version": 2,
+          "hello_sec": 3,
+          "hold_sec": 10,
+          "tracked": false,
+          "authenticated": false,
+          "adv_interval": null,
+          "ip": "198.51.100.130"
+        }
+      ],
+      "active_device": "core-sw-01"
+    },
+    {
+      "service_type": "fhrp_group",
+      "identifier": "198.51.100.145/61",
+      "protocol": "vrrp",
+      "group_number": 61,
+      "vip": "198.51.100.145",
+      "virtual_mac": "0000.5E00.013D",
+      "interface": "Vlan61",
+      "members": [
+        {
+          "hostname": "acc-sw-03",
+          "interface": "Vlan61",
+          "priority": 100,
+          "state": "backup",
+          "preempt": true,
+          "version": null,
+          "hello_sec": null,
+          "hold_sec": null,
+          "tracked": null,
+          "authenticated": null,
+          "adv_interval": 1.0,
+          "ip": "198.51.100.147"
+        },
+        {
+          "hostname": "core-sw-01",
+          "interface": "Vlan61",
+          "priority": 120,
+          "state": "master",
+          "preempt": true,
+          "version": null,
+          "hello_sec": null,
+          "hold_sec": null,
+          "tracked": null,
+          "authenticated": null,
+          "adv_interval": 1.0,
+          "ip": "198.51.100.146"
+        }
+      ],
+      "active_device": "core-sw-01"
+    }
+  ],
+  "l2_domains": [
+    {
+      "id": "vlan10-dom0",
+      "vlan_id": 10,
+      "name": "TRANSIT-RED",
+      "member_devices": [
+        "acc-sw-03",
+        "core-sw-01"
+      ],
+      "access_ports": [],
+      "trunk_links": [
+        "acc-sw-03:Gi1/0/1--core-sw-01:Gi1/0/5"
+      ],
+      "svis": [
+        "acc-sw-03:Vl10",
+        "core-sw-01:Vl10"
+      ]
+    },
+    {
+      "id": "vlan20-dom0",
+      "vlan_id": 20,
+      "name": "TRANSIT-BLUE",
+      "member_devices": [
+        "acc-sw-03",
+        "core-sw-01"
+      ],
+      "access_ports": [],
+      "trunk_links": [
+        "acc-sw-03:Gi1/0/1--core-sw-01:Gi1/0/5"
+      ],
+      "svis": [
+        "acc-sw-03:Vl20",
+        "core-sw-01:Vl20"
+      ]
+    },
+    {
+      "id": "vlan30-dom0",
+      "vlan_id": 30,
+      "name": null,
+      "member_devices": [
+        "acc-sw-03"
+      ],
+      "access_ports": [
+        "acc-sw-03:Gi1/0/2"
+      ],
+      "trunk_links": [],
+      "svis": [
+        "acc-sw-03:Vl30"
+      ]
+    },
+    {
+      "id": "vlan40-dom0",
+      "vlan_id": 40,
+      "name": null,
+      "member_devices": [
+        "acc-sw-04"
+      ],
+      "access_ports": [
+        "acc-sw-04:Gi1/0/2"
+      ],
+      "trunk_links": [],
+      "svis": [
+        "acc-sw-04:Vl40"
+      ]
+    },
+    {
+      "id": "vlan50-dom0",
+      "vlan_id": 50,
+      "name": null,
+      "member_devices": [
+        "acc-sw-01"
+      ],
+      "access_ports": [
+        "acc-sw-01:Gi1/0/2"
+      ],
+      "trunk_links": [],
+      "svis": [
+        "acc-sw-01:Vl50"
+      ]
+    },
+    {
+      "id": "vlan60-dom0",
+      "vlan_id": 60,
+      "name": "HSRP-CAMPUS",
+      "member_devices": [
+        "acc-sw-03",
+        "core-sw-01"
+      ],
+      "access_ports": [],
+      "trunk_links": [
+        "acc-sw-03:Gi1/0/1--core-sw-01:Gi1/0/5"
+      ],
+      "svis": [
+        "acc-sw-03:Vl60",
+        "core-sw-01:Vl60"
+      ]
+    },
+    {
+      "id": "vlan61-dom0",
+      "vlan_id": 61,
+      "name": "VRRP-CAMPUS",
+      "member_devices": [
+        "acc-sw-03",
+        "core-sw-01"
+      ],
+      "access_ports": [],
+      "trunk_links": [
+        "acc-sw-03:Gi1/0/1--core-sw-01:Gi1/0/5"
+      ],
+      "svis": [
+        "acc-sw-03:Vl61",
+        "core-sw-01:Vl61"
+      ]
+    }
+  ],
+  "ospf_lsdb": [
+    {
+      "lsa_type": 1,
+      "lsa_id": "198.51.100.120",
+      "adv_router": "198.51.100.120",
+      "prefix": "198.51.100.120",
+      "metric": null,
+      "num_links": 4,
+      "area_id": "0.0.0.0",
+      "vrf": "default",
+      "process_id": "1"
+    },
+    {
+      "lsa_type": 1,
+      "lsa_id": "198.51.100.111",
+      "adv_router": "198.51.100.111",
+      "prefix": "198.51.100.111",
+      "metric": null,
+      "num_links": 4,
+      "area_id": "0.0.0.0",
+      "vrf": "default",
+      "process_id": "1"
+    },
+    {
+      "lsa_type": 1,
+      "lsa_id": "198.51.100.103",
+      "adv_router": "198.51.100.103",
+      "prefix": "198.51.100.103",
+      "metric": null,
+      "num_links": 3,
+      "area_id": "0.0.0.0",
+      "vrf": "default",
+      "process_id": "1"
+    },
+    {
+      "lsa_type": 1,
+      "lsa_id": "198.51.100.102",
+      "adv_router": "198.51.100.102",
+      "prefix": "198.51.100.102",
+      "metric": null,
+      "num_links": 4,
+      "area_id": "0.0.0.0",
+      "vrf": "default",
+      "process_id": "1"
+    },
+    {
+      "lsa_type": 1,
+      "lsa_id": "198.51.100.101",
+      "adv_router": "198.51.100.101",
+      "prefix": "198.51.100.101",
+      "metric": null,
+      "num_links": 4,
+      "area_id": "0.0.0.0",
+      "vrf": "default",
+      "process_id": "1"
+    },
+    {
+      "lsa_type": 1,
+      "lsa_id": "198.51.100.100",
+      "adv_router": "198.51.100.100",
+      "prefix": "198.51.100.100",
+      "metric": null,
+      "num_links": 11,
+      "area_id": "0.0.0.0",
+      "vrf": "default",
+      "process_id": "1"
+    },
+    {
+      "lsa_type": 1,
+      "lsa_id": "198.51.100.225",
+      "adv_router": "198.51.100.225",
+      "prefix": "198.51.100.225",
+      "metric": null,
+      "num_links": 2,
+      "area_id": "0.0.0.0",
+      "vrf": "RED",
+      "process_id": "10"
+    },
+    {
+      "lsa_type": 1,
+      "lsa_id": "198.51.100.113",
+      "adv_router": "198.51.100.113",
+      "prefix": "198.51.100.113",
+      "metric": null,
+      "num_links": 2,
+      "area_id": "0.0.0.0",
+      "vrf": "RED",
+      "process_id": "10"
+    },
+    {
+      "lsa_type": 1,
+      "lsa_id": "198.51.100.229",
+      "adv_router": "198.51.100.229",
+      "prefix": "198.51.100.229",
+      "metric": null,
+      "num_links": 2,
+      "area_id": "0.0.0.0",
+      "vrf": "BLUE",
+      "process_id": "20"
+    },
+    {
+      "lsa_type": 1,
+      "lsa_id": "198.51.100.115",
+      "adv_router": "198.51.100.115",
+      "prefix": "198.51.100.115",
+      "metric": null,
+      "num_links": 3,
+      "area_id": "0.0.0.0",
+      "vrf": "BLUE",
+      "process_id": "20"
+    },
+    {
+      "lsa_type": 3,
+      "lsa_id": "198.51.100.80",
+      "adv_router": "198.51.100.229",
+      "prefix": "198.51.100.80/28",
+      "metric": 2,
+      "area_id": "0.0.0.0",
+      "vrf": "BLUE",
+      "process_id": "20"
+    },
+    {
+      "lsa_type": 3,
+      "lsa_id": "198.51.100.28",
+      "adv_router": "198.51.100.229",
+      "prefix": "198.51.100.28/30",
+      "metric": 1,
+      "area_id": "0.0.0.0",
+      "vrf": "BLUE",
+      "process_id": "20"
+    },
+    {
+      "lsa_type": 1,
+      "lsa_id": "198.51.100.229",
+      "adv_router": "198.51.100.229",
+      "prefix": "198.51.100.229",
+      "metric": null,
+      "num_links": 2,
+      "area_id": "0.0.0.1",
+      "vrf": "BLUE",
+      "process_id": "20"
+    },
+    {
+      "lsa_type": 1,
+      "lsa_id": "198.51.100.114",
+      "adv_router": "198.51.100.114",
+      "prefix": "198.51.100.114",
+      "metric": null,
+      "num_links": 3,
+      "area_id": "0.0.0.1",
+      "vrf": "BLUE",
+      "process_id": "20"
+    },
+    {
+      "lsa_type": 3,
+      "lsa_id": "198.51.100.96",
+      "adv_router": "198.51.100.229",
+      "prefix": "198.51.100.96/28",
+      "metric": 2,
+      "area_id": "0.0.0.1",
+      "vrf": "BLUE",
+      "process_id": "20"
+    },
+    {
+      "lsa_type": 3,
+      "lsa_id": "198.51.100.32",
+      "adv_router": "198.51.100.229",
+      "prefix": "198.51.100.32/30",
+      "metric": 1,
+      "area_id": "0.0.0.1",
+      "vrf": "BLUE",
+      "process_id": "20"
+    }
+  ],
+  "topology_warnings": []
+}

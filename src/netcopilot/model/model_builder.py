@@ -507,6 +507,24 @@ def build_model(run_id: str, runs_base: str = "runs") -> dict[str, Any]:
             except (ValueError, TypeError):
                 pass
 
+    # Enrich FHRP group members with each device's REAL interface IP, so the UI
+    # shows every peer's actual address + role, not only the shared VIP (S20).
+    # The member's interface is the full Genie name (e.g. "Vlan60") while model
+    # interfaces are normalized ("Vl60"), so key the lookup on BOTH forms.
+    _dev_host = {d.get("device_id"): d.get("hostname") for d in devices}
+    _iface_ip: dict[tuple, Any] = {}
+    for i in interfaces:
+        host = _dev_host.get(i.get("device_id"))
+        if not host:
+            continue
+        for key_name in (i.get("_genie_name"), i.get("name")):
+            if key_name:
+                _iface_ip[(host, key_name)] = i.get("ip_address")
+    for svc in shared_services:
+        if svc.get("service_type") == "fhrp_group":
+            for m in svc.get("members", []):
+                m["ip"] = _iface_ip.get((m["hostname"], m["interface"]))
+
     # -------------------------------------------------------------------------
     # Step 11: Detect topology warnings
     # -------------------------------------------------------------------------
@@ -959,6 +977,28 @@ def _build_interfaces(
                 )
                 if members:
                     interface["port_channel_members"] = members
+
+                # s22-3: the bundle as a first-class construct — genie already
+                # models the LAG as an interface, so the Po interface record
+                # carries the bundle's protocol/status and per-member LACP
+                # state (bundled, activity, priority, partner). No new node
+                # label: this IS the bundle object (ADR-0025).
+                interface["lag_protocol"] = lag_intf_info.get("protocol")
+                interface["lag_bundle_id"] = lag_intf_info.get("bundle_id")
+                if lag_intf_info.get("oper_status"):
+                    interface["lag_oper_status"] = lag_intf_info["oper_status"]
+                lag_members = []
+                for m_name, m_info in sorted(lag_intf_info.get("members", {}).items()):
+                    lag_members.append({
+                        "name": normalize_interface_name(m_name) or m_name,
+                        "bundled": m_info.get("bundled"),
+                        "activity": m_info.get("activity"),
+                        "lacp_port_priority": m_info.get("lacp_port_priority"),
+                        "partner_id": m_info.get("partner_id"),
+                        "oper_key": m_info.get("oper_key"),
+                    })
+                if lag_members:
+                    interface["lag_members"] = lag_members
 
             interfaces.append(interface)
 

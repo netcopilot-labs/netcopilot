@@ -24,14 +24,17 @@
   expect:
     routing_rule: gateway_redundancy_state
     tools_any: [get_redundancy_assessment]
-    # FHRP member/VIP fact assertions land when the s20 arc merges — on this
-    # baseline the tool has no FHRP block yet; routing + tool choice ARE the test.
+    # s22-1: the answer must carry the COMPLETE picture in one shot — both
+    # members and the VIP (the 2026-07-11 edge audit measured the summary-only
+    # version costing a 9-call drill-down).
+    answer_contains_all: ["core-sw-01", "acc-sw-03", "198.51.100.145"]
 
 - id: active_gateway
   question: "which router is the active gateway for VLAN 60?"
   expect:
     routing_rule: gateway_redundancy_state
     tools_any: [get_redundancy_assessment, get_device_detail]
+    answer_contains_all: ["core-sw-01"]
 
 - id: concept_vrrp
   question: "what is vrrp?"
@@ -115,6 +118,13 @@
   question: "do we have single points of failure?"
   expect:
     tools_any: [get_redundancy_assessment, blast_radius]
+
+- id: lag_state
+  # s22: LAG first-class — bundle + member LACP state must be answerable.
+  question: "is the port-channel between core-sw-01 and acc-sw-03 healthy?"
+  expect:
+    tools_any: [get_device_detail, get_redundancy_assessment]
+    answer_contains_any: ["Po1", "port-channel", "bundle"]
 
 # ── Promoted from the 2026-07-11 adversarial edge audit (s21) ────────────────
 # Each survived the 25-question audit with assertable behavior; see

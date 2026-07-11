@@ -1,0 +1,59 @@
+{
+  "as_number": 64496,
+  "router_id": "198.51.100.100",
+  "cluster_id": null,
+  "graceful_restart": false,
+  "log_neighbor_changes": true,
+  "bestpath": null,
+  "network_statements": [
+    "198.51.100.100"
+  ],
+  "redistribute": [],
+  "neighbors": {
+    "198.51.100.101": {
+      "remote_as": 64496,
+      "description": "iBGP-RRC-bdr-rtr-01",
+      "bfd": false,
+      "password_configured": false,
+      "graceful_restart": false,
+      "send_community": false,
+      "update_source": "Loopback0",
+      "route_policy_in": null,
+      "route_policy_out": null,
+      "maximum_prefix": null,
+      "next_hop_self": false,
+      "soft_reconfiguration": false,
+      "route_reflector_client": true
+    },
+    "198.51.100.102": {
+      "remote_as": 64496,
+      "description": "iBGP-RRC-bdr-rtr-02",
+      "bfd": false,
+      "password_configured": false,
+      "graceful_restart": false,
+      "send_community": false,
+      "update_source": "Loopback0",
+      "route_policy_in": null,
+      "route_policy_out": null,
+      "maximum_prefix": null,
+      "next_hop_self": false,
+      "soft_reconfiguration": false,
+      "route_reflector_client": true
+    },
+    "198.51.100.103": {
+      "remote_as": 64496,
+      "description": "iBGP-RRC-bdr-rtr-03",
+      "bfd": false,
+      "password_configured": false,
+      "graceful_restart": false,
+      "send_community": false,
+      "update_source": "Loopback0",
+      "route_policy_in": null,
+      "route_policy_out": null,
+      "maximum_prefix": null,
+      "next_hop_self": false,
+      "soft_reconfiguration": false,
+      "route_reflector_client": true
+    }
+  }
+}
