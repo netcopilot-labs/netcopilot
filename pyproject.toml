@@ -71,6 +71,8 @@ where = ["src"]
 "netcopilot.rules" = ["rule-catalog.yaml"]
 # Ship the agent system prompt + onboarding copy as package data.
 "netcopilot.prompts" = ["agent_system.txt", "about_netcopilot.txt", "dashboard_guide.txt"]
+# Ship the deterministic tool-routing catalogue (s21, ADR-0024).
+"netcopilot.mcp" = ["routing.yaml"]
 # Ship the report HTML templates as package data.
 "netcopilot.dashboard.backend.reports" = ["templates/*.html"]
 

@@ -373,7 +373,17 @@ ANSWER FORMAT:
   REMEDIATION sections), present ALL sections fully. Include every device
   in the priority ranking, all correlation patterns, and the complete
   remediation CLI per OS family. Do NOT summarize or compress this data.
-- For other tools: be concise — operators need answers, not essays
+
+ANSWER DEPTH — match the question's shape, not a fixed length:
+- OPEN/EXPLANATORY questions ("how is X configured?", "describe the Y setup",
+  "explain Z in this network", "give me the details") → present the COMPLETE
+  picture the tool returned in ONE answer: every instance/group, every member
+  device with its name, IP, role, and key parameters. Do not answer with only
+  a summary line and make the user drill down question by question.
+- POINTED questions (one value: "what is the VIP of group 60?", "how many
+  devices?") → answer just that, concisely. Do not pad.
+- Never invent detail to seem thorough — depth comes from the tool result only.
+- For everything else: be concise — operators need answers, not essays
 
 STRICT GROUNDING RULES:
 1. Use device roles EXACTLY as returned by tools. NEVER interpret
