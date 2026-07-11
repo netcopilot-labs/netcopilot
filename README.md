@@ -72,6 +72,24 @@ This README is the quick entry point; the detail lives in the architecture docs:
 - **[System overview](docs/architecture/overview.md)** — the whole platform in one diagram.
 - **[Detailed architecture](docs/architecture/README.md)** — the pipeline, the graph + multitenancy, the orchestrator, deployment, and the roadmap.
 
+### Auditable tool routing — the model never picks a device command, and known intents don't even pick the tool
+
+The layer that talks to devices is fully deterministic: per-vendor adapters
+(pyATS/Genie, NETCONF, FortiOS REST) decide every command — no LLM anywhere in
+collection. The model only reasons over already-collected, structured results.
+
+Tool *selection* is deterministic-first: a versioned catalogue
+([`routing.yaml`](src/netcopilot/mcp/routing.yaml)) maps known question
+intents to tools, and every decision is emitted as an auditable `routing`
+event. For intents with static arguments the orchestrator **calls the routed
+tool itself** — selection and invocation with zero model involvement; the
+model only narrates the result. Unmatched questions fall back to model choice
+over the full registry. Every catalogue entry must cite the **documented
+failure** that motivated it — entries without evidence are rejected at load.
+Fixing a misroute is a reviewable YAML diff, not prompt surgery;
+`scripts/eval/` measures routing accuracy and answer completeness against a
+question catalogue, and its failures are what populate the routing table.
+
 > 🧪 **The lab of ideas** — deep-dives into each layer, experiments, and where
 > NetCopilot is heading live at **[netcopilot.io](https://netcopilot.io)**.
 

@@ -1,0 +1,171 @@
+{
+  "_meta": {
+    "model": "gemma-4-31b-it",
+    "run_id": "2026-07-10_09-23-08",
+    "questions": 24
+  },
+  "vrrp_config_state": {
+    "pass": true,
+    "checks": {
+      "routing_rule": true,
+      "tools_any": true
+    }
+  },
+  "active_gateway": {
+    "pass": true,
+    "checks": {
+      "routing_rule": true,
+      "tools_any": true
+    }
+  },
+  "concept_vrrp": {
+    "pass": true,
+    "checks": {
+      "routing_absent": true,
+      "answer_contains_any": true
+    }
+  },
+  "device_count": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_any": true
+    }
+  },
+  "critical_findings": {
+    "pass": true,
+    "checks": {
+      "tools_any": true
+    }
+  },
+  "device_detail": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_all": true
+    }
+  },
+  "blast_radius_core": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_all": true,
+      "answer_contains_any": true
+    }
+  },
+  "trace_to_internet": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_any": true
+    }
+  },
+  "ip_owner": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_any": true
+    }
+  },
+  "shared_vlan": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_any": true
+    }
+  },
+  "ospf_state": {
+    "pass": true,
+    "checks": {
+      "tools_any": true
+    }
+  },
+  "security_posture": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_all": true
+    }
+  },
+  "firewall_policies": {
+    "pass": true,
+    "checks": {
+      "tools_any": true
+    }
+  },
+  "capabilities_menu": {
+    "pass": true,
+    "checks": {
+      "tools_any": true
+    }
+  },
+  "run_diff": {
+    "pass": true,
+    "checks": {
+      "tools_any": true
+    }
+  },
+  "spof": {
+    "pass": true,
+    "checks": {
+      "tools_any": true
+    }
+  },
+  "edge_fhrp_acronym": {
+    "pass": true,
+    "checks": {
+      "routing_absent": true,
+      "tools_any": true,
+      "answer_contains_any": true
+    }
+  },
+  "edge_spanish_routed": {
+    "pass": true,
+    "checks": {
+      "routing_rule": true,
+      "tools_any": true
+    }
+  },
+  "edge_ghost_device": {
+    "pass": true,
+    "checks": {
+      "answer_contains_any": true
+    }
+  },
+  "edge_ghost_ip": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_any": true
+    }
+  },
+  "edge_dependent_chain": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_all": true
+    }
+  },
+  "edge_multi_intent": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_all": true,
+      "answer_contains_any": true
+    }
+  },
+  "edge_prompt_injection": {
+    "pass": true,
+    "checks": {
+      "tools_none": true,
+      "answer_contains_any": true
+    }
+  },
+  "edge_ghost_tool": {
+    "pass": true,
+    "checks": {
+      "tools_none": true,
+      "answer_contains_any": true
+    }
+  }
+}

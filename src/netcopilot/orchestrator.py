@@ -32,8 +32,9 @@ import logging
 import re
 from collections.abc import AsyncGenerator
 
-from .llm import LLMProvider, get_provider
+from .llm import LLMProvider, ToolCall, get_provider
 from .mcp.registry import MAX_RESULT_CHARS, TOOL_SCHEMAS, ToolResult, dispatch
+from .mcp.router import route
 from .prompts import load_system_prompt
 
 log = logging.getLogger(__name__)
@@ -104,9 +105,62 @@ async def run_tool_loop(
     total_in = total_out = 0
     api_calls = 0
 
-    for _ in range(max_turns):
+    # ── Deterministic-first routing (s21, ADR-0024) ──────────────────────────
+    # A question matching a routing.yaml intent narrows the FIRST turn's offered
+    # tools — the deterministic layer decides WHICH capability; the model fills
+    # arguments and reasons over the result. No match (and every later turn) =
+    # the full registry, byte-identical to the pre-s21 loop. The decision is
+    # emitted as an audit event so clients and the eval can see WHY a tool was
+    # offered, not just that it was called. Routing matches on the latest user
+    # message; on the anonymized (cloud) path protocol keywords survive
+    # scrubbing — the 9 anonymized entity types are identifiers, not protocols.
+    last_user = next(
+        (m.get("content") or "" for m in reversed(history) if m.get("role") == "user"),
+        "",
+    )
+    decision = route(last_user)
+    if decision:
+        yield {
+            "type": "routing",
+            "data": {"rule": decision.rule_id, "tools": list(decision.tools),
+                     "pattern": decision.pattern,
+                     "dispatched": decision.dispatch_tool},
+        }
+
+    # Deterministic pre-dispatch: an entry with a ``dispatch`` block calls its
+    # tool HERE, with static catalogue arguments — no model involvement in the
+    # selection or the call. The result is placed in history exactly as a
+    # model-initiated call would be, so the model's first turn reasons over it
+    # (and keeps full tool freedom for follow-ups). Added after the eval
+    # measured schema-narrowing as ADVISORY on the local serving stack: the
+    # model bypassed the narrowed set (2026-07-11, ADR-0024).
+    if decision and decision.dispatch_tool:
+        name, args = decision.dispatch_tool, dict(decision.dispatch_args or {})
+        yield {"type": "tool_status", "data": f"Querying {name}..."}
+        yield {"type": "tool_call", "data": {"name": name, "arguments": args}}
         try:
-            result = await provider.run_turn(system=system, history=history, tools=TOOL_SCHEMAS)
+            result = await dispatch(name, args, context)
+        except Exception as exc:
+            result = ToolResult("error", f"Tool error: {exc}")
+        tool_text = _truncate(result.text, max_result_chars)
+        stored = anonymizer.anonymize(tool_text) if anonymizer else tool_text
+        history.append({"role": "assistant", "content": None,
+                        "tool_calls": [ToolCall("routed-0", name, args)]})
+        history.append({"role": "tool", "tool_call_id": "routed-0", "content": stored})
+        yield {"type": "tool_result",
+               "data": {"name": name, "content": tool_text, "status": result.status}}
+        if result.highlight:
+            yield {"type": "highlight", "data": result.highlight}
+
+    for turn in range(max_turns):
+        offered = TOOL_SCHEMAS
+        if turn == 0 and decision and not decision.dispatch_tool:
+            # Narrow-only entries (no static-args dispatch possible): offer just
+            # the routed schemas. Advisory on stacks that don't enforce
+            # membership — the eval watches the call actually landing.
+            offered = [t for t in TOOL_SCHEMAS if t["name"] in decision.tools]
+        try:
+            result = await provider.run_turn(system=system, history=history, tools=offered)
         except Exception as exc:
             yield {"type": "error", "data": f"AI service unavailable: {exc}"}
             return
