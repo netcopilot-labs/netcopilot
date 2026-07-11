@@ -16,7 +16,7 @@ Updated after **Sprint 20 (FHRP first-class)** closed the HSRP/VRRP gaps. The
 | **Multi-area OSPF** (core = ABR, area 0.0.0.1) | ✅ `genie_ospf` | ✅ adjacency carries `area=0.0.0.1` | ✅ `OSPF_AREA_SINGLE_ABR` fires | **FULL — works end to end** |
 | **HSRP** (Vl60, core active, VIP .129) | ✅ `genie_hsrp` | ✅ `fhrp_group` SharedService (members, state, active_device) | ✅ `HSRP_AUTH_MISSING` / `HSRP_TRACKING_MISSING` fire (9 HSRP rules executable) | **FULL — closed by s20** |
 | **VRRP** (Vl61, core master, VIP .145) | ✅ `genie_vrrp` (`show vrrp all` parse-fallback) | ✅ `fhrp_group` SharedService | ✅ 5 VRRP rules executable | **FULL — closed by s20** |
-| **LAG / port-channel** (Po1 LACP) | ✅ `genie_lag` | ⚠️ member metadata only (`port_channel_int="Po1"`, `port_channel_members=[...]` on physical interfaces) | ❌ | **PARTIAL — no first-class bundle object (slice B)** |
+| **LAG / port-channel** (Po1 LACP) | ✅ `genie_lag` | ✅ first-class bundle on the Po Interface node (protocol, oper_status, per-member LACP state incl. bundled/partner_id) | ✅ 8 LAG rules executable (`lag_health.py`); LACP_ERRORS honestly manual_review | **FULL — closed by s22** |
 | **dot1x** (authenticator on acc-sw-03 Gi1/0/2) | ✅ `genie_dot1x` | ❌ 0 dot1x keys in model | ❌ (only generic BPDU-guard / port-security L2SEC findings) | **DARK — collected, never consumed (slice C)** |
 | **ECMP** (2 equal-cost paths to anycast /32) | ✅ `genie_routing` | ❌ model has no routing table (`routes` absent); anycast appears only as a shared `/32` subnet with two owners | ❌ | **DARK — no RIB / multipath modeling (deferred, ADR-0023)** |
 

@@ -4612,6 +4612,7 @@
   remediation:
     ios_xe: spanning-tree loopguard default
 - rule_id: STP_ETHERCHANNEL_MISCONFIG_GUARD_DISABLED
+  implemented_by: lag_health.py  # executable Python rule (S22)
   severity: warning
   category: l2_health
   protocol: stp
@@ -4673,6 +4674,7 @@
   remediation:
     ios_xe: spanning-tree etherchannel guard misconfig
 - rule_id: LAG_BUNDLE_OPER_DOWN
+  implemented_by: lag_health.py  # executable Python rule (S22)
   severity: critical
   category: l2_health
   protocol: lag
@@ -4744,6 +4746,7 @@
 
       !   show lacp neighbor'
 - rule_id: LAG_MEMBER_NOT_BUNDLED
+  implemented_by: lag_health.py  # executable Python rule (S22)
   severity: warning
   category: l2_health
   protocol: lag
@@ -4820,6 +4823,7 @@
 
       !   show lacp internal'
 - rule_id: LAG_STATIC_BUNDLE
+  implemented_by: lag_health.py  # executable Python rule (S22)
   severity: warning
   category: l2_health
   protocol: lag
@@ -4889,6 +4893,7 @@
 
       !    channel-protocol lacp'
 - rule_id: LAG_LACP_ERRORS
+  status: manual_review  # s22: lacp_errors counter not collected AND needs inter-run delta — not faked (ADR-0025)
   severity: warning
   category: l2_health
   protocol: lag
@@ -11704,6 +11709,7 @@
 
     '
 - rule_id: LAG_MEMBER_SPEED_INCONSISTENT
+  implemented_by: lag_health.py  # executable Python rule (S22)
   severity: critical
   category: lag_health
   protocol: lag
@@ -11755,6 +11761,7 @@
 
     '
 - rule_id: LAG_MIN_LINKS_NOT_MET
+  implemented_by: lag_health.py  # executable Python rule (S22)
   severity: critical
   category: lag_health
   protocol: lag
@@ -11801,6 +11808,7 @@
 
     '
 - rule_id: LAG_LACP_SYSTEM_ID_MISMATCH
+  implemented_by: lag_health.py  # executable Python rule (S22)
   severity: warning
   category: lag_health
   protocol: lag
@@ -19982,6 +19990,7 @@
        shutdown
       ! Ensure no access ports still use VLAN 1 as native VLAN.
 - rule_id: LAG_MEMBER_COUNT_MISMATCH
+  implemented_by: lag_health.py  # executable Python rule (S22)
   severity: low
   category: cross_device
   protocol: interface

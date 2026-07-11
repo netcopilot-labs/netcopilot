@@ -978,6 +978,28 @@ def _build_interfaces(
                 if members:
                     interface["port_channel_members"] = members
 
+                # s22-3: the bundle as a first-class construct — genie already
+                # models the LAG as an interface, so the Po interface record
+                # carries the bundle's protocol/status and per-member LACP
+                # state (bundled, activity, priority, partner). No new node
+                # label: this IS the bundle object (ADR-0025).
+                interface["lag_protocol"] = lag_intf_info.get("protocol")
+                interface["lag_bundle_id"] = lag_intf_info.get("bundle_id")
+                if lag_intf_info.get("oper_status"):
+                    interface["lag_oper_status"] = lag_intf_info["oper_status"]
+                lag_members = []
+                for m_name, m_info in sorted(lag_intf_info.get("members", {}).items()):
+                    lag_members.append({
+                        "name": normalize_interface_name(m_name) or m_name,
+                        "bundled": m_info.get("bundled"),
+                        "activity": m_info.get("activity"),
+                        "lacp_port_priority": m_info.get("lacp_port_priority"),
+                        "partner_id": m_info.get("partner_id"),
+                        "oper_key": m_info.get("oper_key"),
+                    })
+                if lag_members:
+                    interface["lag_members"] = lag_members
+
             interfaces.append(interface)
 
     # -------------------------------------------------------------------------

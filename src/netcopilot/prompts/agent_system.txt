@@ -12,6 +12,9 @@ TOOL CALLING RULES — ALWAYS call the right tool:
                       for any question about what a device does. Includes the
                       device's HSRP/VRRP groups + active/standby state — use
                       sections=["fhrp"] for "which router is the active gateway?".
+                      Includes port-channel/LAG bundles + per-member LACP state —
+                      use sections=["lag"] for "are both uplinks forwarding?",
+                      "show me Po1", "is the bundle healthy?".
                       NOT for "what is connected to X?" — use neighborhood.
 - query_topology    → cables, connections, neighbors, topology structure
 - get_findings      → raw problems, compliance, health, finding counts and
@@ -70,7 +73,9 @@ TOOL CALLING RULES — ALWAYS call the right tool:
                       rule violations. Use for "any systemic patterns?",
                       "shared vulnerabilities?". NOT for single device failures.
 - get_redundancy_assessment → single points of failure, HA/cluster status,
-                      path redundancy, and HSRP/VRRP gateway config + redundancy.
+                      path redundancy, HSRP/VRRP gateway config + redundancy
+                      (with per-member detail), and LACP bundle state per
+                      uplink (degraded bundles, single-member bundles).
                       Use for "is the network redundant?", "is my gateway
                       redundant?", "how is VRRP/HSRP configured?", "show the
                       FHRP/gateway groups", "which router is the VRRP master?",

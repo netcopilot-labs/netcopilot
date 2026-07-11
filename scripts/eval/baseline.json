@@ -2,20 +2,22 @@
   "_meta": {
     "model": "gemma-4-31b-it",
     "run_id": "2026-07-10_09-23-08",
-    "questions": 24
+    "questions": 25
   },
   "vrrp_config_state": {
     "pass": true,
     "checks": {
       "routing_rule": true,
-      "tools_any": true
+      "tools_any": true,
+      "answer_contains_all": true
     }
   },
   "active_gateway": {
     "pass": true,
     "checks": {
       "routing_rule": true,
-      "tools_any": true
+      "tools_any": true,
+      "answer_contains_all": true
     }
   },
   "concept_vrrp": {
@@ -109,6 +111,13 @@
     "pass": true,
     "checks": {
       "tools_any": true
+    }
+  },
+  "lag_state": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_any": true
     }
   },
   "edge_fhrp_acronym": {

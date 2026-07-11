@@ -204,6 +204,36 @@ def _query_device(driver, run_id: str, hostname: str) -> dict | None:
         if fhrp_groups:
             device["fhrp_groups"] = fhrp_groups
 
+        # LAG bundles off the Port-channel Interface nodes (s22) — the Overview
+        # shows aggregation state incl. the single-member (no member
+        # redundancy) caveat.
+        lag_cypher = (
+            "MATCH (d:Device {name: $hostname, run_id: $run_id})"
+            "-[:HAS_INTERFACE]->(i:Interface) "
+            "WHERE i.lag_protocol IS NOT NULL "
+            "RETURN i.name AS po, i.lag_protocol AS protocol, "
+            "i.lag_oper_status AS status, i.lag_members_json AS members_json "
+            "ORDER BY i.name"
+        )
+        lag_bundles = []
+        for r in session.run(lag_cypher, hostname=hostname, run_id=run_id):
+            try:
+                members = json.loads(r["members_json"]) if r["members_json"] else []
+            except (json.JSONDecodeError, TypeError):
+                members = []
+            lag_bundles.append({
+                "name": r["po"],
+                "protocol": r["protocol"],
+                "status": r["status"],
+                "members": [
+                    {"name": m.get("name"), "bundled": m.get("bundled"),
+                     "activity": m.get("activity")}
+                    for m in members
+                ],
+            })
+        if lag_bundles:
+            device["lag_bundles"] = lag_bundles
+
         return device
 
 

@@ -109,6 +109,7 @@ _CATEGORY_RENDER: dict[str, dict] = {
             "Operational summary of a site",
             "VLANs, subnets, OSPF areas, BGP ASNs, IP lookups",
             "HSRP/VRRP gateway groups — which router is the active gateway",
+            "Port-channel/LAG bundles — per-member LACP state, degraded aggregation",
         ],
         "examples": [
             "What devices are in my network?",

@@ -481,6 +481,14 @@ def _load_interfaces(
             # Port-channel membership — for LAG group enrichment on link rels
             "port_channel_int": iface.get("port_channel_int"),
             "port_channel_members": iface.get("port_channel_members"),
+            # s22-3: the bundle first-class on its Po interface node — protocol,
+            # bundle id, and per-member LACP state (flat JSON; Neo4j has no
+            # nested values — the FHRP members_json precedent).
+            "lag_protocol": iface.get("lag_protocol"),
+            "lag_bundle_id": iface.get("lag_bundle_id"),
+            "lag_oper_status": iface.get("lag_oper_status"),
+            "lag_members_json": (json.dumps(iface["lag_members"])
+                                 if iface.get("lag_members") else None),
             # Switchport enrichment
             "switchport_mode": iface.get("switchport_mode"),
             "access_vlan": iface.get("access_vlan"),

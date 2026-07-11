@@ -265,12 +265,47 @@ def test_redundancy_network_verdict(monkeypatch):
         {"dev": "core-x", "neighbor": "acc-1", "cables": 1},
     ]
     monkeypatch.setattr(redundancy, "is_available", lambda: True)
-    # 4th script entry feeds the FHRP gateway-redundancy query (no FHRP groups here);
-    # the first 3 feed the device/neighbor/HA-affinity queries.
+    # Script entries: devices, neighbors, HA-affinity, FHRP groups (empty),
+    # LAG bundles (empty, s22).
     monkeypatch.setattr(redundancy, "get_driver",
-                        lambda: _FakeDriver([devices, neighbors, [], []]))
+                        lambda: _FakeDriver([devices, neighbors, [], [], []]))
     res = asyncio.run(redundancy.get_redundancy_assessment(context={"run_id": "r"}))
     assert res.verdict == {"devices": 2, "ha_protected": 1, "spof_no_ha": 0,
                            "single_uplink": 1, "unreachable": 0,
-                           "fhrp_groups": 0, "fhrp_unprotected": 0}
+                           "fhrp_groups": 0, "fhrp_unprotected": 0,
+                           "fhrp_members": 0,
+                           "lag_bundles": 0, "lag_degraded": 0,
+                           "lag_single_member": 0}
     assert "Redundancy assessment — Network overview" in res.text
+
+
+def test_redundancy_fhrp_members_enumerated(monkeypatch):
+    # s22-1: the gateway block ENUMERATES members (hostname, IP, role, priority)
+    # so the routed "how is vrrp configured?" answers completely in one call —
+    # the 2026-07-11 edge audit measured the summary-only version costing a
+    # 9-call drill-down.
+    import json as _json
+    devices = [
+        {"name": "core-x", "role": "core_switch", "cluster_size": 1,
+         "building": "HQ", "collected": True, "os_type": "iosxe"},
+    ]
+    members_json = _json.dumps([
+        {"hostname": "core-x", "interface": "Vlan60", "priority": 110,
+         "state": "active", "ip": "198.51.100.130"},
+        {"hostname": "acc-1", "interface": "Vlan60", "priority": 90,
+         "state": "standby", "ip": "198.51.100.131"},
+    ])
+    fhrp_rows = [{"proto": "hsrp", "grp": 60, "vip": "198.51.100.129",
+                  "intf": "Vlan60", "active": "core-x", "members": 2,
+                  "members_json": members_json}]
+    monkeypatch.setattr(redundancy, "is_available", lambda: True)
+    monkeypatch.setattr(redundancy, "get_driver",
+                        lambda: _FakeDriver([devices, [], [], fhrp_rows, []]))
+    res = asyncio.run(redundancy.get_redundancy_assessment(context={"run_id": "r"}))
+
+    # Both members with their real IPs, roles and priorities, active marked.
+    assert "→ core-x 198.51.100.130 — active pri 110" in res.text
+    assert "acc-1 198.51.100.131 — standby pri 90" in res.text
+    assert res.verdict["fhrp_groups"] == 1
+    assert res.verdict["fhrp_members"] == 2
+    assert res.verdict["fhrp_unprotected"] == 0
