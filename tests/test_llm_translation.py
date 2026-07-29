@@ -2,7 +2,7 @@
 
 from netcopilot.llm import LLMResult, ToolCall
 from netcopilot.llm.claude import to_anthropic_messages, to_anthropic_tools
-from netcopilot.llm.ollama import parse_openai, to_openai_messages, to_openai_tools
+from netcopilot.llm.openai_compat import parse_openai, to_openai_messages, to_openai_tools
 
 TOOLS = [
     {"name": "query_topology", "description": "Get topology", "parameters": {"type": "object"}}

@@ -5,8 +5,9 @@
 
 ``run`` collects from an inventory and loads the result into Neo4j (collect →
 parse → model → load). ``ask`` queries a loaded run via the LLM (selected by
-NETCOPILOT_LLM = claude | ollama). Both need Neo4j up; ``ask`` also needs a
-configured LLM provider.
+NETCOPILOT_LLM = a models.yaml registry id; the bare names ``claude`` /
+``ollama`` remain as legacy fallbacks). Both need Neo4j up; ``ask`` also
+needs a configured LLM provider.
 """
 from __future__ import annotations
 

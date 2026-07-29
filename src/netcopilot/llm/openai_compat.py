@@ -1,7 +1,12 @@
-"""Ollama provider via its OpenAI-compatible API (``/v1/chat/completions``).
+"""OpenAI-compatible provider (``/v1/chat/completions`` wire format).
 
-Same wire format as any OpenAI-style endpoint. Translation helpers are module-level
-and import-free (testable without httpx); httpx is imported lazily in ``run_turn``.
+One provider per WIRE FORMAT, not per vendor: this single class serves vLLM
+(Gemma in production), Ollama, OpenAI itself, Gemini's OpenAI endpoint, Groq,
+OpenRouter, and anything else speaking the same shape. Renamed from
+``ollama.py`` in s23 — the old name described the first runtime it was used
+with, not what the module does, and actively misled (the production Gemma
+path runs through here). Translation helpers are module-level and import-free
+(testable without httpx); httpx is imported lazily in ``run_turn``.
 """
 
 from __future__ import annotations
@@ -71,8 +76,10 @@ def parse_openai(data: dict) -> LLMResult:
     return LLMResult(text=msg.get("content") or None, tool_calls=tool_calls, usage=usage)
 
 
-class OllamaProvider(LLMProvider):
-    name = "ollama"
+class OpenAICompatProvider(LLMProvider):
+    # ``name`` is the usage-event fallback (getattr(provider, "model", name)),
+    # so it can surface in the dashboard cost panel when ``model`` is unset.
+    name = "openai_compat"
 
     def __init__(
         self,

@@ -119,7 +119,7 @@ def test_agent_chat_streams_with_stub_provider(monkeypatch):
     from netcopilot.llm import LLMResult
 
     class _Stub:
-        name = "ollama"
+        name = "openai_compat"
         model = "stub"
 
         async def run_turn(self, **kw):

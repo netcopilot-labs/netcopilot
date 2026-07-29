@@ -25,9 +25,9 @@ def build_provider(cfg: ModelConfig) -> LLMProvider:
         from .claude import ClaudeProvider
 
         return ClaudeProvider(api_key=api_key, model=cfg.model)
-    from .ollama import OllamaProvider
+    from .openai_compat import OpenAICompatProvider
 
-    return OllamaProvider(base_url=cfg.base_url, model=cfg.model, api_key=api_key)
+    return OpenAICompatProvider(base_url=cfg.base_url, model=cfg.model, api_key=api_key)
 
 
 def get_provider(model_id: str | None = None) -> LLMProvider:

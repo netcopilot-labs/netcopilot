@@ -4,7 +4,8 @@ Deterministic within a session with round-trip fidelity: the same identifier
 always maps to the same label, and ``deanonymize`` restores the original text.
 Use it to wrap any cloud LLM provider (e.g. Claude) so real device names, IPs,
 sites, VRFs, AS numbers, ISP/platform names, and credentials never leave the
-host. Local providers (Ollama) need no anonymization — data stays on-prem.
+host. Local providers (vLLM, Ollama, any on-prem OpenAI-compatible endpoint)
+need no anonymization — data stays on-prem.
 
 Scrubs: hostnames, ALL IPs, site names, VRF names, AS numbers, ISP names,
 platform models, SNMP communities, credentials.
