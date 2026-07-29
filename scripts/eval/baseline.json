@@ -2,7 +2,13 @@
   "_meta": {
     "model": "gemma-4-31b-it",
     "run_id": "2026-07-10_09-23-08",
-    "questions": 25
+    "questions": 36,
+    "skipped": [
+      "declared_vs_actual_device",
+      "drift_check",
+      "netbox_declared_device",
+      "netbox_site_view"
+    ]
   },
   "vrrp_config_state": {
     "pass": true,
@@ -174,6 +180,79 @@
     "pass": true,
     "checks": {
       "tools_none": true,
+      "answer_contains_any": true
+    }
+  },
+  "product_identity": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_any": true
+    }
+  },
+  "dashboard_help": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_any": true
+    }
+  },
+  "neighborhood_core": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_all": true
+    }
+  },
+  "systemic_patterns": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_any": true
+    }
+  },
+  "qos_honest_negative": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_any": true
+    }
+  },
+  "service_lookup": {
+    "pass": true,
+    "checks": {
+      "tools_any": true
+    }
+  },
+  "explain_bgp_finding": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
+      "answer_contains_any": true
+    }
+  },
+  "report_request": {
+    "pass": true,
+    "checks": {
+      "tools_any": true
+    }
+  },
+  "change_validation": {
+    "pass": true,
+    "checks": {
+      "tools_any": true
+    }
+  },
+  "netbox_write_history": {
+    "pass": true,
+    "checks": {
+      "tools_any": true
+    }
+  },
+  "netbox_pending_honest": {
+    "pass": true,
+    "checks": {
+      "tools_any": true,
       "answer_contains_any": true
     }
   }
