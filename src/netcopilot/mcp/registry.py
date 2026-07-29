@@ -33,7 +33,7 @@ from .tools import (
     routing,
     run_diff,
     security,
-    security_policies,
+    cisco_policies,
     shared_services,
     site_summary,
     topology,
@@ -51,7 +51,7 @@ TOOL_SCHEMAS: list[dict] = [
         "description": (
             "Get network topology: devices, physical links, routing adjacencies "
             "(OSPF/BGP). Call this first for any question about network structure, "
-            "device inventory, or site connectivity."
+            "device inventory, or site connectivity. Whole-network scope."
         ),
         "parameters": {
             "type": "object",
@@ -284,13 +284,14 @@ TOOL_SCHEMAS: list[dict] = [
         },
     },
     {
-        "name": "get_security_policies",
+        "name": "get_cisco_policies",
         "description": (
-            "Cisco ACLs (with per-ACE detail incl. DENY rows), IOS XE route-maps / "
-            "IOS XR route-policies (inline body), and prefix-lists / prefix-sets. "
-            "Use for 'what ACLs on border-rtr-01?', 'explain the route policies on "
-            "this border router', 'show prefix-sets'. NOT for FortiGate — use "
-            "get_firewall_policies for that."
+            "Read how a Cisco device's filters are DEFINED in configuration: ACL "
+            "bodies line by line with sequence numbers and DENY rows highlighted, "
+            "IOS XE route-maps / IOS XR route-policies with inline body, "
+            "prefix-lists / prefix-sets with their CIDR entries. Use to read or "
+            "explain config: 'what ACLs exist on border-rtr-01?', 'explain route "
+            "policy BGP-PASS', 'show prefix-sets'."
         ),
         "parameters": {
             "type": "object",
@@ -305,10 +306,12 @@ TOOL_SCHEMAS: list[dict] = [
     {
         "name": "get_firewall_policies",
         "description": (
-            "FortiGate zone-based firewall rules and Cisco ACLs (with resolved "
-            "addresses + services). Filter by device, zone pair, action, or service. "
-            "Use for 'what firewall rules exist?', 'is traffic from X to Y permitted?', "
-            "'show deny rules on fw-01'."
+            "Judge whether traffic is allowed: FortiGate zone-based rules plus "
+            "Cisco ACL rows loaded as enforcement entries, with source/destination "
+            "addresses, services, and zones pre-resolved. Filter by device, zone "
+            "pair, action, or service. Use for 'is traffic from X to Y permitted?', "
+            "'show deny rules on fw-01', 'what firewall rules exist?'. For reading "
+            "Cisco filter DEFINITIONS use get_cisco_policies."
         ),
         "parameters": {
             "type": "object",
@@ -472,7 +475,9 @@ TOOL_SCHEMAS: list[dict] = [
         "description": (
             "Return the canonical NetCopilot product description. Call for any "
             "identity question about the system itself ('what is NetCopilot', "
-            "'what does NetCopilot do'). Quote the result verbatim. No network data needed."
+            "'what does NetCopilot do'). Quote the result verbatim. No network data "
+            "needed. For 'what can you do?' or a capability menu use "
+            "list_capabilities, not this."
         ),
         "parameters": {"type": "object", "properties": {}, "required": []},
     },
@@ -530,13 +535,14 @@ TOOL_SCHEMAS: list[dict] = [
     {
         "name": "validate_change",
         "description": (
-            "Deterministic pass/warn/fail verdict on a network change: compares the "
-            "pre-change and post-change runs and judges the drift — FAIL on new "
-            "critical/high findings or on changes outside the declared scope, WARN "
-            "on minor new findings or unscoped/unattributable drift, PASS when only "
-            "the intended devices changed. Use after a change: 'did my change work?', "
-            "'validate the change on X', 'did anything unexpected change?'. For the "
-            "raw change list use diff_runs instead."
+            "The ONLY tool for judging a network change: deterministic PASS/WARN/"
+            "FAIL verdict comparing the run captured before the change against the "
+            "run captured after. FAIL on new critical/high findings or out-of-scope "
+            "drift, WARN on minor or unattributable drift, PASS when only the "
+            "intended devices changed. Use whenever the user asks to validate, "
+            "verify, check, or approve a change: 'did my change work?', 'validate "
+            "shutting down Gi1/0/10 on X', 'did anything unexpected happen after "
+            "the change?'."
         ),
         "parameters": {
             "type": "object",
@@ -688,7 +694,7 @@ _HANDLERS = {
     "get_firewall_policies": firewall.get_firewall_policies,
     "get_traffic_shapers": traffic_shapers.get_traffic_shapers,
     "get_security_posture": security.get_security_posture,
-    "get_security_policies": security_policies.get_security_policies,
+    "get_cisco_policies": cisco_policies.get_cisco_policies,
     "trace_path": path_tracer.trace_path,
     "get_systemic_patterns": correlation.get_systemic_patterns,
     "get_redundancy_assessment": redundancy.get_redundancy_assessment,

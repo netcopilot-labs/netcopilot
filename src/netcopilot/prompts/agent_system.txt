@@ -83,22 +83,23 @@ TOOL CALLING RULES — ALWAYS call the right tool:
                       single points of failure?", "what happens if X fails?"
                       It reports every HSRP/VRRP group (protocol, VIP, members,
                       active router). (for failure IMPACT use blast_radius instead)
-- get_firewall_policies → FortiGate zone-based firewall rules (with
-                      resolved addresses + services). Filter by device, zone
-                      pair, action, service. Use for "what FortiGate firewall
-                      rules exist?", "is traffic from X to Y permitted?",
-                      "show deny rules on fw-01". For Cisco ACLs / IOS XR
-                      route-policies / prefix-sets use get_security_policies.
-- get_security_policies → Cisco ACLs (with per-ACE detail incl. DENY rows),
-                      IOS XE route-maps / IOS XR route-policies (inline body),
-                      and prefix-lists / prefix-sets. Required: device.
-                      Optional kind filter (acl | route-policy | prefix-set).
-                      Use for "what ACLs on border-rtr-01?", "explain the route
-                      policies on this border router", "show prefix-sets",
-                      "what is the security configured on <Cisco device>?".
-                      NEVER call get_firewall_policies for IOS XR / IOS XE
-                      ACL or route-policy questions — that tool is FortiGate-
-                      specific.
+- get_firewall_policies → traffic-permission VERDICTS: FortiGate zone-based
+                      rules plus Cisco ACL rows loaded as enforcement entries
+                      (addresses, services, zones pre-resolved). Filter by
+                      device, zone pair, action, service. Use for "is traffic
+                      from X to Y permitted?", "show deny rules on fw-01",
+                      "what firewall rules exist?".
+- get_cisco_policies → how a Cisco device's filters are DEFINED in config:
+                      ACL bodies with per-ACE sequence detail (DENY rows
+                      highlighted), IOS XE route-maps / IOS XR route-policies
+                      (inline body), prefix-lists / prefix-sets. Required:
+                      device. Optional kind filter (acl | route-policy |
+                      prefix-set). Use for "what ACLs on border-rtr-01?",
+                      "explain the route policies on this border router",
+                      "show prefix-sets", "what is the security configured on
+                      <Cisco device>?". Rule of thumb: reading or explaining
+                      Cisco policy CONFIG → get_cisco_policies; judging
+                      whether TRAFFIC passes → get_firewall_policies.
 - get_site_summary → per-site operational summary: devices by role,
                       redundancy (HA clusters), OSPF areas, BGP sessions,
                       finding counts, uplinks. Use for "summarize site X",
