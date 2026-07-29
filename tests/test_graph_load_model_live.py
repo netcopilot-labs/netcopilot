@@ -394,7 +394,7 @@ def test_trace_path_tool_live(tmp_path):
 
 
 def test_security_tools_live(tmp_path):
-    # F4b: get_security_posture (SecurityConfig) / get_security_policies (ACL + prefix-set).
+    # F4b: get_security_posture (SecurityConfig) / get_cisco_policies (ACL + prefix-set).
     import asyncio
 
     from netcopilot.mcp import registry
@@ -419,8 +419,8 @@ def test_security_tools_live(tmp_path):
     posture = asyncio.run(registry.dispatch("get_security_posture", {"device": "core-rtr-01"}, ctx)).text
     assert "Security posture — core-rtr-01" in posture
 
-    policies = asyncio.run(registry.dispatch("get_security_policies", {"device": "core-rtr-01"}, ctx)).text
-    assert "Security policies — core-rtr-01" in policies
+    policies = asyncio.run(registry.dispatch("get_cisco_policies", {"device": "core-rtr-01"}, ctx)).text
+    assert "Cisco policies — core-rtr-01" in policies
 
     overview = asyncio.run(registry.dispatch("get_security_posture", {}, ctx)).text
     assert "Network overview" in overview

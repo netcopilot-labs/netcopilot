@@ -74,7 +74,7 @@ _TOOL_CATEGORIES: dict[str, str] = {
     # 🛡 SECURITY AND POLICIES
     "get_security_posture":      _CAT_SECURITY,
     "get_firewall_policies":     _CAT_SECURITY,
-    "get_security_policies":     _CAT_SECURITY,
+    "get_cisco_policies":        _CAT_SECURITY,
     "get_traffic_shapers":       _CAT_SECURITY,
     # 📚 LOOK UP VENDOR DOCUMENTATION
     "lookup_vendor_docs":        _CAT_VENDOR_DOCS,

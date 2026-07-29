@@ -7,11 +7,22 @@
 #   routing_absent       true → NO routing event may fire (concept questions
 #                        must stay unrouted; the router must not hijack them)
 #   tools_any            at least one of these tools must be CALLED
+#   tools_none           true → NO tool may be called (security probes:
+#                        injection / ghost-tool — refusing IS the pass)
 #   answer_contains_all  every substring must appear in the final answer (ci)
 #   answer_contains_any  at least one substring must appear (ci)
 #
+# Per-question (outside expect):
+#   requires             list of feature names (see FEATURE_PROBES in
+#                        run_eval.py). Feature absent on the loaded run →
+#                        the question SKIPS (reported separately, never FAIL):
+#                        the eval must not confuse "the agent regressed" with
+#                        "the network changed".
+#
 # Omitted key = not asserted. Keep assertions on FACTS (device names, tool
 # choices), never prose style — the LLM is nondeterministic, the network isn't.
+# The loader validates this schema (run_eval._validate_catalog): unknown keys,
+# empty expect, duplicate ids, and unregistered tool names fail LOUD at load.
 #
 # Misroutes measured here are the evidence that populates mcp/routing.yaml —
 # the harvest loop. Do not add routing entries without a failure recorded here
@@ -21,6 +32,8 @@
 
 - id: vrrp_config_state
   question: "how is vrrp configured?"
+  requires: [fhrp]                # fact question — VIP + members exist only
+                                  # on a run that HAS gateway redundancy
   expect:
     routing_rule: gateway_redundancy_state
     tools_any: [get_redundancy_assessment]
@@ -31,6 +44,7 @@
 
 - id: active_gateway
   question: "which router is the active gateway for VLAN 60?"
+  requires: [fhrp]
   expect:
     routing_rule: gateway_redundancy_state
     tools_any: [get_redundancy_assessment, get_device_detail]
@@ -102,7 +116,7 @@
 - id: firewall_policies
   question: "what firewall policies are configured?"
   expect:
-    tools_any: [get_firewall_policies, get_security_policies]
+    tools_any: [get_firewall_policies, get_cisco_policies]
 
 - id: capabilities_menu
   question: "what can you do?"
@@ -186,3 +200,110 @@
   expect:
     tools_none: true
     answer_contains_any: ["do not have", "don't have", "cannot", "no tool"]
+
+# ── s23-2 expansion: the 15 previously unasserted tools ──────────────────────
+# Every registry tool now appears in at least one tools_any (enforced by
+# tests/test_eval_catalog.py). Fact questions are anchored to the public demo
+# run (probed live 2026-07-28); questions needing deployment features carry
+# `requires` and SKIP honestly where the feature is absent.
+
+- id: product_identity
+  question: "what is NetCopilot?"
+  expect:
+    tools_any: [about_netcopilot]
+    answer_contains_any: ["network context intelligence", "open-source", "open source"]
+
+- id: dashboard_help
+  question: "how do I use the dashboard?"
+  expect:
+    tools_any: [dashboard_guide]
+    answer_contains_any: ["panel", "topology", "chat"]
+
+- id: neighborhood_core
+  question: "what is directly connected to core-sw-01?"
+  expect:
+    tools_any: [get_network_neighborhood, get_device_detail]
+    # Probed 2026-07-28: 6 direct neighbors incl. acc-sw-03 + bdr-rtr-01.
+    answer_contains_all: ["acc-sw-03", "bdr-rtr-01"]
+
+- id: systemic_patterns
+  question: "are there any systemic patterns in the network's findings?"
+  expect:
+    tools_any: [get_systemic_patterns]
+    answer_contains_any: ["area 0", "systemic", "correlat"]
+
+- id: qos_honest_negative
+  # The product's core honesty property, measured: the demo run has NO QoS
+  # policies (probed: status=no_data) — the correct answer says so instead of
+  # inventing shapers.
+  question: "what QoS traffic shaping policies are configured?"
+  expect:
+    tools_any: [get_traffic_shapers]
+    answer_contains_any: ["no qos", "no traffic", "none", "not configured", "no shap"]
+
+- id: service_lookup
+  # Service layer not joined on the demo run (probed: no_data) — tool choice
+  # is the assertion; the answer must simply not invent a serving device.
+  question: "which device provides the DNS service?"
+  expect:
+    tools_any: [find_service]
+
+- id: explain_bgp_finding
+  question: "explain the BGP_EBGP_NO_PREFIX_FILTER finding"
+  expect:
+    tools_any: [explain_finding]
+    answer_contains_any: ["prefix", "filter"]
+
+- id: report_request
+  question: "generate a health report of the network"
+  expect:
+    tools_any: [generate_report]
+
+- id: change_validation
+  # The study's dominant weak-tier miss (6 of 9): the assertion IS the tool
+  # choice. On a deployment without a comparable run pair the tool answers
+  # honestly (probed: not_found) — no fact assertion on purpose.
+  question: "validate this change: I shut down interface Gi1/0/10 on acc-sw-03"
+  expect:
+    tools_any: [validate_change]
+
+- id: netbox_declared_device
+  question: "what does NetBox declare for core-sw-01?"
+  requires: [netbox]
+  expect:
+    tools_any: [get_netbox_device]
+
+- id: netbox_site_view
+  question: "show me the NetBox site record for this network"
+  requires: [netbox]
+  expect:
+    tools_any: [get_netbox_site]
+
+- id: netbox_write_history
+  # Reads the Neo4j audit log — works WITHOUT a live NetBox (probed: ok,
+  # 20 rows on the demo graph).
+  question: "what has NetCopilot written to NetBox so far?"
+  expect:
+    tools_any: [get_netbox_write_history]
+
+- id: netbox_pending_honest
+  # Honest negative #2: nothing is staged on the demo graph (probed: no_data).
+  # First live pass answered "There are currently no NetBox writes queued and
+  # waiting for your approval" — assert the negation family, not one phrasing.
+  question: "what NetBox writes are queued waiting for my approval?"
+  expect:
+    tools_any: [list_netbox_pending_writes]
+    answer_contains_any: ["no pending", "no netbox writes", "no writes",
+                          "nothing", "none", "empty"]
+
+- id: drift_check
+  question: "is there drift between the declared network and what was collected?"
+  requires: [declared_inventory]
+  expect:
+    tools_any: [run_drift_check, compare_declared_vs_actual]
+
+- id: declared_vs_actual_device
+  question: "compare declared vs actual for core-sw-01"
+  requires: [declared_inventory]
+  expect:
+    tools_any: [compare_declared_vs_actual]

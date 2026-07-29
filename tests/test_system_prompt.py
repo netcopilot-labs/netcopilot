@@ -19,7 +19,7 @@ EXCLUDED_TOOLS = [
 OSS_TOOLS = [
     "get_device_detail", "query_topology", "get_findings", "blast_radius",
     "explain_finding", "get_routing_table", "get_firewall_policies",
-    "get_security_policies", "lookup_vendor_docs", "generate_report",
+    "get_cisco_policies", "lookup_vendor_docs", "generate_report",
     "trace_path", "list_capabilities",
     "get_netbox_device", "list_netbox_pending_writes", "get_netbox_write_history",
 ]

@@ -1,4 +1,10 @@
-"""get_security_policies — Cisco ACLs, IOS XE route-maps / IOS XR route-policies, and prefix-lists / prefix-sets.
+"""get_cisco_policies — Cisco ACLs, IOS XE route-maps / IOS XR route-policies, and prefix-lists / prefix-sets.
+
+Renamed from get_security_policies in s23: the old name sat at 0.794 embedding
+similarity to get_firewall_policies (worst pair in the registry, measured
+2026-07-27) and the two tools genuinely both cover Cisco ACLs. The split is
+now definitions-vs-verdicts: this tool READS how filters are defined in
+config; get_firewall_policies JUDGES whether traffic is allowed.
 
 Cousin to `get_security_posture` (CIS-style settings) and `get_firewall_policies`
 (FortiGate zone-based rules). Covers the Cisco slice the dashboard Security tab
@@ -19,7 +25,7 @@ from netcopilot.mcp.result import ToolResult
 log = logging.getLogger(__name__)
 
 
-async def get_security_policies(
+async def get_cisco_policies(
     *,
     device: str,
     kind: str = "all",
@@ -88,7 +94,7 @@ async def get_security_policies(
     show_rp = kind in ("all", "route-policy", "route-map")
     show_ps = kind in ("all", "prefix-set", "prefix-list")
 
-    lines: list[str] = [f"Security policies — {resolved} ({role} · {os_type})"]
+    lines: list[str] = [f"Cisco policies — {resolved} ({role} · {os_type})"]
     if name:
         lines.append(f"Filter: name contains '{name}'")
     lines.append("")

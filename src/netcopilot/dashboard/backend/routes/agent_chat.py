@@ -9,10 +9,11 @@ The frontend sends one message + prior history and receives one SSE stream of
 tool_status / tool_call / tool_result / content / highlight / usage / done /
 error events.
 
-Provider-agnostic: the F4a orchestrator drives any LLMProvider (Claude or
-Ollama), selected via /api/agent/models. When the Claude (cloud) provider is
-active, a per-session SessionAnonymizer scrubs network identifiers before they
-leave the host; the local Ollama provider needs no anonymization.
+Provider-agnostic: the F4a orchestrator drives any LLMProvider (Anthropic-
+native or OpenAI-compatible — vLLM, Ollama, OpenAI, ...), selected via
+/api/agent/models. When a cloud provider is active, a per-session
+SessionAnonymizer scrubs network identifiers before they leave the host;
+local providers need no anonymization.
 """
 
 import json

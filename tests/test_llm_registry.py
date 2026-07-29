@@ -2,7 +2,7 @@
 
 from netcopilot.llm import get_provider
 from netcopilot.llm.claude import ClaudeProvider
-from netcopilot.llm.ollama import OllamaProvider
+from netcopilot.llm.openai_compat import OpenAICompatProvider
 from netcopilot.llm.registry import get_model, is_configured, load_registry
 
 _YAML = """
@@ -67,7 +67,7 @@ def test_get_provider_openai_compatible(monkeypatch, tmp_path):
     _use_yaml(monkeypatch, tmp_path)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     p = get_provider("gpt")
-    assert isinstance(p, OllamaProvider)
+    assert isinstance(p, OpenAICompatProvider)
     assert p.base_url == "https://api.openai.com/v1"
     assert p.model == "gpt-4o"
     assert p.api_key == "sk-test"
@@ -76,7 +76,7 @@ def test_get_provider_openai_compatible(monkeypatch, tmp_path):
 def test_get_provider_local_has_no_key(monkeypatch, tmp_path):
     _use_yaml(monkeypatch, tmp_path)
     p = get_provider("local-x")
-    assert isinstance(p, OllamaProvider) and p.api_key is None
+    assert isinstance(p, OpenAICompatProvider) and p.api_key is None
     assert p.base_url == "http://host:8000/v1"
 
 
