@@ -61,3 +61,6 @@ demo/branch/model/
 demo/branch/findings/
 demo/l2-campus/model/
 demo/l2-campus/findings/
+
+# setuptools build residue (pip install -e)
+*.egg-info/

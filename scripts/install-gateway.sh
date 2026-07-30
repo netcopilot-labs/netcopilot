@@ -71,6 +71,6 @@ fi
 echo
 echo "✓ Gateway verified: $COUNT tool(s) exposed at http://localhost:8180/mcp ($STACK stack)"
 echo "  Point any MCP client at that URL. Tool names are namespaced (server__tool)."
-echo "  Note: machine-readable structured results currently travel direct-only —"
-echo "  see 'Notes & current limits' in docs/deployment/mcp-gateway.md."
+echo "  Structured results ({status, verdict}) travel through the gateway on"
+echo "  gridctl >= v0.1.0-beta.14 — see docs/deployment/mcp-gateway.md."
 echo "  Tear down: $GRIDCTL destroy $WORK_STACK"
