@@ -79,15 +79,19 @@ or widening a persona is a YAML edit (hot-reloaded), not a NetCopilot change.
 - **Namespaced names.** Clients see `server__tool` (e.g.
   `netcopilot__trace_path`). Transparent for LLM clients; relevant if an
   integration hardcodes tool names.
-- **Structured results travel direct-only for now.** NetCopilot results carry
-  a machine-readable `{status, verdict}` as MCP structured content in addition
-  to the text. Through the gateway, today, clients receive the text (which is
-  identical and complete); the structured part currently doesn't ride along —
-  an improvement that is in progress upstream. In practice: LLM/chat clients
-  are unaffected; a *machine* consumer of the change-validation verdict (a
-  pipeline parsing `verdict.result`) should connect to NetCopilot's endpoint
-  directly for now. The `netcopilot validate` CLI (exit codes 0/1/2) never
-  crosses the gateway and is unaffected.
+- **Structured results travel through the gateway** since gridctl
+  v0.1.0-beta.14 (the upstream fix we contributed,
+  [gridctl#849](https://github.com/gridctl/gridctl/pull/849), verified
+  end-to-end against NetCopilot 2026-07-30): clients behind the gateway
+  receive the text AND the machine-readable `{status, verdict}` structured
+  content, identical to a direct connection. Machine consumers of the
+  change-validation verdict no longer need to bypass the gateway. On
+  gridctl releases older than beta.14 the structured part is dropped;
+  upgrade rather than work around.
+- **Tool groups** (gridctl beta.15+): an optional `groups:` block serves
+  curated tool bundles at per-group endpoints (`/groups/{name}/mcp`) — a
+  third curation axis alongside per-server whitelists and client scoping,
+  useful for handing one client a deliberately tiny surface.
 - **Platforms.** gridctl ships Linux and macOS binaries.
 
 ## When to skip the gateway
