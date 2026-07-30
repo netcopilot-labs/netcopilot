@@ -45,9 +45,21 @@ evidence-backed model — organized by what you're trying to do. *(Or just ask i
 - 📊 **Reports** — shift-handover report, investigation case-file; email or PDF.
 - 📖 **About** — what NetCopilot is, how the dashboard works.
 
-All exposed over **MCP** — a human, an LLM, or another agent can call any of it:
-the server surface is generated from the tool registry, so external clients see
-every tool. Results carry a machine-readable `status` (and a `verdict` where the
+All exposed over **MCP** — a human, an LLM, or another agent can call any of it.
+The server offers two surfaces, chosen at startup with `MCP_SURFACE`:
+
+- **`full` (default)** — every tool, generated from the registry, exactly as
+  the internal agent sees them. For clients that want fine-grained
+  composition. Cost: the full schema set (~5,500 tokens) enters the client's
+  context each turn.
+- **`ask`** — a single tool, `ask_netcopilot(question)`, that runs
+  NetCopilot's complete internal agent server-side (deterministic routing,
+  the whole toolset, the eval-guarded answer quality) and returns the
+  grounded answer plus which tools it used. ~100 schema tokens in the
+  client's context. Expect 10-60 s per call: a full agent conversation runs
+  behind it.
+
+Results carry a machine-readable `status` (and a `verdict` where the
 tool computes one) as MCP structured content alongside the text; tool errors map
 to MCP-native `isError`. The in-app menu (`list_capabilities`) is always the
 current source of truth. Serving several clients? Put an MCP gateway in front
